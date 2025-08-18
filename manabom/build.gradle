@@ -18,10 +18,28 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'		// JPA/Hibernate
+	implementation 'org.springframework.boot:spring-boot-starter-security'		// Spring Security
+	implementation 'org.springframework.boot:spring-boot-starter-web'			// REST API
+	implementation 'org.springframework.boot:spring-boot-starter-validation'	// 입력값 검증
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'	// Redis 연동
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'		// 카카오 API 호출용
+
+	// JWT 토큰 처리
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+	implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
+	implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+	// 파일 업로드 처리 (로컬 개발용)
+	implementation 'commons-io:commons-io:2.11.0'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// DB
 	runtimeOnly 'org.postgresql:postgresql'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

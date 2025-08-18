@@ -1,0 +1,32 @@
+# Docker Compose 설정
+version: '3.8'
+
+services:
+  # PostgreSQL DB
+  postgres:
+    image: postgres:13
+    container_name: mannabom-postgres
+    environment:
+      POSTGRES_DB: mannabom_db
+      POSTGRES_USER: postgres       # 사용자명
+      POSTGRES_PASSWORD: password   # 비밀번호
+    ports:
+      - "5432:5432"                 # 호스트:컨테이너 포트 매핑
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped         # 재부팅 시 자동 시작
+
+  # Redis 캐시/세션 저장소
+  redis:
+    image: redis:6-alpine
+    container_name: mannabom-redis
+    ports:
+      - "6379:6379"                 # 호스트:컨테이너 포트 매핑
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+# 볼륨 정의
+volumes:
+  postgres_data:
+  redis_data:

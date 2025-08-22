@@ -9,7 +9,7 @@ import mannabom_server.manabom.domain.common.BaseTimeEntity;
 
 /**
  * 사용자 기본 정보 엔터티
- * 카카오 로그인 시 생성되는 기본 사용자 정보
+ * 카카오 로그인 정보 + 시스템 계정 관리
  */
 @Entity
 @Table(name = "users")

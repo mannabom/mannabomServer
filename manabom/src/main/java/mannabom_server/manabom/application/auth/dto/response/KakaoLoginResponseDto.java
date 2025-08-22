@@ -42,13 +42,14 @@ public class KakaoLoginResponseDto {
      * 신규 사용자 응답 생성
      */
     public static KakaoLoginResponseDto ofNewUser(
-            String kakaoId, String name, Integer birthYear, Gender gender) {
+            String kakaoId, String name, Integer birthYear, Gender gender, String profileId) {
 
         KakaoUserInfoDto kakaoUserInfo = KakaoUserInfoDto.builder()
                 .kakaoId(kakaoId)
                 .name(name)
                 .birthYear(birthYear)
                 .gender(gender)
+                .profileId(profileId)
                 .build();
 
         KakaoLoginDataDto data = KakaoLoginDataDto.builder()
@@ -109,5 +110,6 @@ public class KakaoLoginResponseDto {
         private String name;        // 카카오에서 받은 실명
         private Integer birthYear;  // 출생년도
         private Gender gender;      // 성별
+        private String profileId;   // 회원가입 진행용 프로필 ID
     }
 }

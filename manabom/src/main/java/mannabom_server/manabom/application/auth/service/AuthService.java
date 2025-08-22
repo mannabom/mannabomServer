@@ -8,6 +8,8 @@ import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseD
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
+import mannabom_server.manabom.domain.signup.entity.SignupProgress;
+import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
@@ -23,15 +25,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
- * 인증 관련 비즈니스 로직을 처리하는 서비스
- *
- * 주요 처리 흐름:
- * 1. 카카오 API 연동 → 사용자 정보 획득
- * 2. 연령 검증 (20대만 허용)
- * 3. 신규/기존 사용자 판별
- * 4. JWT 토큰 생성 및 관리
+ * 인증 관련 비즈니스 로직 - 카카오 정보를 SignupProgress에 저장하도록 수정
  */
 @Service
 @RequiredArgsConstructor
@@ -43,9 +40,10 @@ public class AuthService {
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final SignupProgressRepository signupProgressRepository;
     private final JwtUtil jwtUtil;
 
-    // 사업자 등록 하기 전 임시 개발환경 전용 설정 -> 이후 아래 3개 필드 제거
+    // 사업자 등록 하기 전 임시 개발환경 전용 설정
     @Value("${app.kakao.development.skip-age-verification:false}")
     private boolean skipAgeVerification;
 
@@ -56,14 +54,7 @@ public class AuthService {
     private String defaultGender;
 
     /**
-     * 카카오 로그인 처리
-     *
-     * 처리 과정:
-     * 1. 카카오에서 access token 발급 받기
-     * 2. 카카오에서 사용자 정보 조회
-     * 3. 20대 연령 검증
-     * 4. 신규/기존 사용자 판별
-     * 5. 기존 사용자면 JWT token 발급, 신규면 회원가입 안내
+     * 카카오 로그인 처리 - 신규 사용자의 경우 SignupProgress에 카카오 정보 저장
      */
     public KakaoLoginResponseDto loginWithKakao(KakaoLoginRequestDto request) {
         log.info("카카오 로그인 처리 시작");
@@ -95,19 +86,41 @@ public class AuthService {
                 log.info("기존 사용자 로그인 처리 - 사용자 ID: {}", existingUser.get().getUserId());
                 return handleExistingUserLogin(existingUser.get());
             } else {
-                log.info("신규 사용자 감지 - 회원가입 필요");
-                return KakaoLoginResponseDto.ofNewUser(
-                        kakaoUserInfo.getKakaoId(),
-                        kakaoUserInfo.getName(),
-                        kakaoUserInfo.getBirthYear(),
-                        kakaoUserInfo.getGender()
-                );
+                log.info("신규 사용자 감지 - 회원가입 진행");
+                return handleNewUserSignup(kakaoUserInfo);
             }
 
         } catch (Exception e) {
             log.error("카카오 로그인 처리 중 오류 발생", e);
             throw new RuntimeException("로그인 처리 중 오류가 발생했습니다.", e);
         }
+    }
+
+    /**
+     * 신규 사용자 회원가입 진행 - Redis에 카카오 정보 저장
+     */
+    private KakaoLoginResponseDto handleNewUserSignup(KakaoLoginResponseDto.KakaoUserInfoDto kakaoUserInfo) {
+        String profileId = UUID.randomUUID().toString();
+
+        SignupProgress signupProgress = SignupProgress.builder()
+                .profileId(profileId)
+                .kakaoId(kakaoUserInfo.getKakaoId())
+                .userName(kakaoUserInfo.getName())
+                .birthYear(kakaoUserInfo.getBirthYear())
+                .gender(kakaoUserInfo.getGender().name())
+                .currentStep(1)
+                .build();
+
+        signupProgressRepository.save(signupProgress);
+        log.info("신규 회원가입 진행 상태 생성 완료 - Profile ID: {}, 카카오 정보 저장됨", profileId);
+
+        return KakaoLoginResponseDto.ofNewUser(
+                kakaoUserInfo.getKakaoId(),
+                kakaoUserInfo.getName(),
+                kakaoUserInfo.getBirthYear(),
+                kakaoUserInfo.getGender(),
+                profileId
+        );
     }
 
     /**
@@ -137,7 +150,6 @@ public class AuthService {
             String birthyear = (String) kakaoAccount.get("birthyear");
             Integer birthYear = null;
 
-            // 사업자 등록 하기 전 임시 개발환경 전용 설정 -> 이후 if문 제거 후 아래 주석 if문 활용
             if (birthyear != null && !birthyear.isEmpty()) {
                 birthYear = Integer.parseInt(birthyear);
             } else if (skipAgeVerification) {
@@ -145,27 +157,19 @@ public class AuthService {
                 log.debug("개발환경: 더미 출생년도 사용 - {}", birthYear);
             }
 
-//            if (birthyear != null) {
-//                birthYear = Integer.parseInt(birthyear);
-//            }
-
             // 성별 정보 추출
             String genderString = (String) kakaoAccount.get("gender");
             Gender gender = null;
 
-            // 사업자 등록 하기 전 임시 개발환경 전용 설정 -> 이후 if문 제거 후 아래 주석 if문 활용
             if (genderString != null) {
                 gender = "male".equals(genderString) ? Gender.MALE : Gender.FEMALE;
             } else if (skipAgeVerification) {
                 gender = Gender.valueOf(defaultGender);
-                log.debug("🧪 개발환경: 더미 성별 사용 - {}", gender);
+                log.debug("개발환경: 더미 성별 사용 - {}", gender);
             }
 
-//            if (genderString != null) {
-//                gender = "male".equals(genderString) ? Gender.MALE : Gender.FEMALE;
-//            }
-
-            log.debug("카카오 사용자 정보 파싱 완료 - 카카오 ID: {}, 출생년도: {}", kakaoId, birthYear);
+            log.debug("카카오 사용자 정보 파싱 완료 - 카카오 ID: {}, 이름: {}, 출생년도: {}, 성별: {}",
+                    kakaoId, nickname, birthYear, gender);
 
             return KakaoLoginResponseDto.KakaoUserInfoDto.builder()
                     .kakaoId(kakaoId)
@@ -193,7 +197,6 @@ public class AuthService {
         int age = currentYear - birthYear;
         boolean isValid = age >= 20 && age <= 29;
 
-        // 사업자 등록 하기 전 임시 개발환경 전용 설정 -> 이후 if문 제거
         if (skipAgeVerification && !isValid) {
             log.debug("임시환경: 연령 제한 무시 - 출생년도: {}, 나이: {}", birthYear, age);
             return true;
@@ -205,12 +208,6 @@ public class AuthService {
 
     /**
      * 토큰 갱신 처리
-     *
-     * 처리 과정:
-     * 1. refresh token 검증
-     * 2. 토큰 만료 확인
-     * 3. 새로운 토큰들 생성
-     * 4. refresh token 업데이트
      */
     public RefreshTokenResponseDto refreshToken(RefreshTokenRequestDto request) {
         log.info("토큰 갱신 요청 처리 시작");
@@ -237,7 +234,7 @@ public class AuthService {
 
         // 4. refresh token 업데이트
         LocalDateTime newExpiresAt = LocalDateTime.now()
-                .plusSeconds(jwtUtil.getRefreshTokenExpiration());
+                .plusSeconds(jwtUtil.getRefreshTokenExpiration() / 1000);
         refreshTokenEntity.updateToken(newRefreshToken, newExpiresAt);
 
         log.info("토큰 갱신 완료 - 사용자 ID: {}", user.getUserId());

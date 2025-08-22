@@ -2,6 +2,7 @@ package mannabom_server.manabom.domain.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
@@ -75,15 +76,31 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "email")                             // 대학 인증용 이메일
     private String email;
 
-    @Column(name = "intro", columnDefinition = "TEXT")                      // 자기소개 (100자 이상 필수)
-    private String intro;
+    // 질문들은 question으로 통합 Type으로 구분.
+//    private String intro;
+//    private String attractivePartnerTrait;
+//    private String desiredPartnerTrait;
 
-    @Column(name = "attractive_partner_trait", columnDefinition = "TEXT")   // 나를 설레게 하는 이성의 매력 (필수 질문)
-    private String attractivePartnerTrait;
-
-    @Column(name = "desired_partner_trait", columnDefinition = "TEXT")      // 연인에게 꼭 바라는 한 가지 (필수 질문)
-    private String desiredPartnerTrait;
-
+    @Builder
+    public Profile(User user, Gender gender, Integer height, BodyType bodyType,
+                   String regionSido, String regionSigungu, String nickName, Double grade,
+                   LocalDate birthDate, String mbti, DrinkingHabit alcohol,
+                   SmokingHabit smoking, String university, String email) {
+        this.user = user;
+        this.gender = gender;
+        this.height = height;
+        this.bodyType = bodyType;
+        this.regionSido = regionSido;
+        this.regionSigungu = regionSigungu;
+        this.nickName = nickName;
+        this.grade = grade != null ? grade : 0.0;
+        this.birthDate = birthDate;
+        this.mbti = mbti;
+        this.alcohol = alcohol;
+        this.smoking = smoking;
+        this.university = university;
+        this.email = email;
+    }
 
     /**
      * 닉네임 설정

@@ -312,4 +312,23 @@ public class AuthService {
 
         log.info("로그아웃 완료 - 사용자 ID: {}", userId);
     }
+
+    /**
+     * 회원 탈퇴 처리
+     */
+    @Transactional
+    public void deleteUser(Long userId){
+        log.info("회원 탈퇴 요청 처리 - 사용자 ID: {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        profileRepository.deleteByUser(user);
+        refreshTokenRepository.deleteByUser(user);
+
+        userRepository.deleteById(userId);
+
+        log.info("회원 탈퇴 완료 - 사용자 ID: {}", userId);
+    }
+
 }

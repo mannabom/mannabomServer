@@ -43,7 +43,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/health",
                                 "/api/auth/login/kakao",
-                                "/api/auth/refresh"
+                                "/api/auth/refresh",
+                                "/api/signup/**",
+                                "/api/questions/**",
+                                "/api/signup/terms/**",
+                                "/files/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

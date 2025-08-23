@@ -24,6 +24,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'	// 입력값 검증
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'	// Redis 연동
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'		// 카카오 API 호출용
+	implementation 'org.springframework.boot:spring-boot-starter-mail'  		// 이메일 SMTP
 
 	// JWT 토큰 처리
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'

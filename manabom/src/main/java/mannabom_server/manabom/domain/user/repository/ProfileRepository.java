@@ -23,4 +23,9 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      * 닉네임 존재 여부 확인
      */
     boolean existsByNickName(String nickName);
+
+    /**
+     * 이메일로 프로필 조회
+     */
+    Optional<Profile> findByEmail(String email);
 }

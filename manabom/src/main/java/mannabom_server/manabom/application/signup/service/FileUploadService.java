@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 파일 업로드 서비스 - 이미지 검증 강화
+ * 파일 업로드 서비스 - 로컬 테스트용
  */
 @Service
 @Slf4j
@@ -93,7 +93,7 @@ public class FileUploadService {
     }
 
     /**
-     * 파일 검증 - 보안 강화
+     * 파일 검증
      */
     private void validateFile(MultipartFile file) {
         // 1. 빈 파일 체크
@@ -131,7 +131,7 @@ public class FileUploadService {
     }
 
     /**
-     * 실제 이미지 파일 검증 - 보안 강화
+     * 실제 이미지 파일 검증
      * Content-Type과 실제 파일 내용 모두 검증
      */
     private boolean isValidImageContent(MultipartFile file) {

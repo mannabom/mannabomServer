@@ -67,6 +67,7 @@ public class SignupProgress implements Serializable {
     private Long completedAt;          // 완료 시간 (timestamp)
 
     @TimeToLive
+    @Builder.Default
     private Long ttl = 3600L;          // 60분 TTL
 
     /**

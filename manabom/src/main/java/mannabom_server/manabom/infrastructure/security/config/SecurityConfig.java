@@ -46,8 +46,7 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/signup/**",
                                 "/api/questions/**",
-                                "/api/signup/terms/**",
-                                "/files/**"
+                                "/api/signup/terms/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

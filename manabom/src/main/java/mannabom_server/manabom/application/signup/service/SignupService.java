@@ -49,7 +49,7 @@ public class SignupService {
     private final UniversityRepository universityRepository;
 
     private final EmailService emailService;
-    private final FileUploadService fileUploadService;
+    private final S3FileUploadService s3FileUploadService;
     private final JwtUtil jwtUtil;
 
     /**
@@ -255,15 +255,16 @@ public class SignupService {
 
         for (int i = 0; i < request.getPhotos().size(); i++) {
             MultipartFile photo = request.getPhotos().get(i);
-            String fileName = fileUploadService.uploadFile(photo, "profiles");
-            String url = fileUploadService.getFileUrl(fileName);
+
+            // 수정: S3에 업로드 (전체 URL 반환)
+            String s3Url = s3FileUploadService.uploadFile(photo, "profiles");
 
             // Redis에 저장
-            progress.addProfileImage(String.valueOf(i), url);
+            progress.addProfileImage(String.valueOf(i), s3Url);
 
             uploadedPhotos.add(ProfilePhotosResponseDto.UploadedPhotoDto.builder()
                     .photoId(UUID.randomUUID().toString())
-                    .url(url)
+                    .url(s3Url)
                     .build());
         }
 
@@ -522,7 +523,7 @@ public class SignupService {
             ProfileImage image = ProfileImage.builder()
                     .profile(profile)
                     .url(entry.getValue())
-                    .fileName(extractFileNameFromUrl(entry.getValue()))
+                    .fileName(extractFileNameFromS3Url(entry.getValue()))
                     .originalName("profile_" + entry.getKey())
                     .imageIndex(index)
                     .isMain(index == 0) // 첫 번째 이미지를 대표사진으로
@@ -615,9 +616,13 @@ public class SignupService {
         }
     }
 
-    private String extractFileNameFromUrl(String url) {
-        int lastSlashIndex = url.lastIndexOf('/');
-        return lastSlashIndex != -1 ? url.substring(lastSlashIndex + 1) : url;
+    /**
+     * S3 URL에서 파일명 추출
+     */
+    private String extractFileNameFromS3Url(String s3Url) {
+        if (s3Url == null) return null;
+        int lastSlashIndex = s3Url.lastIndexOf('/');
+        return lastSlashIndex != -1 ? s3Url.substring(lastSlashIndex + 1) : s3Url;
     }
 
     /**

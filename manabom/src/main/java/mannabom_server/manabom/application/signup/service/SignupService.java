@@ -21,6 +21,7 @@ import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +52,8 @@ public class SignupService {
     private final EmailService emailService;
     private final S3FileUploadService s3FileUploadService;
     private final JwtUtil jwtUtil;
+
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 1단계: 기본 프로필 정보 저장
@@ -117,16 +120,16 @@ public class SignupService {
     }
 
     /**
-     * 2단계: 닉네임 중복 확인
+     * 2단계: 닉네임 중복 확인 (Redis 검사 추가)
      */
     @Transactional(readOnly = true)
     public NicknameCheckResponseDto checkNickname(NicknameCheckRequestDto request) {
         log.info("닉네임 중복 확인 - 닉네임: {}", request.getNickname());
 
+        // DB + Redis 중복 확인
         boolean dbExists = profileRepository.existsByNickName(request.getNickname());
-        boolean available = !dbExists;
-
-        log.info("닉네임 중복 확인 결과 - 닉네임: {}, 사용가능: {}", request.getNickname(), available);
+        boolean redisExists = dbExists ? false : checkNicknameInRedis(request.getNickname());
+        boolean available = !dbExists && !redisExists;
 
         return NicknameCheckResponseDto.builder()
                 .success(true)
@@ -431,6 +434,26 @@ public class SignupService {
 
         } catch (Exception e) {
             log.error("RefreshToken 저장 실패 - 사용자 ID: {} (가입은 완료됨)", user.getUserId(), e);
+        }
+    }
+
+    /**
+     * Redis에서 닉네임 중복 확인
+     */
+    private boolean checkNicknameInRedis(String nickname) {
+        try {
+            Iterable<SignupProgress> allProgress = signupProgressRepository.findAll();
+
+            for (SignupProgress progress : allProgress) {
+                if (progress.getNickName() != null &&
+                        progress.getNickName().equals(nickname)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            log.warn("Redis 닉네임 중복 검사 실패 - DB 결과만 사용", e);
+            return false;
         }
     }
 

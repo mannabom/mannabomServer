@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  * 회원가입 진행 상태 관리용 Redis 엔터티
- * TTL: 60분 (3600초)
+ * TTL: 20분 (1200초)
  */
 @RedisHash("signup_progress")
 @Getter
@@ -68,7 +68,7 @@ public class SignupProgress implements Serializable {
 
     @TimeToLive
     @Builder.Default
-    private Long ttl = 3600L;          // 60분 TTL
+    private Long ttl = 1200L;          // 20분 TTL
 
     /**
      * 업데이트 메서드들

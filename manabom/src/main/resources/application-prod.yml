@@ -54,7 +54,7 @@ app:
     client-id: ${KAKAO_CLIENT_ID}
     redirect-uri: ${KAKAO_REDIRECT_URI:https://your-domain.com/api/auth/login/kakao}
     development:
-      skip-age-verification: false  # 이거 아직 카카오 디벨로퍼 준비 안되서 배포도 false
+      skip-age-verification: true  # 이거 아직 카카오 디벨로퍼 준비 안되서
       default-birth-year: 2000
       default-gender: "MALE"
 

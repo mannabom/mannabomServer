@@ -97,8 +97,7 @@ public class AuthController {
     public ResponseEntity<Void> deleteUser(
             @AuthenticationPrincipal(expression = "id") Long userId
     ){
-        log.info("회원탈퇴 API 호출" +
-                "");
+        log.info("회원탈퇴 API 호출");
         authService.deleteUser(userId);
 
         log.info("회원 탈퇴 API 완료 - 회원 탈퇴 성공");

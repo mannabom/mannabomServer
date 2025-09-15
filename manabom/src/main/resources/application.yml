@@ -1,44 +1,44 @@
 spring:
-    application:
-      name: mannabom-server
+  application:
+    name: mannabom-server
 
-    # PostgreSQL DB 설정 (로컬용)
-    datasource:
-      url: jdbc:postgresql://localhost:5432/mannabom_db
-      username: postgres
-      password: password
-      driver-class-name: org.postgresql.Driver
+  # PostgreSQL DB 설정 (로컬용)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mannabom_db
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
 
-    # JPA/Hibernate 설정
-    jpa:
-      hibernate:
-        ddl-auto: create  # create(DB테스트용), update(개발용), validate(운영용)
-      show-sql: true      # SQL 쿼리 로그 출력 (개발용)
+  # JPA/Hibernate 설정
+  jpa:
+    hibernate:
+      ddl-auto: create  # create(DB테스트용), update(개발용), validate(운영용)
+    show-sql: true      # SQL 쿼리 로그 출력 (개발용)
 
-    # Redis 설정
-    data:
-      redis:
-        host: localhost
-        port: 6379
+  # Redis 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
-    # 파일 업로드 설정
-    servlet:
-      multipart:
-        max-file-size: 10MB
-        max-request-size: 30MB
+  # 파일 업로드 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
 
-    # 이메일 설정 (역시 이후 AWS 전환해야)
-    mail:
-      host: smtp.gmail.com
-      port: 587
-      username: ${MAIL_USERNAME:your-email@gmail.com}
-      password: ${MAIL_PASSWORD:your-app-password}
-      properties:
-        mail:
-          smtp:
-            auth: true
-            starttls:
-              enable: true
+  # 이메일 설정 (역시 이후 AWS 전환해야)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 # 커스텀 설정
 app:
@@ -50,7 +50,7 @@ app:
 
   # 카카오 OAuth 설정
   kakao:
-    client-id: efed40eb0a0d6835cb6aef6719e8ebae
+    client-id: ${KAKAO_CLIENT_ID:your-kakao-client-id}
     redirect-uri: http://localhost:8080/api/auth/login/kakao  # 임시로 카카오 디벨로퍼에 등록한 URI
     # 운영환경에서는 실제 도메인으로 변경 필요
     # redirect-uri: https://company-domain.com/api/auth/login/kakao
@@ -69,7 +69,7 @@ app:
 
   # 이메일 인증 설정 (로컬 개발용)
   email:
-    dummy-mode: true     # false=실제발송, true=콘솔테스트
+    dummy-mode: false     # false=실제발송, true=콘솔테스트
 
 # 로깅 설정 (개발용)
 logging:

@@ -50,7 +50,7 @@ app:
 
   # 카카오 OAuth 설정
   kakao:
-    client-id: ${KAKAO_CLIENT_ID:your-kakao-client-id}
+    client-id: efed40eb0a0d6835cb6aef6719e8ebae
     redirect-uri: http://localhost:8080/api/auth/login/kakao  # 임시로 카카오 디벨로퍼에 등록한 URI
     # 운영환경에서는 실제 도메인으로 변경 필요
     # redirect-uri: https://company-domain.com/api/auth/login/kakao
@@ -69,7 +69,7 @@ app:
 
   # 이메일 인증 설정 (로컬 개발용)
   email:
-    dummy-mode: false     # false=실제발송, true=콘솔테스트
+    dummy-mode: true     # false=실제발송, true=콘솔테스트
 
 # 로깅 설정 (개발용)
 logging:

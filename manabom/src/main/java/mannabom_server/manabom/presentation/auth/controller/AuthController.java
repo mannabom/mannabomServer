@@ -81,7 +81,7 @@ public class AuthController {
 
     @GetMapping("/logout")
     public ResponseEntity<Void> logout(
-            @AuthenticationPrincipal(expression = "id") Long userId
+            @AuthenticationPrincipal Long userId
     ){
 
         log.info("로그아웃 API 호출");
@@ -95,7 +95,7 @@ public class AuthController {
 
     @DeleteMapping("/leave")
     public ResponseEntity<Void> deleteUser(
-            @AuthenticationPrincipal(expression = "id") Long userId
+            @AuthenticationPrincipal Long userId
     ){
         log.info("회원탈퇴 API 호출");
         authService.deleteUser(userId);

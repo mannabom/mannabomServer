@@ -21,6 +21,7 @@ import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,8 +50,10 @@ public class SignupService {
     private final UniversityRepository universityRepository;
 
     private final EmailService emailService;
-    private final FileUploadService fileUploadService;
+    private final S3FileUploadService s3FileUploadService;
     private final JwtUtil jwtUtil;
+
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 1단계: 기본 프로필 정보 저장
@@ -117,16 +120,16 @@ public class SignupService {
     }
 
     /**
-     * 2단계: 닉네임 중복 확인
+     * 2단계: 닉네임 중복 확인 (Redis 검사 추가)
      */
     @Transactional(readOnly = true)
     public NicknameCheckResponseDto checkNickname(NicknameCheckRequestDto request) {
         log.info("닉네임 중복 확인 - 닉네임: {}", request.getNickname());
 
+        // DB + Redis 중복 확인
         boolean dbExists = profileRepository.existsByNickName(request.getNickname());
-        boolean available = !dbExists;
-
-        log.info("닉네임 중복 확인 결과 - 닉네임: {}, 사용가능: {}", request.getNickname(), available);
+        boolean redisExists = dbExists ? false : checkNicknameInRedis(request.getNickname());
+        boolean available = !dbExists && !redisExists;
 
         return NicknameCheckResponseDto.builder()
                 .success(true)
@@ -255,15 +258,16 @@ public class SignupService {
 
         for (int i = 0; i < request.getPhotos().size(); i++) {
             MultipartFile photo = request.getPhotos().get(i);
-            String fileName = fileUploadService.uploadFile(photo, "profiles");
-            String url = fileUploadService.getFileUrl(fileName);
+
+            // 수정: S3에 업로드 (전체 URL 반환)
+            String s3Url = s3FileUploadService.uploadFile(photo, "profiles");
 
             // Redis에 저장
-            progress.addProfileImage(String.valueOf(i), url);
+            progress.addProfileImage(String.valueOf(i), s3Url);
 
             uploadedPhotos.add(ProfilePhotosResponseDto.UploadedPhotoDto.builder()
                     .photoId(UUID.randomUUID().toString())
-                    .url(url)
+                    .url(s3Url)
                     .build());
         }
 
@@ -434,6 +438,26 @@ public class SignupService {
     }
 
     /**
+     * Redis에서 닉네임 중복 확인
+     */
+    private boolean checkNicknameInRedis(String nickname) {
+        try {
+            Iterable<SignupProgress> allProgress = signupProgressRepository.findAll();
+
+            for (SignupProgress progress : allProgress) {
+                if (progress.getNickName() != null &&
+                        progress.getNickName().equals(nickname)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            log.warn("Redis 닉네임 중복 검사 실패 - DB 결과만 사용", e);
+            return false;
+        }
+    }
+
+    /**
      * 정리 작업 (Redis 데이터 삭제)
      */
     private void cleanupSignupProgress(SignupProgress progress) {
@@ -522,7 +546,7 @@ public class SignupService {
             ProfileImage image = ProfileImage.builder()
                     .profile(profile)
                     .url(entry.getValue())
-                    .fileName(extractFileNameFromUrl(entry.getValue()))
+                    .fileName(extractFileNameFromS3Url(entry.getValue()))
                     .originalName("profile_" + entry.getKey())
                     .imageIndex(index)
                     .isMain(index == 0) // 첫 번째 이미지를 대표사진으로
@@ -615,9 +639,13 @@ public class SignupService {
         }
     }
 
-    private String extractFileNameFromUrl(String url) {
-        int lastSlashIndex = url.lastIndexOf('/');
-        return lastSlashIndex != -1 ? url.substring(lastSlashIndex + 1) : url;
+    /**
+     * S3 URL에서 파일명 추출
+     */
+    private String extractFileNameFromS3Url(String s3Url) {
+        if (s3Url == null) return null;
+        int lastSlashIndex = s3Url.lastIndexOf('/');
+        return lastSlashIndex != -1 ? s3Url.substring(lastSlashIndex + 1) : s3Url;
     }
 
     /**

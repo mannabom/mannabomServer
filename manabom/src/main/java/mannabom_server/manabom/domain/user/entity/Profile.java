@@ -1,10 +1,7 @@
 package mannabom_server.manabom.domain.user.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
@@ -20,6 +17,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "profile")
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Profile extends BaseTimeEntity {
 

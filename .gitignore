@@ -9,6 +9,9 @@
 /dataSources/
 /dataSources.local.xml
 
+#tmp
+manabom/generated-requests.http
+manabom/uploads
 
 cat <<'EOF' >> .gitignore
 

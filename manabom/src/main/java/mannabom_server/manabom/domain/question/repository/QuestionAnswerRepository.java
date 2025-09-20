@@ -26,4 +26,9 @@ public interface QuestionAnswerRepository extends JpaRepository<QuestionAnswer, 
      * 프로필의 특정 질문 답변 존재 여부 확인
      */
     boolean existsByProfileAndQuestion(Profile profile, Question question);
+
+    /**
+     * 해당 프로필 기준 답변 삭제
+     */
+    void deleteByProfile(Profile profile);
 }

@@ -21,7 +21,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     Optional<RefreshToken> findByUser(User user);
 
     /**
-     * 사용자 기본 토큰 삭제 (로그아웃 시)
+     * 사용자 기본 토큰 삭제 (로그아웃,회원 탈퇴 시)
      */
     void deleteByUser(User user);
 

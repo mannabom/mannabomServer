@@ -28,4 +28,9 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      * 이메일로 프로필 조회
      */
     Optional<Profile> findByEmail(String email);
+
+    /**
+     * 유저 ID 기준으로 프로필 삭제
+     */
+    void deleteByUser(User user);
 }

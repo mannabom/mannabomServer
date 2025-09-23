@@ -34,7 +34,7 @@ public class UserInfoController {
     @PutMapping("/api/user/info")
     public ResponseEntity<Void> putUserInfo(
             @AuthenticationPrincipal Long userId,
-            PutUserInfoRequest request
+            @RequestBody PutUserInfoRequest request
     ){
         userInfoService.putUserInfo(userId, request);
 

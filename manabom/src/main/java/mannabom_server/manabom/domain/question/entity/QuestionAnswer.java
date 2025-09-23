@@ -1,5 +1,6 @@
 package mannabom_server.manabom.domain.question.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -24,6 +25,7 @@ public class QuestionAnswer extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profile_id", nullable = false)
+    @JsonIgnore
     private Profile profile;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -8,11 +8,13 @@ import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseD
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
+import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
 import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
+import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.external.kakao.KakaoApiService;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +44,8 @@ public class AuthService {
     private final ProfileRepository profileRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SignupProgressRepository signupProgressRepository;
+    private final QuestionAnswerRepository questionAnswerRepository;
+    private final ProfileImageRepository profileImageRepository;
     private final JwtUtil jwtUtil;
 
     // 사업자 등록 하기 전 임시 개발환경 전용 설정
@@ -312,4 +317,31 @@ public class AuthService {
 
         log.info("로그아웃 완료 - 사용자 ID: {}", userId);
     }
+
+    /**
+     * 회원 탈퇴 처리
+     */
+    @Transactional
+    public void deleteUser(Long userId){
+        log.info("회원 탈퇴 요청 처리 - 사용자 ID: {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Profile profile = profileRepository.findByUser(user).orElse(null);
+
+        if(profile != null){
+            questionAnswerRepository.deleteByProfile(profile);
+            profileImageRepository.deleteByProfile(profile);
+
+            profileRepository.delete(profile);
+        }
+
+        refreshTokenRepository.deleteByUser(user);
+
+        userRepository.deleteById(userId);
+
+        log.info("회원 탈퇴 완료 - 사용자 ID: {}", userId);
+    }
+
 }

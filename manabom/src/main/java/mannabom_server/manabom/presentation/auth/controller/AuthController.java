@@ -1,6 +1,7 @@
 package mannabom_server.manabom.presentation.auth.controller;
 
 import jakarta.validation.Valid;
+import lombok.Delegate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.auth.dto.request.KakaoLoginRequestDto;
@@ -9,6 +10,7 @@ import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseD
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
 import mannabom_server.manabom.application.auth.service.AuthService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -75,6 +77,32 @@ public class AuthController {
         log.info("토큰 갱신 API 완료 - 새 토큰 발급 성공");
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @AuthenticationPrincipal Long userId
+    ){
+
+        log.info("로그아웃 API 호출");
+
+        authService.logout(userId);
+
+        log.info("로그아웃 API 완료 - 로그아웃 성공");
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/leave")
+    public ResponseEntity<Void> deleteUser(
+            @AuthenticationPrincipal Long userId
+    ){
+        log.info("회원탈퇴 API 호출");
+        authService.deleteUser(userId);
+
+        log.info("회원 탈퇴 API 완료 - 회원 탈퇴 성공");
+
+        return ResponseEntity.noContent().build();
     }
 
 }

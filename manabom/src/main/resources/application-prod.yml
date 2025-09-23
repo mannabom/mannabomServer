@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: mannabom-server
+
+  # AWS RDS PostgreSQL 설정
+  datasource:
+    url: jdbc:postgresql://${AWS_RDS_ENDPOINT}:${AWS_RDS_PORT:5432}/${AWS_RDS_DATABASE}
+    username: ${AWS_RDS_USERNAME}
+    password: ${AWS_RDS_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  # JPA/Hibernate 설정
+  jpa:
+    hibernate:
+      ddl-auto: update     # update 사용 (배포용)
+    show-sql: false        # SQL 로그 비활성화 (배포용)
+
+  # EC2 Redis 설정 (우선 AWS 전환X)
+  data:
+    redis:
+      host: ${REDIS_HOST}    # EC2 Private IP 또는 localhost (같은 서버인 경우)
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}  # Redis에 비밀번호 설정한 경우
+
+  # 파일 업로드 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
+
+  # 이메일 설정 (우선 AWS 전환X)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# 커스텀 설정
+app:
+  # JWT 토큰 설정
+  jwt:
+    secret: ${JWT_SECRET}  #
+    access-token-expiration: 86_400_000   # 24시간 (밀리초)
+    refresh-token-expiration: 604_800_000 # 7일 (밀리초)
+
+  # 카카오 OAuth 설정 (프로덕션)
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    redirect-uri: ${KAKAO_REDIRECT_URI:https://your-domain.com/api/auth/login/kakao}
+    development:
+      skip-age-verification: true  # 이거 아직 카카오 디벨로퍼 준비 안되서
+      default-birth-year: 2000
+      default-gender: "MALE"
+
+  # AWS S3 설정
+  aws:
+    region: ${AWS_REGION:ap-northeast-2}  # 서울 리전
+    s3:
+      bucket-name: ${AWS_S3_BUCKET_NAME}
+      access-key: ${AWS_ACCESS_KEY_ID}
+      secret-key: ${AWS_SECRET_ACCESS_KEY}
+      base-url: https://${AWS_S3_BUCKET_NAME}.s3.${AWS_REGION:ap-northeast-2}.amazonaws.com/
+
+  # 이메일 인증 설정
+  email:
+    dummy-mode: false  # 실제 이메일 발송
+
+# 로깅 설정 (프로덕션)
+logging:
+  level:
+    com.mannabom: INFO          # 배포용은 INFO 레벨
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+  file:
+    name: /var/log/mannabom/app.log  # 로그 파일 저장
+
+# 서버 설정
+server:
+  port: ${SERVER_PORT:8080}

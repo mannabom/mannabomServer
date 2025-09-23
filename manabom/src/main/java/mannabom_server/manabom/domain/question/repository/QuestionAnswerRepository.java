@@ -39,4 +39,10 @@ public interface QuestionAnswerRepository extends JpaRepository<QuestionAnswer, 
       where qa.profile = :profile
     """)
     List<QuestionAnswer> findByProfileWithQuestion(@Param("profile") Profile profile);
+
+    /**
+     * 해당 프로필 기준 답변 삭제
+     */
+    void deleteByProfile(Profile profile);
+
 }

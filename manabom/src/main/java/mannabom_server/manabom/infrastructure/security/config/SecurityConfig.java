@@ -46,7 +46,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/signup/**",
                                 "/api/questions/**",
-                                "/api/signup/terms/**"
+                                "/api/signup/terms/**",
+                                "/ws-chat/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

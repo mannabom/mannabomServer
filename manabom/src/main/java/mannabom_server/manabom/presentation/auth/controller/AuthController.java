@@ -37,7 +37,7 @@ public class AuthController {
      * 2. AuthService에서 카카오 API 연동 및 사용자 처리
      * 3. 상황별 응답 반환 (기존 유저/신규 유저/연령 제한)
      *
-     * @param request 카카오 인증 코드 및 리다이렉트 URI
+     * @param request 카카오 accessToken
      * @return 로그인 결과 (토큰 또는 회원가입 안내)
      */
     @PostMapping("/login/kakao")
@@ -45,7 +45,7 @@ public class AuthController {
             @Valid @RequestBody KakaoLoginRequestDto request) {
 
         log.info("카카오 로그인 API 호출");
-        log.debug("요청 정보 - redirectUri: {}", request.getRedirectUri());
+        log.debug("요청 정보 - accessToken: {}", request.getAccessToken());
 
         KakaoLoginResponseDto response = authService.loginWithKakao(request);
 

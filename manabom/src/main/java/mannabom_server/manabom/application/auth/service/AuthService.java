@@ -65,13 +65,9 @@ public class AuthService {
         log.info("카카오 로그인 처리 시작");
 
         try {
-            // 1. 카카오에서 access token 발급 받기
-            Map<String, Object> tokenResponse = kakaoApiService.getKakaoToken(
-                    request.getAuthorizationCode(),
-                    request.getRedirectUri()
-            );
-            String accessToken = (String)tokenResponse.get("access_token");
-            log.debug("카카오 access token 발급 완료");
+            // 1. request에서 access token 추출
+            String accessToken = (String)request.getAccessToken();
+            log.debug("카카오 access token 추출 완료");
 
             // 2. 카카오에서 사용자 정보 조회
             Map<String, Object> userInfo = kakaoApiService.getKakaoUserInfo(accessToken);

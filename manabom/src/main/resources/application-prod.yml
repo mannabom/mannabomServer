@@ -83,3 +83,10 @@ logging:
 # 서버 설정
 server:
   port: ${SERVER_PORT:8080}
+
+#fcm 설정
+fcm:
+  service-account-path: ${FCM_FILE_PATH:}
+  project_id: ${FCM_PROJECT_ID:}
+  url: https://fcm.googleapis.com/v1/projects/${fcm.project_id}/messages:send
+  google_api: https://www.googleapis.com/auth/cloud-platform

@@ -12,7 +12,7 @@ spring:
   # JPA/Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: create  # create(DB테스트용), update(개발용), validate(운영용)
+      ddl-auto: update  # create(DB테스트용), update(개발용), validate(운영용)
     show-sql: true      # SQL 쿼리 로그 출력 (개발용)
 
   # Redis 설정
@@ -80,3 +80,10 @@ logging:
 # 서버 설정
 server:
   port: 8080
+
+#fcm 설정
+fcm:
+  service-account-path: ${FCM_FILE_PATH:}
+  project_id: ${FCM_PROJECT_ID:}
+  url: https://fcm.googleapis.com/v1/projects/${fcm.project_id}/messages:send
+  google_api: https://www.googleapis.com/auth/cloud-platform

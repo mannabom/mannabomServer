@@ -90,3 +90,34 @@ fcm:
   project_id: ${FCM_PROJECT_ID:}
   url: https://fcm.googleapis.com/v1/projects/${fcm.project_id}/messages:send
   google_api: https://www.googleapis.com/auth/cloud-platform
+
+# 운영 정책 설정
+match:
+  policy:
+    cooldown-hours: 72 # 프로필 추천으로 제공된 사용자가 다시 추천으로 뜰 수 있는 최소 시간
+    candidate-pool-size: 200 # 추천을 하기 전에 조건에 맞는 사용자 추출(후보군 수)
+    pick-pool-size: 50 # 이번 추천 리스트로 뽑을 인원수의 상한(최종 인원수)
+
+ting:
+  policy:
+    vip-threshold: 200 # VIP로 분류되는 팅 보유 갯수 기준
+    cost:
+      extra-profile: 5 # 팅을 소모해서 추가적인 프로필 추천을 받을 때 비용(팅 갯수)
+      extra-profile-bundle5: 20 # 추가 프로필 5개 묶음 비용
+      message: 0 # 팅을 소모해서 메시지를 보낼 때 비용(팅 갯수)
+      like: 0 # 팅을 소모해서 호감 보낼 때 사용(팅 갯수)
+      view-extra-photo: 3 # 상대 사진 추가로 보기
+      view-score: 3 # 상대가 내게 준 점수 조회 비용
+      view-liked-me-profile: 5 # 나에게 호감 표시한 유저 프로필 조회 비용
+      view-high-score-profile: 5 # 나에게 높은 점수 준 유저 프로필 조회 비용
+
+benefit:
+  policy:
+    membership: # 맴버쉽 혜택
+      monthly-extra-profiles: 30
+      monthly-free-messages: 10
+      monthly-free-likes: 0
+    vip: # VIP 혜택
+      daily-extra-profiles: 3
+      daily-free-messages: 0
+      daily-free-likes: 0

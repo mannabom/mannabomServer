@@ -12,7 +12,7 @@ import mannabom_server.manabom.domain.common.BaseTimeEntity;
 @Entity
 @Table(name = "users")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 @ToString(exclude = "profile")
 public class User extends BaseTimeEntity {
 

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import mannabom_server.manabom.application.meeting.dto.common.AgeRangeDto;
 import mannabom_server.manabom.application.meeting.dto.common.RegionDto;
@@ -13,6 +14,7 @@ import mannabom_server.manabom.domain.meeting.enums.MeetingType;
  * 미팅 방 생성 요청 DTO
  */
 
+@AllArgsConstructor
 @Getter
 public class MeetingRoomCreateRequest {
     @NotNull(message = "방 이름은 필수입니다.")

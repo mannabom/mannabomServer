@@ -1,8 +1,10 @@
 package mannabom_server.manabom.application.meeting.dto.request;
 
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+@AllArgsConstructor
 @Getter
 public class MeetingRoomJoinByCodeRequest {
 

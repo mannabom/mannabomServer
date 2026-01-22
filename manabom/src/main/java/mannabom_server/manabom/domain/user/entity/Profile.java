@@ -22,7 +22,7 @@ import java.util.List;
 @Table(name = "profile")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 @ToString(exclude = "profileImages")
 public class Profile extends BaseTimeEntity {
 

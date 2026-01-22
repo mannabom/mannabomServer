@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 @Builder(access = AccessLevel.PRIVATE)
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
@@ -51,11 +51,13 @@ public class Meeting extends BaseTimeEntity {
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
+    @Builder.Default
     @OneToMany(mappedBy = "meeting")
     private Set<MeetingMember> meetingMembers = new HashSet<>();
 
-    @Column(name = "occupancy_score", insertable = false, updatable = false)
-    private Integer occupancyScore;
+    @Column(name = "occupancy_score")
+    @Builder.Default
+    private Integer occupancyScore=0;
 
     public static Meeting create(
             User createdBy,
@@ -71,7 +73,7 @@ public class Meeting extends BaseTimeEntity {
         if (minAge > maxAge) throw new IllegalArgumentException("나이 범위가 올바르지 않습니다.");
         if (maxMembers < 2 || maxMembers > 4) throw new IllegalArgumentException("인원 수는 2~4명만 가능합니다.");
 
-        return Meeting.builder()
+        Meeting meeting = Meeting.builder()
                 .createdBy(createdBy)
                 .roomName(roomName)
                 .gender(gender)
@@ -84,6 +86,8 @@ public class Meeting extends BaseTimeEntity {
                 .code(code)
                 .currentMembers(1)
                 .build();
+        meeting.updateOccupancyScore();
+        return meeting;
     }
 
 
@@ -92,11 +96,18 @@ public class Meeting extends BaseTimeEntity {
         if(currentMembers.equals(maxMembers)){
             matchingStatus= MatchingStatus.FULL;
         }
+        updateOccupancyScore();
     }
 
     public List<MeetingMember> getActiveMembers(){
         return this.meetingMembers.stream()
                 .filter(mm-> mm.getStatus()== ChatUserStatus.ACTIVE).toList();
     }
-
+    private void updateOccupancyScore(){
+        if(this.maxMembers==0){
+            this.occupancyScore =0;
+            return;
+        }
+        this.occupancyScore = (int)(((double)this.currentMembers*10000)/this.maxMembers);
+    }
 }

@@ -115,7 +115,7 @@ public class MeetingRepositoryCustomImpl implements  MeetingRepositoryCustom{
 
     private NumberExpression<Integer> occupancyScore(QMeeting meeting){
         //매개변수가 결과타입, 공식, 0번, 1번
-        return Expressions.numberTemplate(Integer.class,"({0}*10000)/nullif({1},0)",meeting.currentMembers,meeting.maxMembers);
+        return meeting.occupancyScore.coalesce(0);
     }
 
 

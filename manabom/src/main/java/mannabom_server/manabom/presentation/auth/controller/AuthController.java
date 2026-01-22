@@ -5,6 +5,7 @@ import lombok.Delegate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.auth.dto.request.KakaoLoginRequestDto;
+import mannabom_server.manabom.application.auth.dto.request.LogoutRequestDto;
 import mannabom_server.manabom.application.auth.dto.request.RefreshTokenRequestDto;
 import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseDto;
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
@@ -79,14 +80,15 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/logout")
+    @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-            @AuthenticationPrincipal Long userId
-    ){
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody LogoutRequestDto request
+            ){
 
         log.info("로그아웃 API 호출");
 
-        authService.logout(userId);
+        authService.logout(userId, request.getDeviceToken());
 
         log.info("로그아웃 API 완료 - 로그아웃 성공");
 

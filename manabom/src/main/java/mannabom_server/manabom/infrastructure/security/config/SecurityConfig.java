@@ -41,6 +41,7 @@ public class SecurityConfig {
                 // 경로별 인증 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/error",
                                 "/health",
                                 "/api/auth/login/kakao",
                                 "/api/auth/refresh",

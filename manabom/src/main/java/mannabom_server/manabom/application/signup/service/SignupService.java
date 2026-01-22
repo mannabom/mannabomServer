@@ -6,6 +6,8 @@ import mannabom_server.manabom.application.signup.dto.request.*;
 import mannabom_server.manabom.application.signup.dto.response.*;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
+import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
@@ -54,6 +56,7 @@ public class SignupService {
     private final JwtUtil jwtUtil;
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final TingWalletRepository tingWalletRepository;
 
     /**
      * 1단계: 기본 프로필 정보 저장
@@ -323,6 +326,7 @@ public class SignupService {
     /**
      * 6단계: 회원가입 완료 - 카카오 정보가 이미 SignupProgress에 저장되어 있음
      */
+    @Transactional
     public SignupCompleteResponseDto completeSignup(SignupCompleteRequestDto request) {
         log.info("회원가입 완료 처리 시작 - Profile ID: {}", request.getProfileId());
 
@@ -391,11 +395,21 @@ public class SignupService {
         user.verifyEmail();
         user = userRepository.save(user);
 
-        // 2. Profile 생성
+        // 2. TingWallet 생성 및 초기 지원금 지급
+        int initialPoints = calculateInitialPoints(progress.getGender());
+        if(!tingWalletRepository.existsById(user.getUserId())) {
+            TingWallet wallet = new TingWallet(user.getUserId());
+            wallet.addEventTing(initialPoints);
+            tingWalletRepository.save(wallet);
+            log.info("해당 유저 팅 지갑 생성 완료");
+        }else
+            log.error("이미 팅 지갑이 존재하는 유저( ID: {})", user.getUserId());
+
+        // 3. Profile 생성
         Profile profile = createProfileFromProgress(user, progress);
         profile = profileRepository.save(profile);
 
-        // 3. 관련 데이터들 (같은 트랜잭션에서 처리해야 함)
+        // 4. 관련 데이터들 (같은 트랜잭션에서 처리해야 함)
         saveProfileImages(profile, progress.getProfileImages());
         saveQuestionAnswers(profile, progress.getQuestionAnswers());
 

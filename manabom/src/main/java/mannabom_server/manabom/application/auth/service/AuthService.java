@@ -8,6 +8,8 @@ import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseD
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
+import mannabom_server.manabom.domain.deviceToken.DeviceToken;
+import mannabom_server.manabom.domain.deviceToken.DeviceTokenRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
 import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
@@ -25,10 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 인증 관련 비즈니스 로직 - 카카오 정보를 SignupProgress에 저장하도록 수정
@@ -47,6 +46,7 @@ public class AuthService {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final ProfileImageRepository profileImageRepository;
     private final JwtUtil jwtUtil;
+    private final DeviceTokenRepository deviceTokenRepository;
 
     // 사업자 등록 하기 전 임시 개발환경 전용 설정
     @Value("${app.kakao.development.skip-age-verification:false}")
@@ -303,13 +303,21 @@ public class AuthService {
     /**
      * 로그아웃 처리
      */
-    public void logout(Long userId) {
+    public void logout(Long userId, String token) {
         log.info("로그아웃 요청 처리 - 사용자 ID: {}", userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         refreshTokenRepository.deleteByUser(user);
+
+        DeviceToken deviceToken = deviceTokenRepository.findByToken(token).orElseThrow(()->new IllegalArgumentException("해당 토큰이 존재하지 않습니다!"));
+        if(!Objects.equals(deviceToken.getUserId(), userId)) {
+            throw new IllegalArgumentException("본인 소유의 토큰만 로그아웃 처리할 수 있습니다.");
+        }
+
+        deviceToken.deactivate();
+        log.info("deviceToken 비활성화 완료 - userId={}, tokenId={}", userId, deviceToken.getId());
 
         log.info("로그아웃 완료 - 사용자 ID: {}", userId);
     }
@@ -334,6 +342,12 @@ public class AuthService {
         }
 
         refreshTokenRepository.deleteByUser(user);
+
+        List<DeviceToken> deviceTokens = deviceTokenRepository.findByUserId(userId);
+        for(DeviceToken token : deviceTokens){
+            token.deactivate();
+        }
+        log.info("해당 사용자의 모든 deviceToken 비활성화 완료");
 
         userRepository.deleteById(userId);
 

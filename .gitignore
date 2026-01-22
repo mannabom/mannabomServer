@@ -43,3 +43,5 @@ EOF
 
 manabom/.env*
 manabom/src/.env*
+
+manabom/src/main/resources/firebase/*

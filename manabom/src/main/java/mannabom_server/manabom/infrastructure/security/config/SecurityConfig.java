@@ -47,7 +47,8 @@ public class SecurityConfig {
                                 "/api/signup/**",
                                 "/api/questions/**",
                                 "/api/signup/terms/**",
-                                "/ws-chat/**"
+                                "/ws-chat/**",
+                                "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

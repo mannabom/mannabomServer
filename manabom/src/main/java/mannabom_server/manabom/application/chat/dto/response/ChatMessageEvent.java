@@ -1,8 +1,7 @@
-package mannabom_server.manabom.application.chat.dto;
+package mannabom_server.manabom.application.chat.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.time.Instant;
 

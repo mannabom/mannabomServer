@@ -50,7 +50,7 @@ public class SignupService {
     private final UniversityRepository universityRepository;
 
     private final EmailService emailService;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileUploadService s3FileUploadService;
     private final JwtUtil jwtUtil;
 
     private final RedisTemplate<String, Object> redisTemplate;

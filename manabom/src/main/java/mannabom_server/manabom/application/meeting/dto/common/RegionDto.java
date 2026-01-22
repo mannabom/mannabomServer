@@ -1,0 +1,19 @@
+package mannabom_server.manabom.application.meeting.dto.common;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+@Builder
+@AllArgsConstructor
+public class RegionDto {
+    @NotBlank(message = "시/도는 필수입니다.")
+    private String sido;
+
+    @NotBlank(message = "구는 필수입니다.")
+    private String sigungu;
+}

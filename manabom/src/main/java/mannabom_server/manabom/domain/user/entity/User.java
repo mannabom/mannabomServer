@@ -1,10 +1,8 @@
 package mannabom_server.manabom.domain.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 
 /**
@@ -15,6 +13,7 @@ import mannabom_server.manabom.domain.common.BaseTimeEntity;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@ToString(exclude = "profile")
 public class User extends BaseTimeEntity {
 
     @Id
@@ -36,6 +35,10 @@ public class User extends BaseTimeEntity {
 
     @Column(name = "is_membership", nullable = false)
     private Boolean isMembership = false;
+
+    @JsonIgnore
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "user")
+    private Profile profile;
 
     @Builder
     public User(String kakaoId, String userName) {

@@ -39,3 +39,7 @@ out/
 **/application-local.properties
 **/*.secret.*
 EOF
+
+
+manabom/.env*
+manabom/src/.env*

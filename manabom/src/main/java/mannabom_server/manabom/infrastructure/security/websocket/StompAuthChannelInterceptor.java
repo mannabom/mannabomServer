@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtUtil jwtUtil;
-    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/(dm|meeting|meeting-match)/rooms/(\\d+)$");
+    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/(dm-profile|dm-code|meeting-group|meeting-match)/rooms/(\\d+)$");
 
 
     @Override

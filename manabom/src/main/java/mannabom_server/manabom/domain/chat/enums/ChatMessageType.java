@@ -1,4 +1,4 @@
-package mannabom_server.manabom.domain.chat;
+package mannabom_server.manabom.domain.chat.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

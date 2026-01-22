@@ -2,9 +2,9 @@ package mannabom_server.manabom.presentation.chat.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mannabom_server.manabom.application.chat.dto.ChatMessageEvent;
-import mannabom_server.manabom.application.chat.dto.ChatSendRequest;
-import mannabom_server.manabom.domain.chat.ChatRoomType;
+import mannabom_server.manabom.application.chat.dto.response.ChatMessageEvent;
+import mannabom_server.manabom.application.chat.dto.request.ChatSendRequest;
+import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
@@ -48,8 +48,9 @@ public class ChatWsController {
     }
     private String topicBy(ChatRoomType type){
         return switch(type){
-            case DM -> "/topic/dm/rooms/";
-            case MEETING -> "/topic/meeting/rooms/";
+            case DM_PROFILE -> "/topic/dm-profile/rooms/";
+            case DM_CODE -> "/topic/dm-code/rooms/";
+            case MEETING_GROUP -> "/topic/meeting-group/rooms/";
             case MEETING_MATCH -> "/topic/meeting-match/rooms/";
         };
     }

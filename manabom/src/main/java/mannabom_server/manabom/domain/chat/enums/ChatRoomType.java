@@ -1,4 +1,4 @@
-package mannabom_server.manabom.domain.chat;
+package mannabom_server.manabom.domain.chat.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -6,9 +6,10 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ChatRoomType {
-    DM((short)0), //일대일 채팅
-    MEETING((short)1), //미팅 동성 채팅
-    MEETING_MATCH((short)2);  //미팅 이성 채팅(매칭된 이후)
+    DM_PROFILE((short)0), //일대일 채팅
+    DM_CODE((short)1),
+    MEETING_GROUP((short)2), //미팅 동성 채팅
+    MEETING_MATCH((short)3);  //미팅 이성 채팅(매칭된 이후)
 
     private final short code;
 

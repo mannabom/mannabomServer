@@ -1,14 +1,12 @@
-package mannabom_server.manabom.application.chat.dto;
+package mannabom_server.manabom.application.chat.dto.request;
 
 import lombok.Getter;
-import lombok.Setter;
-import mannabom_server.manabom.domain.chat.ChatMessageType;
-import mannabom_server.manabom.domain.chat.ChatRoomType;
+
+import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
+import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
 
 @Getter
-@Setter
 public class ChatSendRequest {
-
     private Long roomId;
     private ChatRoomType chatRoomType;
     private ChatMessageType messageType;

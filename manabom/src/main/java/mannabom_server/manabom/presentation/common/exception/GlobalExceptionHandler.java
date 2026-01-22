@@ -1,6 +1,7 @@
 package mannabom_server.manabom.presentation.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.global.error.InvalidCursorException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.io.InvalidClassException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -150,6 +152,20 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .success(false)
                 .message(String.format("'%s' 파라미터가 필요합니다.", e.getParameterName()))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+
+    @ExceptionHandler(InvalidClassException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCursorException(InvalidCursorException e){
+        log.warn("유효하지 않은 커서 접근 감지 : {}", e.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .success(false)
+                .message(e.getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();
 

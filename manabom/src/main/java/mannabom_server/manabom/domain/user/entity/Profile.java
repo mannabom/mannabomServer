@@ -1,5 +1,6 @@
 package mannabom_server.manabom.domain.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
@@ -7,8 +8,11 @@ import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.enums.SmokingHabit;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 사용자 상세 프로필 엔터티
@@ -19,6 +23,7 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@ToString(exclude = "profileImages")
 public class Profile extends BaseTimeEntity {
 
     @Id
@@ -74,6 +79,11 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "email")                             // 대학 인증용 이메일
     private String email;
 
+    @BatchSize(size = 8)
+    @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<ProfileImage> profileImages = new ArrayList<>();
+
     // 질문들은 question으로 통합 Type으로 구분.
 //    private String intro;
 //    private String attractivePartnerTrait;
@@ -113,4 +123,30 @@ public class Profile extends BaseTimeEntity {
     public void updateEmail(String email) {
         this.email = email;
     }
+
+
+
+    /**
+    * 대표 사진
+    */
+    public String extractMainImageUrl(){
+        if(this.profileImages== null || this.profileImages.isEmpty()){
+            return null;
+        }
+        return this.profileImages.stream()
+                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
+                .findFirst()
+                .map(ProfileImage::getUrl)
+                .orElseGet(()-> this.profileImages.get(0).getUrl());
+    }
+
+
+
+    /**
+     * 나이 반환
+     * */
+    public int computeAge(){
+        return LocalDate.now().getYear() - this.getBirthDate().getYear()+1;
+    }
+
 }

@@ -54,21 +54,22 @@ public class PolicyConfig {
     private Integer tingCostViewHighScoreProfile;
 
     // benefit.policy.*
+    @Column(name = "benefit_basic_daily_profile")
+    private Integer benefitBasicDailyProfile;
+    @Column(name = "benefit_basic_daily_love_view")
+    private Integer benefitBasicDailyLoveView;
+
     @Column(name = "benefit_membership_cycle_extra_profiles")
     private Integer benefitMembershipCycleExtraProfiles;
-
     @Column(name = "benefit_membership_cycle_free_messages")
     private Integer benefitMembershipCycleFreeMessages;
-
     @Column(name = "benefit_membership_cycle_free_likes")
     private Integer benefitMembershipCycleFreeLikes;
 
     @Column(name = "benefit_vip_daily_extra_profiles")
     private Integer benefitVipDailyExtraProfiles;
-
     @Column(name = "benefit_vip_daily_free_messages")
     private Integer benefitVipDailyFreeMessages;
-
     @Column(name = "benefit_vip_daily_free_likes")
     private Integer benefitVipDailyFreeLikes;
 
@@ -93,6 +94,9 @@ public class PolicyConfig {
     public void updateMatchCandidatePoolSize(Integer v) { this.matchCandidatePoolSize = v; touch(); }
     public void updateMatchPickPoolSize(Integer v) { this.matchPickPoolSize = v; touch(); }
 
+    public void updateBenefitBasicDailyProfile(Integer v) { this.benefitBasicDailyProfile = v; touch(); }
+    public void updateBenefitBasicDailyLoveView(Integer v) { this.benefitBasicDailyLoveView = v; touch(); }
+
     public void updateTingVipThreshold(Integer v) { this.tingVipThreshold = v; touch(); }
     public void updateTingCostExtraProfile(Integer v) { this.tingCostExtraProfile = v; touch(); }
     public void updateTingCostExtraProfileBundle5(Integer v) { this.tingCostExtraProfileBundle5 = v; touch(); }
@@ -114,6 +118,9 @@ public class PolicyConfig {
     public void resetMatchCooldownHours() { this.matchCooldownHours = null; touch(); }
     public void resetMatchCandidatePoolSize() { this.matchCandidatePoolSize = null; touch(); }
     public void resetMatchPickPoolSize() { this.matchPickPoolSize = null; touch(); }
+
+    public void resetBenefitBasicDailyProfile() { this.benefitBasicDailyProfile = null; touch(); }
+    public void resetBenefitBasicDailyLoveView() { this.benefitBasicDailyLoveView = null; touch(); }
 
     public void resetTingVipThreshold() { this.tingVipThreshold = null; touch(); }
     public void resetTingCostExtraProfile() { this.tingCostExtraProfile = null; touch(); }

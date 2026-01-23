@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -264,13 +265,16 @@ public class SignupService {
 
             // 수정: S3에 업로드 (전체 URL 반환)
             String s3Url = s3FileUploadService.uploadFile(photo, "profiles");
+            String s3Key = s3FileUploadService.extractS3KeyFromUrl(s3Url);
 
             // Redis에 저장
             progress.addProfileImage(String.valueOf(i), s3Url);
 
+            String presignedUrl = s3FileUploadService.presignedGetUrl(s3Key, Duration.ofMinutes(10));
+
             uploadedPhotos.add(ProfilePhotosResponseDto.UploadedPhotoDto.builder()
                     .photoId(UUID.randomUUID().toString())
-                    .url(s3Url)
+                    .url(presignedUrl)
                     .build());
         }
 
@@ -553,17 +557,34 @@ public class SignupService {
             return;
         }
 
+        List<Map.Entry<String, String>> sortedEntries = imageUrls.entrySet().stream()
+                .sorted(Comparator.comparingInt(e -> {
+                    try {
+                        return Integer.parseInt(e.getKey());
+                    } catch (NumberFormatException ex) {
+                        return Integer.MAX_VALUE; // 혹시 숫자 아니면 뒤로
+                    }
+                }))
+                .toList();
+
         List<ProfileImage> images = new ArrayList<>();
         int index = 0;
 
-        for (Map.Entry<String, String> entry : imageUrls.entrySet()) {
+        for (Map.Entry<String, String> entry : sortedEntries) {
+            String s3Url = entry.getValue(); // 원본 URL
+            String s3Key = s3FileUploadService.extractS3KeyFromUrl(s3Url); // baseUrl 떼서 key만
+
+            if (s3Key == null || s3Key.isBlank()) {
+                throw new IllegalArgumentException("S3 URL에서 key를 추출할 수 없습니다: " + s3Url);
+            }
+
             ProfileImage image = ProfileImage.builder()
                     .profile(profile)
-                    .url(entry.getValue())
-                    .fileName(extractFileNameFromS3Url(entry.getValue()))
+                    .url(s3Url)
+                    .fileName(s3Key) // s3 key 저장
                     .originalName("profile_" + entry.getKey())
                     .imageIndex(index)
-                    .isMain(index == 0) // 첫 번째 이미지를 대표사진으로
+                    .isMain(index == 0)
                     .build();
 
             images.add(image);

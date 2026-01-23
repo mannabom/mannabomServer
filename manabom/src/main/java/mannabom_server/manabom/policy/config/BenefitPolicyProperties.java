@@ -8,8 +8,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "benefit.policy")
 public class BenefitPolicyProperties {
+    private Basic basic = new Basic();
     private Membership membership = new Membership();
     private Vip vip = new Vip();
+
+    @Getter @Setter
+    public static class Basic{
+        private int dailyProfile;
+        private int dailyLoveView;
+    }
 
     @Getter @Setter
     public static class Membership{

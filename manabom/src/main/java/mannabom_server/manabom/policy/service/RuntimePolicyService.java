@@ -86,6 +86,10 @@ public class RuntimePolicyService {
                                 .dailyFreeMessages(benefitDefaults.getVip().getDailyFreeMessages())
                                 .dailyFreeLikes(benefitDefaults.getVip().getDailyFreeLikes())
                                 .build())
+                        .basic(RuntimePolicySnapshot.Benefit.Basic.builder()
+                                .dailyProfile(benefitDefaults.getBasic().getDailyProfile())
+                                .dailyLoveView(benefitDefaults.getBasic().getDailyLoveView())
+                                .build())
                         .build())
                 .build();
     }
@@ -120,6 +124,10 @@ public class RuntimePolicyService {
                 base.getBenefit().getVip().getDailyFreeMessages());
         int vipDailyFreeLikes = nvl(row.getBenefitVipDailyFreeLikes(),
                 base.getBenefit().getVip().getDailyFreeLikes());
+        int basicDailyProfile = nvl(row.getBenefitBasicDailyProfile(),
+                base.getBenefit().getBasic().getDailyProfile());
+        int basicDailyLoveView = nvl(row.getBenefitBasicDailyLoveView(),
+                base.getBenefit().getBasic().getDailyLoveView());
 
         return RuntimePolicySnapshot.builder()
                 .match(RuntimePolicySnapshot.Match.builder()
@@ -150,6 +158,10 @@ public class RuntimePolicyService {
                                 .dailyExtraProfiles(vipDailyExtraProfiles)
                                 .dailyFreeMessages(vipDailyFreeMessages)
                                 .dailyFreeLikes(vipDailyFreeLikes)
+                                .build())
+                        .basic(RuntimePolicySnapshot.Benefit.Basic.builder()
+                                .dailyProfile(basicDailyProfile)
+                                .dailyLoveView(basicDailyLoveView)
                                 .build())
                         .build())
                 .build();
@@ -382,6 +394,41 @@ public class RuntimePolicyService {
 
 
     // --------- benefit.policy ---------
+
+    @Transactional
+    public void updateBenefitBasicDailyProfile(int count) {
+        if (count < 0) throw new IllegalArgumentException("benefit.basic.dailyProfile은 0 이상이어야 합니다.");
+        PolicyConfig row = ensureRow();
+        row.updateBenefitBasicDailyProfile(count);
+        policyConfigRepository.save(row);
+        reload();
+    }
+
+    @Transactional
+    public void resetBenefitBasicDailyProfileToDefault() {
+        PolicyConfig row = ensureRow();
+        row.resetBenefitBasicDailyProfile();
+        policyConfigRepository.save(row);
+        reload();
+    }
+
+    @Transactional
+    public void updateBenefitBasicDailyLoveView(int count) {
+        if (count < 0) throw new IllegalArgumentException("benefit.basic.dailyLoveView은 0 이상이어야 합니다.");
+        PolicyConfig row = ensureRow();
+        row.updateBenefitBasicDailyLoveView(count);
+        policyConfigRepository.save(row);
+        reload();
+    }
+
+    @Transactional
+    public void resetBenefitBasicDailyLoveViewToDefault() {
+        PolicyConfig row = ensureRow();
+        row.resetBenefitBasicDailyLoveView();
+        policyConfigRepository.save(row);
+        reload();
+    }
+
 
     @Transactional
     public void updateBenefitMembershipCycleExtraProfiles(int count) {

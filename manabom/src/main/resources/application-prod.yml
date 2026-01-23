@@ -121,3 +121,6 @@ benefit:
       daily-extra-profiles: 3
       daily-free-messages: 0
       daily-free-likes: 0
+    basic: # 기본 지급
+      daily-profile: 10
+      daily-love-view: 10

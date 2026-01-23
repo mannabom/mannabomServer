@@ -9,11 +9,16 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -28,6 +33,7 @@ import java.util.UUID;
 public class S3FileUploadService {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final String bucketName;
     private final String baseUrl;
 
@@ -45,6 +51,10 @@ public class S3FileUploadService {
         this.bucketName = bucketName;
         this.baseUrl = baseUrl;
 
+        var creds = StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(accessKey, secretKey)
+        );
+
         // S3Client 초기화
         this.s3Client = S3Client.builder()
                 .region(Region.of(region))
@@ -53,7 +63,32 @@ public class S3FileUploadService {
                 ))
                 .build();
 
+        this.s3Presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(creds)
+                .build();
+
         log.info("S3 파일 업로드 서비스 초기화 완료 - 버킷: {}, 리전: {}", bucketName, region);
+    }
+
+    /**
+     * key로 presigned GET URL 생성
+     */
+    public String presignedGetUrl(String s3Key, Duration expires){
+        GetObjectRequest getReq = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .responseCacheControl("max-age=31536000")
+                .key(s3Key)
+                .build();
+
+        GetObjectPresignRequest presignReq = GetObjectPresignRequest.builder()
+                .signatureDuration(expires)
+                .getObjectRequest(getReq)
+                .build();
+
+        PresignedGetObjectRequest presigned = s3Presigner.presignGetObject(presignReq);
+
+        return presigned.url().toString();
     }
 
     /**
@@ -187,7 +222,7 @@ public class S3FileUploadService {
     /**
      * URL에서 S3 키 추출
      */
-    private String extractS3KeyFromUrl(String fileUrl) {
+    public String extractS3KeyFromUrl(String fileUrl) {
         if (fileUrl == null || !fileUrl.startsWith(baseUrl)) {
             return null;
         }

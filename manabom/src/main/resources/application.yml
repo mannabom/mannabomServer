@@ -101,11 +101,11 @@ ting:
     cost:
       extra-profile: 5 # 팅을 소모해서 추가적인 프로필 추천을 받을 때 비용(팅 갯수)
       extra-profile-bundle5: 20 # 추가 프로필 5개 묶음 비용
-      message: 0 # 팅을 소모해서 메시지를 보낼 때 비용(팅 갯수)
-      like: 0 # 팅을 소모해서 호감 보낼 때 사용(팅 갯수)
-      view-extra-photo: 3 # 상대 사진 추가로 보기
-      view-score: 3 # 상대가 내게 준 점수 조회 비용
-      view-liked-me-profile: 5 # 나에게 호감 표시한 유저 프로필 조회 비용
+      message: 40 # 팅을 소모해서 메시지를 보낼 때 비용(팅 갯수)
+      like: 20 # 팅을 소모해서 호감 보낼 때 사용(팅 갯수)
+      view-extra-photo: 5 # 상대 사진 추가로 보기
+      view-score: 5 # 상대가 내게 준 점수 조회 비용
+      view-liked-me-profile: 5 # 나를 찜한 사람 프로필 보기 (변수 이름을 잘못 지었다 ㅠㅠ 수정 귀찮음,, 헷갈리지 말기)
       view-high-score-profile: 5 # 나에게 높은 점수 준 유저 프로필 조회 비용
 
 benefit:

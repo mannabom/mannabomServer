@@ -2,7 +2,7 @@ package mannabom_server.manabom.presentation.matching.profileMatching.controller
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mannabom_server.manabom.application.matching.profileMatching.dto.request.ProfileMatchConditionRequestDto;
+import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.profileMatching.dto.response.ProfileMatchConditionResponseDto;
 import mannabom_server.manabom.application.matching.profileMatching.service.ProfileMatchService;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +22,7 @@ public class ProfileMatchController {
     @PostMapping("/simple")
     public ResponseEntity<ProfileMatchConditionResponseDto> matchFree(
             @AuthenticationPrincipal Long userId,
-            @Valid @RequestBody ProfileMatchConditionRequestDto request
+            @Valid @RequestBody MatchConditionRequestDto request
             ){
         return ResponseEntity.ok(profileMatchService.matchFree(userId, request));
     }
@@ -30,7 +30,7 @@ public class ProfileMatchController {
     @PostMapping("/simple/extra")
     public ResponseEntity<ProfileMatchConditionResponseDto> matchExtra(
             @AuthenticationPrincipal Long userId,
-            @Valid @RequestBody ProfileMatchConditionRequestDto request
+            @Valid @RequestBody MatchConditionRequestDto request
     ){
         return ResponseEntity.ok(profileMatchService.matchExtra(userId, request));
     }

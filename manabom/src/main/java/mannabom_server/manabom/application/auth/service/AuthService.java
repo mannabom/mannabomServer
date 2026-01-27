@@ -6,14 +6,18 @@ import mannabom_server.manabom.application.auth.dto.request.KakaoLoginRequestDto
 import mannabom_server.manabom.application.auth.dto.request.RefreshTokenRequestDto;
 import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseDto;
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
+import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
+import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.deviceToken.DeviceToken;
 import mannabom_server.manabom.domain.deviceToken.DeviceTokenRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
 import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
+import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
@@ -24,6 +28,8 @@ import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,6 +53,8 @@ public class AuthService {
     private final ProfileImageRepository profileImageRepository;
     private final JwtUtil jwtUtil;
     private final DeviceTokenRepository deviceTokenRepository;
+    private final S3FileUploadService s3FileUploadService;
+    private final TingWalletRepository tingWalletRepository;
 
     // 사업자 등록 하기 전 임시 개발환경 전용 설정
     @Value("${app.kakao.development.skip-age-verification:false}")
@@ -334,11 +342,56 @@ public class AuthService {
 
         Profile profile = profileRepository.findByUser(user).orElse(null);
 
+        Optional<TingWallet> tingWalletOpt = tingWalletRepository.findById(userId);
+
+        List<String> s3UrlsToDelete = new ArrayList<>();
+
         if(profile != null){
+            List<ProfileImage> images = profileImageRepository.findAllByProfile(profile);
+
+            for(ProfileImage img : images){
+                String s3Url = img.getUrl();
+                if(s3Url != null && !s3Url.isBlank()){
+                    s3UrlsToDelete.add(s3Url);
+                }
+            }
+
             questionAnswerRepository.deleteByProfile(profile);
             profileImageRepository.deleteByProfile(profile);
-
             profileRepository.delete(profile);
+        }
+
+        tingWalletOpt.ifPresentOrElse(
+                tingWalletRepository::delete,
+                () -> log.warn("회원 탈퇴 중 지갑이 존재하지 않습니다. userId : {}", userId)
+        );
+
+        if(!s3UrlsToDelete.isEmpty()) {
+            if(TransactionSynchronizationManager.isSynchronizationActive()){
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit(){
+                        for(String url : s3UrlsToDelete){
+                            try{
+                                s3FileUploadService.deleteFile(url);
+                                log.info("S3 이미지 삭제 완료, url : {}", url);
+                            } catch (Exception e){
+                                log.error("S3 이미지 삭제 실패, url : {}", url, e);
+                            }
+                        }
+                    }
+                });
+            } else {
+                log.warn("트랜잭션 동기화 비활성 - S3 즉시 삭제로 처리");
+                for(String url : s3UrlsToDelete){
+                    try{
+                        s3FileUploadService.deleteFile(url);
+                        log.info("S3 이미지 삭제 완료, url : {}", url);
+                    } catch (Exception e){
+                        log.error("S3 이미지 삭제 실패, url : {}", url, e);
+                    }
+                }
+            }
         }
 
         refreshTokenRepository.deleteByUser(user);

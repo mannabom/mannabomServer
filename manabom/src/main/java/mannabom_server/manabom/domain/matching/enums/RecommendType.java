@@ -1,4 +1,4 @@
-package mannabom_server.manabom.domain.matching.profileMatching.enums;
+package mannabom_server.manabom.domain.matching.enums;
 
 public enum RecommendType {
     FREE,

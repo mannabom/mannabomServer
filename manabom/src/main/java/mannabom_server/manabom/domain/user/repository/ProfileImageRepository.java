@@ -20,6 +20,11 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     List<ProfileImage> findByProfileOrderByImageIndex(Profile profile);
 
     /**
+     * 프로필의 모든 이미지 조회
+     */
+    List<ProfileImage> findAllByProfile(Profile profile);
+
+    /**
      * 프로필의 대표 이미지 조회
      */
     Optional<ProfileImage> findByProfileAndIsMainTrue(Profile profile);

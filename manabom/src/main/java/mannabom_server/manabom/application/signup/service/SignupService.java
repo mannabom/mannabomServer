@@ -10,6 +10,7 @@ import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
+import mannabom_server.manabom.domain.question.enums.QuestionType;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
@@ -58,6 +59,11 @@ public class SignupService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final TingWalletRepository tingWalletRepository;
+
+    private static final int BONUS_OPTIONAL_TEXT_MALE = 11;
+    private static final int BONUS_OPTIONAL_TEXT_FEMALE = 6;
+    private static final int BONUS_REQUIRED_CHOICE_MALE = 2;
+    private static final int BONUS_REQUIRED_CHOICE_FEMALE = 2;
 
     /**
      * 1단계: 기본 프로필 정보 저장
@@ -340,21 +346,21 @@ public class SignupService {
         // 2. 핵심 DB 작업 (짧은 트랜잭션)
         User user = createUserWithProfile(progress);
 
-        // 3. 토큰 생성 (외부 라이브러리 - 트랜잭션 없이)
+        // 3. 초기 포인트 계산
+        int signupBonusEventTing = calculateSignupBonusEventTing(progress.getQuestionAnswers(), Gender.valueOf(progress.getGender()));
+
+        // 4. 토큰 생성 (외부 라이브러리 - 트랜잭션 없이)
         TokenPair tokens = generateTokens(user.getUserId());
 
-        // 4. 부가 작업들 (별도 트랜잭션)
+        // 5. 부가 작업들 (별도 트랜잭션)
         saveRefreshToken(user, tokens.getRefreshToken());
 
-        // 5. 정리 작업 (트랜잭션 없이)
+        // 6. 정리 작업 (트랜잭션 없이)
         cleanupSignupProgress(progress);
 
-        // 6. 초기 포인트 계산
-        int initialPoints = calculateInitialPoints(progress.getGender());
+        log.info("회원가입 완료 - 사용자 ID: {}, 초기 포인트: {}", user.getUserId(), signupBonusEventTing);
 
-        log.info("회원가입 완료 - 사용자 ID: {}, 초기 포인트: {}", user.getUserId(), initialPoints);
-
-        return buildSignupCompleteResponse(user, tokens, initialPoints);
+        return buildSignupCompleteResponse(user, tokens, signupBonusEventTing);
     }
 
     /**
@@ -400,12 +406,15 @@ public class SignupService {
         user = userRepository.save(user);
 
         // 2. TingWallet 생성 및 초기 지원금 지급
-        int initialPoints = calculateInitialPoints(progress.getGender());
+        //int initialPoints = calculateInitialPoints(progress.getGender()); (기본 지급을 답변 보상으로 대체)
+        int signupBonusEventTing = calculateSignupBonusEventTing(progress.getQuestionAnswers(), Gender.valueOf(progress.getGender()));
         if(!tingWalletRepository.existsById(user.getUserId())) {
             TingWallet wallet = new TingWallet(user.getUserId());
-            wallet.addEventTing(initialPoints);
+            //wallet.addEventTing(initialPoints); (기본 지급을 답변 보상으로 대체)
+            wallet.addEventTing(signupBonusEventTing);
             tingWalletRepository.save(wallet);
-            log.info("해당 유저 팅 지갑 생성 완료");
+            int savedEventTing = wallet.getEventTing();
+            log.info("해당 유저 팅 지갑 생성 및 보너스 팅 지급 완료, 지급된 이벤트 팅 : {}", savedEventTing);
         }else
             log.error("이미 팅 지갑이 존재하는 유저( ID: {})", user.getUserId());
 
@@ -420,6 +429,77 @@ public class SignupService {
         log.debug("핵심 DB 작업 완료 - 사용자 ID: {}, 사용자명: {}",
                 user.getUserId(), user.getUserName());
         return user;
+    }
+
+    private int calculateSignupBonusEventTing(Map<String, String> answers, Gender gender) {
+        if(answers == null || answers.isEmpty())
+            return 0;
+
+        // 답변이 존재하는 질문들 id 추출
+        Set<Long> questionIds = new HashSet<>();
+
+        for(Map.Entry<String, String> e : answers.entrySet()){
+            String answer = e.getValue();
+            if(answer == null || answer.trim().isEmpty())
+                continue;
+
+            Long questionId = mapQuestionKeyToId(e.getKey());
+            if(questionId != null){
+                questionIds.add(questionId);
+            }
+        }
+
+        if(questionIds.isEmpty())
+            return 0;
+
+        // 해당 id들로 Question 객체들 불러와서 Mapping 시키기
+        List<Question> questions = questionRepository.findAllById(questionIds);
+
+        Map<Long, Question> questionMap = new HashMap<>();
+        for(Question q : questions){
+            questionMap.put(q.getQuestionId(), q);
+        }
+
+        int bonus = 0;
+        int optionalTextCount = 0;
+        int requiredChoiceCount = 0;
+
+        for (Map.Entry<String, String> entry : answers.entrySet()) {
+            String answer = entry.getValue();
+            if(answer == null || answer.trim().isEmpty())
+                continue;
+
+            Long questionId = mapQuestionKeyToId(entry.getKey());
+            if(questionId == null)
+                continue;
+
+            Question question = questionMap.get(questionId);
+            if(question == null)
+                continue;
+
+            QuestionType type = question.getQuestionType();
+
+            if(type == QuestionType.OPTIONAL_TEXT){
+                if(gender.equals(Gender.MALE))
+                    bonus += BONUS_OPTIONAL_TEXT_MALE;
+                else if(gender.equals(Gender.FEMALE))
+                    bonus += BONUS_OPTIONAL_TEXT_FEMALE;
+                else
+                    throw new IllegalStateException("사용자의 성별 확인 불가(보너스 팅 지급 부분)");
+                optionalTextCount++;
+            }else if(type == QuestionType.REQUIRED_CHOICE){
+                if(gender.equals(Gender.MALE))
+                    bonus += BONUS_REQUIRED_CHOICE_MALE;
+                else if(gender.equals(Gender.FEMALE))
+                    bonus += BONUS_REQUIRED_CHOICE_FEMALE;
+                else
+                    throw new IllegalStateException("사용자의 성별 확인 불가(보너스 팅 지급 부분)");
+                requiredChoiceCount++;
+            }
+        }
+        log.info("선택 주관식 답변 완료 : {}, 필수 객관식 답변 완료 : {}, 총 지급 보너스 팅 : {}(성별 : {})", optionalTextCount, requiredChoiceCount, bonus, gender.equals(Gender.FEMALE)? "여성" : "남성");
+
+        return bonus;
     }
 
     /**
@@ -572,16 +652,12 @@ public class SignupService {
 
         for (Map.Entry<String, String> entry : sortedEntries) {
             String s3Url = entry.getValue(); // 원본 URL
-            String s3Key = s3FileUploadService.extractS3KeyFromUrl(s3Url); // baseUrl 떼서 key만
-
-            if (s3Key == null || s3Key.isBlank()) {
-                throw new IllegalArgumentException("S3 URL에서 key를 추출할 수 없습니다: " + s3Url);
-            }
+            String fileName = extractFileNameFromS3Url(s3Url);
 
             ProfileImage image = ProfileImage.builder()
                     .profile(profile)
                     .url(s3Url)
-                    .fileName(s3Key) // s3 key 저장
+                    .fileName(fileName)
                     .originalName("profile_" + entry.getKey())
                     .imageIndex(index)
                     .isMain(index == 0)
@@ -652,13 +728,16 @@ public class SignupService {
     private Long mapQuestionKeyToId(String questionKey) {
         // Question 데이터 로드 시 설정된 ID와 매핑
         switch (questionKey) {
+            // --- 필수 주관식 ---
             case "self_introduction": return 1L;
             case "attractive_partner_trait": return 2L;
             case "desired_partner_trait": return 3L;
+            // --- 선택 주관식 ---
             case "meaningOfLove": return 4L;
             case "soulFood": return 5L;
             case "dailyAndHoliday": return 6L;
             case "idealDate": return 7L;
+            // --- 필수 연애관 이지선다 ---
             case "relationship_conflictResolution": return 8L;
             case "relationship_photoSharing": return 9L;
             case "relationship_relationshipPriority": return 10L;

@@ -3,13 +3,13 @@ package mannabom_server.manabom.application.matching.profileMatching.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mannabom_server.manabom.application.matching.profileMatching.dto.request.ProfileMatchConditionRequestDto;
+import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.profileMatching.dto.response.ProfileMatchConditionResponseDto;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.matching.profileMatching.entity.ProfileRecommendHistory;
-import mannabom_server.manabom.domain.matching.profileMatching.enums.RecommendType;
+import mannabom_server.manabom.domain.matching.enums.RecommendType;
 import mannabom_server.manabom.domain.matching.profileMatching.repository.ProfileRecommendHistoryRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
@@ -17,8 +17,6 @@ import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
-import mannabom_server.manabom.policy.config.MatchPolicyProperties;
-import mannabom_server.manabom.policy.config.TingPolicyProperties;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.data.domain.Page;
@@ -28,7 +26,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -53,7 +50,7 @@ public class ProfileMatchService {
     private final TingWalletRepository tingWalletRepository;
 
     @Transactional
-    public ProfileMatchConditionResponseDto matchFree(Long requesterUserId, ProfileMatchConditionRequestDto request) {
+    public ProfileMatchConditionResponseDto matchFree(Long requesterUserId, MatchConditionRequestDto request) {
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
 
@@ -88,7 +85,7 @@ public class ProfileMatchService {
     }
 
     @Transactional
-    public ProfileMatchConditionResponseDto matchExtra(Long requesterUserId, ProfileMatchConditionRequestDto req){
+    public ProfileMatchConditionResponseDto matchExtra(Long requesterUserId, MatchConditionRequestDto req){
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -179,19 +176,21 @@ public class ProfileMatchService {
         );
     }
 
-    private Profile pickOneCandidate(Long requesterUserId, Profile requesterProfile, ProfileMatchConditionRequestDto request, RuntimePolicySnapshot p) {
+    private Profile pickOneCandidate(Long requesterUserId, Profile requesterProfile, MatchConditionRequestDto request, RuntimePolicySnapshot p) {
         LocalDate today = LocalDate.now();
         LocalDate minDate = minDateFromMaxAge(today, request.getMaxAge());
         LocalDate maxDate = maxDateFromMinAge(today, request.getMinAge());
 
         LocalDateTime cooldownFrom = LocalDateTime.now().minusHours(p.getMatch().getCooldownHours());
 
-        Page<Profile> page = profileRepository.findMatchCandidates(
+        Page<Profile> page = profileRepository.findLoveViewMatchCandidates(
                 requesterUserId,
                 requesterProfile.getGender(),
                 minDate, maxDate,
-                request.getSmoking() == null || request.getSmoking().isEmpty(), safeList(request.getSmoking()),
-                request.getDrinking() == null || request.getDrinking().isEmpty(), safeList(request.getDrinking()),
+                request.getSmoking().isEmpty(),
+                request.getSmoking().isEmpty() ? List.of() : request.getSmoking(),
+                request.getDrinking().isEmpty(),
+                request.getDrinking().isEmpty() ? List.of() : request.getDrinking(),
                 requesterProfile.getRegionSido(),
                 requesterProfile.getRegionSigungu(),
                 cooldownFrom,

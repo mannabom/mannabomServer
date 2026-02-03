@@ -12,7 +12,7 @@ spring:
   # JPA/Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: update     # update 사용 (배포용)
+      ddl-auto: validate     # update 사용 (배포용)
     show-sql: false        # SQL 로그 비활성화 (배포용)
 
   # EC2 Redis 설정 (우선 AWS 전환X)
@@ -114,11 +114,11 @@ ting:
 benefit:
   policy:
     membership: # 맴버쉽 혜택
-      monthly-extra-profiles: 30
+      monthly-extra-profiles: 35
       monthly-free-messages: 10
-      monthly-free-likes: 0
+      monthly-free-likes: 5
     vip: # VIP 혜택
-      daily-extra-profiles: 3
+      daily-extra-profiles: 2
       daily-free-messages: 0
       daily-free-likes: 0
     basic: # 기본 지급

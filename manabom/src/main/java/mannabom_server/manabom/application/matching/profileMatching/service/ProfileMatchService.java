@@ -1,6 +1,5 @@
 package mannabom_server.manabom.application.matching.profileMatching.service;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
@@ -14,6 +13,8 @@ import mannabom_server.manabom.domain.matching.profileMatching.repository.Profil
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
+import mannabom_server.manabom.domain.user.enums.SmokingHabit;
 import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
@@ -22,6 +23,7 @@ import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -30,10 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static org.aspectj.util.LangUtil.safeList;
-
-//        ** 이 매소드 확인하고 정책값들 스냅샷으로 반영되는지 확인하고 고치기
 
 @Service
 @RequiredArgsConstructor
@@ -114,12 +112,12 @@ public class ProfileMatchService {
                 p.getBenefit().getVip().getDailyFreeLikes(),
                 today
         )) {
-            vipExtraProfileCount = tingWallet.getVipDailyExtraProfileRemaining();
+            vipExtraProfileCount = tingWallet.checkVipExtraProfilesRemaining(today);
         }
 
         int membershipExtraProfileCount = 0;
         if(tingWallet.isMembershipActive(now))
-            membershipExtraProfileCount = tingWallet.getMembershipMonthlyExtraProfileRemaining();
+            membershipExtraProfileCount = tingWallet.checkMembershipExtraProfilesRemaining(now);
 
         int tingExtraProfileCount = tingWallet.checkExtraProfileByTing();
 
@@ -183,14 +181,20 @@ public class ProfileMatchService {
 
         LocalDateTime cooldownFrom = LocalDateTime.now().minusHours(p.getMatch().getCooldownHours());
 
-        Page<Profile> page = profileRepository.findLoveViewMatchCandidates(
+        List<SmokingHabit> smoking = request.getSmoking() == null ? List.of() : request.getSmoking();
+        List<DrinkingHabit> drinking = request.getDrinking() == null ? List.of() : request.getDrinking();
+
+        boolean smokingEmpty = smoking.isEmpty();
+        boolean drinkingEmpty = drinking.isEmpty();
+
+        Page<Profile> page = profileRepository.findProfileMatchCandidates(
                 requesterUserId,
                 requesterProfile.getGender(),
                 minDate, maxDate,
-                request.getSmoking().isEmpty(),
-                request.getSmoking().isEmpty() ? List.of() : request.getSmoking(),
-                request.getDrinking().isEmpty(),
-                request.getDrinking().isEmpty() ? List.of() : request.getDrinking(),
+                smokingEmpty,
+                smoking,
+                drinkingEmpty,
+                drinking,
                 requesterProfile.getRegionSido(),
                 requesterProfile.getRegionSigungu(),
                 cooldownFrom,

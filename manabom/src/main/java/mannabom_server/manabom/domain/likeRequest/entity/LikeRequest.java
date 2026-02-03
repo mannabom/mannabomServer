@@ -1,0 +1,59 @@
+package mannabom_server.manabom.domain.likeRequest.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "like_request",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_like_from_to", columnNames = {"from_user_id", "to_user_id"})
+        },
+        indexes = {
+                @Index(name = "idx_like_to_status", columnList = "to_user_id,status"),
+                @Index(name = "idx_like_from_status", columnList = "from_user_id,status")
+        }
+)
+@Getter
+@NoArgsConstructor
+public class LikeRequest {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "from_user_id", nullable = false)
+    private Long fromUserId;
+
+    @Column(name = "to_user_id", nullable = false)
+    private Long toUserId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private LikeStatus status;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "responded_at")
+    private LocalDateTime respondedAt;
+
+    public LikeRequest(Long fromUserId, Long toUserId) {
+        this.fromUserId = fromUserId;
+        this.toUserId = toUserId;
+        this.status = LikeStatus.PENDING;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public void accept(){
+        this.status = LikeStatus.ACCEPTED;
+        this.respondedAt = LocalDateTime.now();
+    }
+
+    public void reject(){
+        this.status = LikeStatus.REJECTED;
+        this.respondedAt = LocalDateTime.now();
+    }
+}

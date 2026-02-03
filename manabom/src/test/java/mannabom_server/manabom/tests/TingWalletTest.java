@@ -45,43 +45,54 @@ class TingWalletTest {
     }
 
     @Test
-    @DisplayName("일일 프로필: check로 오늘치 지급 후 consume 가능, check 없이 consume 시 예외")
+    @DisplayName("일일 프로필: check로 오늘치 지급 후 consume 가능, check 없이 consume 시 예외, 다음날 재지급")
     void daily_profile_flow() {
         TingWallet w = new TingWallet(1L);
         LocalDate day1 = LocalDate.of(2026, 1, 18);
+        LocalDate day2 = day1.plusDays(1);
 
+        // check 없이 consume -> 예외
         assertThrows(IllegalStateException.class, () -> w.consumeDailyProfile(day1));
 
-        int remain = w.checkDailyProfile(day1, 3);
-        assertEquals(3, remain);
-        assertEquals(3, w.getDailyProfileRemaining());
-        assertEquals(day1, w.getDailyProfileGrantedDate());
+        // day1 지급
+        assertEquals(3, w.checkDailyProfile(day1, 3));
+
+        // 소비
+        w.consumeDailyProfile(day1);
+        assertEquals(2, w.checkDailyProfile(day1, 999)); // 같은 날 다시 check해도 값 유지
 
         w.consumeDailyProfile(day1);
-        assertEquals(2, w.getDailyProfileRemaining());
+        assertEquals(1, w.checkDailyProfile(day1, 999));
 
-        w.checkDailyProfile(day1, 999);
-        assertEquals(2, w.getDailyProfileRemaining());
+        w.consumeDailyProfile(day1);
+        assertEquals(0, w.checkDailyProfile(day1, 999));
 
-        LocalDate day2 = day1.plusDays(1);
-        w.checkDailyProfile(day2, 4);
-        assertEquals(4, w.getDailyProfileRemaining());
-        assertEquals(day2, w.getDailyProfileGrantedDate());
+        // 더 소비 -> 예외
+        assertThrows(IllegalStateException.class, () -> w.consumeDailyProfile(day1));
+
+        // day2 날짜 바뀌면 재지급
+        assertEquals(4, w.checkDailyProfile(day2, 4));
     }
 
     @Test
-    @DisplayName("일일 연애관: check로 오늘치 지급 후 consume 가능, 0이면 예외")
+    @DisplayName("일일 연애관: check로 오늘치 지급 후 consume 가능, 0이면 예외, 다음날 재지급")
     void daily_love_view_flow() {
         TingWallet w = new TingWallet(1L);
         LocalDate day1 = LocalDate.of(2026, 1, 18);
+        LocalDate day2 = day1.plusDays(1);
 
-        int remaining = w.checkDailyLoveView(day1, 1);
-        assertEquals(1, remaining);
+        // day1 지급
+        assertEquals(1, w.checkDailyLoveView(day1, 1));
 
+        // 소비
         w.consumeDailyLoveView(day1);
-        assertEquals(0, w.getDailyLoveViewRemaining());
+        assertEquals(0, w.checkDailyLoveView(day1, 999));
 
+        // 더 소비 -> 예외
         assertThrows(IllegalStateException.class, () -> w.consumeDailyLoveView(day1));
+
+        // day2 재지급
+        assertEquals(2, w.checkDailyLoveView(day2, 2));
     }
 
     @Test
@@ -110,62 +121,81 @@ class TingWalletTest {
         TingWallet w = new TingWallet(1L);
 
         LocalDateTime start = LocalDateTime.of(2026, 1, 1, 0, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 2, 1, 0, 0);
+        LocalDateTime now = LocalDateTime.of(2026, 1, 10, 0, 0);
+        LocalDateTime afterExpire = LocalDateTime.of(2026, 2, 2, 0, 0);
 
         assertThrows(IllegalArgumentException.class,
-                () -> w.activateMembership(null, end, 1, 1, 1));
+                () -> w.activateMembership(null, 1, 1, 1));
         assertThrows(IllegalArgumentException.class,
-                () -> w.activateMembership(start, start, 1, 1, 1));
-        assertThrows(IllegalArgumentException.class,
-                () -> w.activateMembership(start, end, -1, 1, 1));
+                () -> w.activateMembership(start, -1, 1, 1));
 
-        w.activateMembership(start, end, 1, 1, 1);
+        // 정상 활성화
+        w.activateMembership(start, 1, 1, 1);
 
         assertTrue(w.isMembershipActive(LocalDateTime.of(2026, 1, 15, 0, 0)));
-        assertFalse(w.isMembershipActive(LocalDateTime.of(2026, 2, 2, 0, 0)));
+        assertFalse(w.isMembershipActive(afterExpire));
 
-        LocalDateTime now = LocalDateTime.of(2026, 1, 10, 0, 0);
-
+        // 혜택 소모 + 남은 횟수 check (check가 ensureMembershipActive를 타는 버전이라면 now는 활성 기간이어야 함)
         w.consumeMembershipExtraProfile(now);
-        assertEquals(0, w.getMembershipMonthlyExtraProfileRemaining());
+        assertEquals(0, w.checkMembershipExtraProfilesRemaining(now));
         assertThrows(IllegalStateException.class, () -> w.consumeMembershipExtraProfile(now));
 
         w.consumeMembershipFreeLike(now);
-        assertEquals(0, w.getMembershipMonthlyFreeLikesRemaining());
+        assertEquals(0, w.checkMembershipFreeLikesRemaining(now));
         assertThrows(IllegalStateException.class, () -> w.consumeMembershipFreeLike(now));
 
         w.consumeMembershipFreeMessage(now);
-        assertEquals(0, w.getMembershipMonthlyFreeMessagesRemaining());
+        assertEquals(0, w.checkMembershipFreeMessagesRemaining(now));
         assertThrows(IllegalStateException.class, () -> w.consumeMembershipFreeMessage(now));
 
+        // 만료 후 사용 -> 예외
         assertThrows(IllegalStateException.class,
-                () -> w.consumeMembershipFreeMessage(LocalDateTime.of(2026, 2, 2, 0, 0)));
+                () -> w.consumeMembershipFreeMessage(afterExpire));
     }
 
     @Test
-    @DisplayName("VIP: threshold 이상이면 오늘치 지급, 같은 날은 ting 감소해도 VIP 유지, 다음날은 다시 판정")
-    void vip_flow() {
+    @DisplayName("VIP: isVip를 먼저 호출했다고 가정. 오늘 확인 안 했으면 check/consume 예외. 확인 후에는 check/consume 가능")
+    void vip_flow_requires_check_then_check_remaining_and_consume() {
         TingWallet w = new TingWallet(1L);
-        int threshold = 10;
 
+        int threshold = 10;
         LocalDate day1 = LocalDate.of(2026, 1, 18);
         LocalDate day2 = day1.plusDays(1);
 
-        assertFalse(w.isVip(threshold, 3, 2, 1, day1));
+        // isVip 안 했는데 check하면 예외(오늘 확인 절차 강제)
+        assertThrows(IllegalStateException.class, () -> w.checkVipExtraProfilesRemaining(day1));
+        assertThrows(IllegalStateException.class, () -> w.checkVipFreeLikesRemaining(day1));
+        assertThrows(IllegalStateException.class, () -> w.checkVipFreeMessagesRemaining(day1));
 
+        // day1: threshold 미만이면 VIP 아님
+        assertFalse(w.isVip(threshold, 3, 2, 1, day1));
+        assertThrows(IllegalStateException.class, () -> w.checkVipExtraProfilesRemaining(day1));
+
+        // day1: VIP 만들기
         w.addTing(10);
         assertTrue(w.isVip(threshold, 3, 2, 1, day1));
-        assertEquals(day1, w.getVipGrantedDate());
-        assertEquals(3, w.getVipDailyExtraProfileRemaining());
-        assertEquals(2, w.getVipDailyFreeMessagesRemaining());
-        assertEquals(1, w.getVipDailyFreeLikesRemaining());
 
+        // 잔여량 check -> consume -> check
+        assertEquals(3, w.checkVipExtraProfilesRemaining(day1));
+        w.consumeVipExtraProfile(day1);
+        assertEquals(2, w.checkVipExtraProfilesRemaining(day1));
+        w.consumeVipExtraProfile(day1);
+        assertEquals(1, w.checkVipExtraProfilesRemaining(day1));
+        w.consumeVipExtraProfile(day1);
+        assertEquals(0, w.checkVipExtraProfilesRemaining(day1));
+        assertThrows(IllegalStateException.class, () -> w.consumeVipExtraProfile(day1));
+
+        // 같은 날 ting 감소해도, "오늘 이미 확인"이 됐으면 VIP 유지(정책 그대로라면)
         w.spendTing(10);
         assertEquals(0, w.getTing());
-        assertTrue(w.isVip(threshold, 999, 999, 999, day1));
-        assertEquals(3, w.getVipDailyExtraProfileRemaining());
+        assertTrue(w.isVip(threshold, 999, 999, 999, day1)); // 같은 날이라 true 유지
+        // 이미 소진했으니 0 유지(999로 리셋되면 안 됨)
+        assertEquals(0, w.checkVipExtraProfilesRemaining(day1));
 
+        // 다음날(day2): ting이 threshold 미만이면 VIP 아님
         assertFalse(w.isVip(threshold, 3, 2, 1, day2));
+        // day2는 확인이 false니까 check하면 예외(오늘 확인 절차 강제)
+        assertThrows(IllegalStateException.class, () -> w.checkVipExtraProfilesRemaining(day2));
     }
 
     @Test
@@ -182,8 +212,7 @@ class TingWalletTest {
         assertTrue(w.isVip(50, 1, 1, 1, day1));
 
         w.consumeVipExtraProfile(day1);
-        assertEquals(0, w.getVipDailyExtraProfileRemaining());
+        assertEquals(0, w.checkVipExtraProfilesRemaining(day1));
         assertThrows(IllegalStateException.class, () -> w.consumeVipExtraProfile(day1));
     }
 }
-

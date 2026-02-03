@@ -1,6 +1,5 @@
 package mannabom_server.manabom.application.matching.loveViewMatching.service;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
@@ -9,13 +8,13 @@ import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.matching.loveViewMatching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.loveViewMatching.repository.LoveViewRecommendHistoryRepository;
-import mannabom_server.manabom.domain.matching.profileMatching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.matching.enums.RecommendType;
-import mannabom_server.manabom.domain.matching.profileMatching.repository.ProfileRecommendHistoryRepository;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
+import mannabom_server.manabom.domain.user.enums.SmokingHabit;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
@@ -23,6 +22,7 @@ import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -117,11 +117,11 @@ public class LoveViewMatchService {
                 p.getBenefit().getVip().getDailyFreeLikes(),
                 today
                 )){
-            extraLoveViewByVip = tingWallet.getVipDailyExtraProfileRemaining();
+            extraLoveViewByVip = tingWallet.checkVipExtraProfilesRemaining(today);
         }
         int extraLoveViewByMembership = 0;
         if(tingWallet.isMembershipActive(now)){
-            extraLoveViewByMembership = tingWallet.getMembershipMonthlyExtraProfileRemaining();
+            extraLoveViewByMembership = tingWallet.checkMembershipExtraProfilesRemaining(now);
         }
 
         if((extraLoveViewByTing + extraLoveViewByVip + extraLoveViewByMembership) <= 0)
@@ -129,15 +129,15 @@ public class LoveViewMatchService {
 
         if(extraLoveViewByVip > 0){
             tingWallet.consumeVipExtraProfile(today);
-            log.info("Vip 연애관 소개팅 추가 혜택권 사용");
+            log.info("Vip 연애관 소개팅 추가 혜택권 사용, 남은 혜택권 : {}", tingWallet.checkVipExtraProfilesRemaining(today));
             loveViewRecommendHistoryRepository.save(new LoveViewRecommendHistory(requester.getUserId(), pickedUser.getUserId(), RecommendType.EXTRA_VIP, now));
         }else if(extraLoveViewByMembership > 0){
             tingWallet.consumeMembershipExtraProfile(now);
-            log.info("맴버쉽 연애관 소개팅 추가 혜택권 사용");
+            log.info("맴버쉽 연애관 소개팅 추가 혜택권 사용, 남은 혜택권 : {}", tingWallet.checkMembershipExtraProfilesRemaining(now));
             loveViewRecommendHistoryRepository.save(new LoveViewRecommendHistory(requester.getUserId(), pickedUser.getUserId(), RecommendType.EXTRA_MEMBERSHIP, now));
         }else{
             tingWallet.consumeExtraProfileByTing();
-            log.info("팅으로 결제한 연애관 소개팅 추가 혜택권 사용");
+            log.info("팅으로 결제한 연애관 소개팅 추가 혜택권 사용, 남은 혜택권 : {}", tingWallet.checkExtraProfileByTing());
             loveViewRecommendHistoryRepository.save(new LoveViewRecommendHistory(requester.getUserId(), pickedUser.getUserId(), RecommendType.EXTRA_TING, now));
         }
 
@@ -185,14 +185,20 @@ public class LoveViewMatchService {
 
         LocalDateTime cooldownFrom = LocalDateTime.now().minusHours(p.getMatch().getCooldownHours());
 
+        List<SmokingHabit> smoking = request.getSmoking() == null ? List.of() : request.getSmoking();
+        List<DrinkingHabit> drinking = request.getDrinking() == null ? List.of() : request.getDrinking();
+
+        boolean smokingEmpty = smoking.isEmpty();
+        boolean drinkingEmpty = drinking.isEmpty();
+
         Page<Profile> page = profileRepository.findLoveViewMatchCandidates(
                 requesterUserId,
                 requesterProfile.getGender(),
                 minDate, maxDate,
-                request.getSmoking().isEmpty(),
-                request.getSmoking().isEmpty() ? List.of() : request.getSmoking(),
-                request.getDrinking().isEmpty(),
-                request.getDrinking().isEmpty() ? List.of() : request.getDrinking(),
+                smokingEmpty,
+                smoking,
+                drinkingEmpty,
+                drinking,
                 requesterProfile.getRegionSido(),
                 requesterProfile.getRegionSigungu(),
                 cooldownFrom,

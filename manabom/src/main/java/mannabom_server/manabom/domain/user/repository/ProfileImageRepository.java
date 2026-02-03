@@ -22,7 +22,13 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     /**
      * 프로필의 모든 이미지 조회
      */
-    List<ProfileImage> findAllByProfile(Profile profile);
+    @Query("""
+            select pi
+            from ProfileImage pi
+            where pi.profile = :profile
+            order by pi.isMain desc, pi.imageIndex asc, pi.imageId asc
+            """)
+    List<ProfileImage> findAllByProfile(@Param("profile") Profile profile);
 
     /**
      * 프로필의 대표 이미지 조회
@@ -32,7 +38,7 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     /**
      * 프로필의 이미지 개수 확인
      */
-    long countByProfile(Profile profile);
+    int countByProfile(Profile profile);
 
     /**
      * 프로필의 모든 이미지 삭제

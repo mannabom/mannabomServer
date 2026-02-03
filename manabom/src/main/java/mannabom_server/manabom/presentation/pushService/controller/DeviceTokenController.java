@@ -3,7 +3,7 @@ package mannabom_server.manabom.presentation.pushService.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.pushService.dto.request.DeviceTokenUpsertRequest;
-import mannabom_server.manabom.application.pushService.service.DeviceTokenService;
+import mannabom_server.manabom.application.pushService.service.registerToken.DeviceTokenService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

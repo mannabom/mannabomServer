@@ -12,7 +12,7 @@ spring:
   # JPA/Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: update  # create(DB테스트용), update(개발용), validate(운영용)
+      ddl-auto: validate  # create(DB테스트용), update(개발용), validate(운영용)
     show-sql: true      # SQL 쿼리 로그 출력 (개발용)
 
   # Redis 설정
@@ -111,11 +111,11 @@ ting:
 benefit:
   policy:
     membership: # 맴버쉽 혜택
-      monthly-extra-profiles: 30
+      monthly-extra-profiles: 35
       monthly-free-messages: 10
-      monthly-free-likes: 0
+      monthly-free-likes: 5
     vip: # VIP 혜택
-      daily-extra-profiles: 3
+      daily-extra-profiles: 2
       daily-free-messages: 0
       daily-free-likes: 0
     basic: # 기본 지급

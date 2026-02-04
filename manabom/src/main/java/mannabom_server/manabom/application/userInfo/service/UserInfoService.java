@@ -2,16 +2,15 @@ package mannabom_server.manabom.application.userInfo.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-<<<<<<< HEAD
+
 import mannabom_server.manabom.application.region.service.RegionService;
 import mannabom_server.manabom.application.userInfo.dto.GetUserInfoResponse;
 import mannabom_server.manabom.application.userInfo.dto.ProfileDto;
-=======
+
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.application.userInfo.dto.CheckEntitlementsResponseDto;
-import mannabom_server.manabom.application.userInfo.dto.GetUserInfoResponse;
 import mannabom_server.manabom.application.userInfo.dto.GetUserMainPhotoResponseDto;
->>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
+
 import mannabom_server.manabom.application.userInfo.dto.PutUserInfoRequest;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
@@ -51,16 +50,13 @@ public class UserInfoService {
     private final QuestionRepository questionRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
     private final UserRepository userRepository;
-<<<<<<< HEAD
     private final UniversityRepository universityRepository;
-
     private final RegionService regionService;
-=======
     private final ProfileImageRepository profileImageRepository;
     private final S3FileUploadService s3FileUploadService;
     private final TingWalletRepository tingWalletRepository;
     private final RuntimePolicyService runtimePolicyService;
->>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
+
 
     public GetUserInfoResponse getUserInfo(Long userId){
         log.info("회원 정보 조회 서비스 계층 동작 시작");

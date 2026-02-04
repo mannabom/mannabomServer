@@ -9,10 +9,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-<<<<<<< HEAD
-=======
+
 import org.springframework.data.repository.query.Param;
->>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
+
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -74,8 +73,8 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
           )
         order by
           case
-            when p.regionSido = :reqSido and p.regionSigungu = :reqSigungu then 0
-            when p.regionSido = :reqSido then 1
+            when p.region.sidoName = :reqSido and p.region.sigunguName = :reqSigungu then 0
+            when p.region.sidoName = :reqSido then 1
             else 2
           end,
           p.profileId desc
@@ -112,8 +111,8 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
           )
         order by
           case
-            when p.regionSido = :reqSido and p.regionSigungu = :reqSigungu then 0
-            when p.regionSido = :reqSido then 1
+            when p.region.sidoName = :reqSido and p.region.sigunguName = :reqSigungu then 0
+            when p.region.sidoName = :reqSido then 1
             else 2
           end,
           p.profileId desc

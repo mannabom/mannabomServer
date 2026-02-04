@@ -1,4 +1,4 @@
-version: '3.8'
+
 services:
   mannabom-server:
     image: ${ECR_REGISTRY_URI}:${IMAGE_TAG}
@@ -26,3 +26,6 @@ services:
 networks:
   mannabom-net:
     driver: bridge
+
+volumes:
+  redis_data: {}

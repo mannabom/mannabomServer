@@ -32,4 +32,6 @@ public class University extends BaseTimeEntity {
         this.name = name;
         this.domain = domain;
     }
+
+
 }

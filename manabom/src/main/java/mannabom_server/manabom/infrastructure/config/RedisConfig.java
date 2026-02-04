@@ -14,7 +14,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  */
 @Configuration
 @EnableRedisRepositories(
-        basePackages = "mannabom_server.manabom.domain.signup.repository",
+        basePackages = "mannabom_server.manabom.domain",
         enableKeyspaceEvents = RedisKeyValueAdapter.EnableKeyspaceEvents.ON_STARTUP
 )
 public class RedisConfig {

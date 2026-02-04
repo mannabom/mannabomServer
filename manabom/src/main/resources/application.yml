@@ -13,7 +13,22 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate  # create(DB테스트용), update(개발용), validate(운영용)
-    show-sql: true      # SQL 쿼리 로그 출력 (개발용)
+      default_batch_fetch_size: 100
+    properties:
+      hibernate.hibernate.use_sql_comments: true
+      hibernate:
+        format_sql: true
+    show-sql: false  # SQL 쿼리 로그 출력 (개발용)
+
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+
+
+
 
   # Redis 설정
   data:
@@ -76,10 +91,19 @@ logging:
   level:
     com.mannabom: DEBUG
     org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
 
 # 서버 설정
 server:
   port: 8080
+
+
+# 미팅 리스트 커서 설정
+meeting:
+  cursor:
+    secret: ${MEETING_SECRET_KEY:local-dev-key-do-not-user-in-prod}
+
 
 #fcm 설정
 fcm:

@@ -13,7 +13,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate     # update 사용 (배포용)
+      default_batch_fetch_size: 100
     show-sql: false        # SQL 로그 비활성화 (배포용)
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
   # EC2 Redis 설정 (우선 AWS 전환X)
   data:
@@ -83,6 +89,11 @@ logging:
 # 서버 설정
 server:
   port: ${SERVER_PORT:8080}
+
+meeting:
+  cursor:
+    secret: ${MEETING_SECRET_KEY:local-dev-key-do-not-user-in-prod}
+
 
 #fcm 설정
 fcm:

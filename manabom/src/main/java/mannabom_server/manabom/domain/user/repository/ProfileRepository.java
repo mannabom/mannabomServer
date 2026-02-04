@@ -9,7 +9,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+<<<<<<< HEAD
+=======
 import org.springframework.data.repository.query.Param;
+>>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -24,6 +27,14 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      */
     Optional<Profile> findByUser(User user);
 
+    /**
+     * 사용자로 프로필 조회 (지역이랑 대학까지 join fetch)
+     */
+    @Query("SELECT p FROM Profile p " +
+            "LEFT JOIN FETCH p.region " +
+            "LEFT JOIN FETCH p.university " +
+            "WHERE p.user = :user")
+    Optional<Profile> findByUserWithRegionAndUniversity(User user);
     /**
      * 닉네임으로 프로필 조회
      */

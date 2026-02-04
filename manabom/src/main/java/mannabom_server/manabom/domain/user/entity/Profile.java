@@ -1,14 +1,20 @@
 package mannabom_server.manabom.domain.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.region.entity.Region;
+import mannabom_server.manabom.domain.university.entity.University;
 import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.enums.SmokingHabit;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 사용자 상세 프로필 엔터티
@@ -18,7 +24,8 @@ import java.time.LocalDate;
 @Table(name = "profile")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
+@ToString(exclude = "profileImages")
 public class Profile extends BaseTimeEntity {
 
     @Id
@@ -42,11 +49,9 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "body_type")
     private BodyType bodyType;
 
-    @Column(name = "region_sido")                       // ERD랑 달라진 부분: 시/도 + 구 분리
-    private String regionSido;
-
-    @Column(name = "region_sigungu")
-    private String regionSigungu;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "region_id")                      // ERD랑 달라진 부분: 시/도 + 구 분리
+    private Region region;
 
     @Column(name = "nick_name", unique = true)          // 앱에서 사용할 닉네임 (중복X)
     private String nickName;
@@ -68,11 +73,13 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "smoking")
     private SmokingHabit smoking;
 
-    @Column(name = "university")                        // 대학명
-    private String university;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "university_id")                     // 대학명
+    private University university;
 
     @Column(name = "email")                             // 대학 인증용 이메일
     private String email;
+
 
     // 질문들은 question으로 통합 Type으로 구분.
 //    private String intro;
@@ -81,15 +88,14 @@ public class Profile extends BaseTimeEntity {
 
     @Builder
     public Profile(User user, Gender gender, Integer height, BodyType bodyType,
-                   String regionSido, String regionSigungu, String nickName, Double grade,
+                   Region region, String nickName, Double grade,
                    LocalDate birthDate, String mbti, DrinkingHabit alcohol,
-                   SmokingHabit smoking, String university, String email) {
+                   SmokingHabit smoking, University university, String email) {
         this.user = user;
         this.gender = gender;
         this.height = height;
         this.bodyType = bodyType;
-        this.regionSido = regionSido;
-        this.regionSigungu = regionSigungu;
+        this.region= region;
         this.nickName = nickName;
         this.grade = grade != null ? grade : 0.0;
         this.birthDate = birthDate;
@@ -114,6 +120,20 @@ public class Profile extends BaseTimeEntity {
         this.email = email;
     }
 
+<<<<<<< HEAD
+
+
+
+
+
+    /**
+     * 나이 반환
+     * */
+    public int computeAge(){
+        return LocalDate.now().getYear() - this.getBirthDate().getYear()+1;
+    }
+
+=======
     /**
      * 해당 회원의 평가 점수 업데이트
      * @param score 지금 받은 점수
@@ -123,4 +143,5 @@ public class Profile extends BaseTimeEntity {
         double totalScore = this.grade * count + score;
         this.grade = (double) totalScore / (double) (count+1);
     }
+>>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
 }

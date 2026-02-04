@@ -52,6 +52,7 @@ public class SignupProgress implements Serializable {
     private String email;
     private String verificationCode;
     private Boolean emailVerified;
+    private String university;
 
     // 4단계: 프로필 사진 업로드
     @Builder.Default
@@ -109,13 +110,15 @@ public class SignupProgress implements Serializable {
     /**
      * 3단계: 이메일 인증 정보 설정
      */
-    public void updateEmail(String email, String verificationCode, Boolean verified) {
+    public void updateEmail(String email, String verificationCode,String university) {
         this.email = email;
         this.verificationCode = verificationCode;
-        this.emailVerified = verified;
-        if (Boolean.TRUE.equals(verified)) {
-            updateCurrentStep(3);
-        }
+        this.emailVerified = false;
+        this.university = university;
+    }
+    public void markEmailVerified(){
+        this.emailVerified= true;
+        updateCurrentStep(3);
     }
 
     /**

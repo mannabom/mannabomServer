@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import mannabom_server.manabom.application.meeting.dto.common.RegionDto;
 import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
 import mannabom_server.manabom.domain.user.enums.SmokingHabit;
@@ -53,13 +54,5 @@ public class ProfileRelationshipRequestDto {
     @NotNull(message = "연애관 선택은 필수입니다.")
     private Map<String, String> relationshipChoices;
 
-    @Getter
-    @NoArgsConstructor
-    public static class RegionDto {
-        @NotBlank(message = "시/도는 필수입니다.")
-        private String sido;
 
-        @NotBlank(message = "구는 필수입니다.")
-        private String sigungu;
-    }
 }

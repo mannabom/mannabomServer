@@ -1,0 +1,96 @@
+name: Deploy to Amazon ECR & EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+# 깃액션에게 소스코드를 읽을 수 있는 권한을 부여하는것
+#이게 없으면 checkout source code에서 실패함
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./manabom
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3   # 깃허브 저장소의 코드를 가상 컴퓨터로 내려받습니다.
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3  # 자바 17 버전을 설치합니다.ㄴ
+
+      - name: Build with Gradle
+        run: | #이 파일은 실행해도 되는 파일이라고 선언 + 테스트는 건너뛰고(-x test) 빌드 해서 .jar파일 만들기 
+          chmod +x gradlew 
+          ./gradlew clean build -x test 
+
+      - name: Generate Image Tag
+        id: image-tag
+        run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-region: ${{secrets.AWS_REGION}}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, Tag, and Push Image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
+          ECR_REPOSITORY: mannabom/app-develop
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{env.IMAGE_TAG}} \
+                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{env.IMAGE_TAG}}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Copy Docker Compose file to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{secrets.SERVER_HOST}}     #ip주소
+          username: ${{secrets.SERVER_USER}} #계정 아이디 ubuntu
+          key: ${{secrets.SERVER_KEY}}    #.pem파일 내용
+          port: 22
+          # source: 내 컴퓨터(GitHub Actions)에 있는 파일 위치
+          # target: 서버(EC2)에 저장할 위치
+          source: "./mannabom/docker-compose.yml"
+          target: "/home/ubuntu/mannabom/docker-compose.yml"
+
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{secrets.SERVER_HOST}}     #ip주소
+          username: ${{secrets.SERVER_USER}} #계정 아이디 ubuntu
+          key: ${{secrets.SERVER_KEY}}    #.pem파일 내용
+          port: 22
+          script: |                      #export는 ssh 접속이 끝나면 휘발됨
+            export AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}}
+            export AWS_SECRET_ACCESS_KEY = ${{secrets.AWS_SECRET_ACCESS_KEY}}
+            export AWS_DEFAULT_REGION=${{secrets.AWS_DEFAULT_REGION}}
+            
+            aws ecr get-login-password | docker login --username AWS --password-stdin ${{steps.login-ecr.outputs.registry}}
+            
+            mkdir -p /home/ubuntu/mannabom
+            cd /home/ubuntu/mannabom
+
+            echo "${{secrets.ENV_FILE_BASE64}}" | base64 -d > .env.prod
+            echo "ECR_REGISTRY_URI=${{steps.login-ecr.outputs.registry}}/mannabom/app-develop" >> .env.prod
+            echo "IMAGE_TAG=${{env.IMAGE_TAG}}" >> .env.prod
+            
+            docker-compose pull
+            docker-compose up -d --remove-orphans
+            
+            docker image prune -f

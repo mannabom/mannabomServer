@@ -24,7 +24,6 @@ public class ProfileDto {
     private Gender gender;
     private Integer height;
     private BodyType bodyType;
-    @JsonUnwrapped
     private RegionDto region;
     private String nickName;
     private Double grade;

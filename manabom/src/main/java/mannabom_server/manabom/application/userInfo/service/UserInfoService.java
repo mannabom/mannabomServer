@@ -78,7 +78,7 @@ public class UserInfoService {
 
         log.info("회원 정보 입력(프로필 수정) 서비스 계층 동작 시작");
 
-        Region region = regionService.resolveRegion(request.getProfile().getRegion().getRegionSido(),request.getProfile().getRegion().getRegionSigungu());
+        Region region = regionService.resolveRegion(request.getProfile().getRegion().getSido(),request.getProfile().getRegion().getSigungu());
         University university = universityRepository.findByName(request.getProfile().getUniversity())
                 .orElseThrow(()->new IllegalArgumentException("존재하지 않는 대학교로 수정하실 수 없습니다."));
 

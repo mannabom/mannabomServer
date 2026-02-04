@@ -83,8 +83,8 @@ public class SignupService {
         progress.updateBasicInfo(
                 request.getHeight(),
                 request.getBodyType() != null ? request.getBodyType().name() : null,
-                request.getRegion().getRegionSido(),
-                request.getRegion().getRegionSigungu(),
+                request.getRegion().getSido(),
+                request.getRegion().getSigungu(),
                 request.getMbti(),
                 request.getSmokingHabit() != null ? request.getSmokingHabit().name() : null,
                 request.getDrinkingHabit() != null ? request.getDrinkingHabit().name() : null

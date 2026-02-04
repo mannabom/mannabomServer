@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.partner.dto.request.GetTargetLoveViewDetailRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
+import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
@@ -46,5 +47,15 @@ public class PartnerController {
             @RequestBody @Valid UnlockTargetPhotoRequestDto request
             ){
         return ResponseEntity.ok(partnerService.unlockTargetPhoto(userId, request));
+    }
+
+    @PostMapping("/extra_profile/ting")
+    public ResponseEntity<Void> purchaseAdditionalProfileByTing(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid PurchaseAdditionalProfileByTingRequestDto request
+            ){
+        partnerService.purchaseAdditionalProfileByTing(userId, request);
+
+        return ResponseEntity.status(200).build();
     }
 }

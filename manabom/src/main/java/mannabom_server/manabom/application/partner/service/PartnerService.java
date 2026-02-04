@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.partner.dto.common.LikedDto;
 import mannabom_server.manabom.application.partner.dto.common.MessagedDto;
+import mannabom_server.manabom.application.partner.dto.request.GetReceivedScoreRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
+import mannabom_server.manabom.application.partner.dto.response.GetReceivedScoreResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.UnlockTargetPhotoResponseDto;
@@ -16,6 +18,8 @@ import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
 import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
+import mannabom_server.manabom.domain.matching.entity.ProfileRating;
+import mannabom_server.manabom.domain.matching.repository.ProfileRatingRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
@@ -52,6 +56,7 @@ public class PartnerService {
     private final ProfileExtraPhotoUnlockRepository profileExtraPhotoUnlockRepository;
     private final RuntimePolicyService runtimePolicyService;
     private final TingWalletRepository tingWalletRepository;
+    private final ProfileRatingRepository profileRatingRepository;
 
     @Transactional(readOnly = true)
     public GetTargetProfileDetailResponseDto getTargetProfileDetail(Long requesterUserId, GetTargetProfileDetailRequestDto request){
@@ -229,5 +234,35 @@ public class PartnerService {
             throw new IllegalStateException("팅이나 이벤트 팅이 부족합니다.");
         }
         tingWallet.addExtraProfileByTing(num);
+    }
+
+    @Transactional
+    public GetReceivedScoreResponseDto getReceivedScore(Long userId, GetReceivedScoreRequestDto request) {
+        RuntimePolicySnapshot p = runtimePolicyService.snapshot();
+
+        Long targetProfileId = request.getTargetProfileId();
+        Profile targetProfile = profileRepository.findById(targetProfileId)
+                .orElseThrow(() -> new IllegalArgumentException("상대방 프로필을 찾을 수 없습니다."));
+        Long targetUserId = targetProfile.getUser().getUserId();
+
+        ProfileRating rating = profileRatingRepository.findByFromUserIdAndTargetUserId(targetUserId, userId)
+                .orElse(null);
+
+        if(rating == null){
+            return new GetReceivedScoreResponseDto(-1);
+        }
+
+        int cost = p.getTing().getCost().getViewScore();
+        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
+        if(tingWallet.getEventTing() >= cost){
+            tingWallet.spendEventTing(cost);
+        } else if (tingWallet.getTing() >= cost){
+            tingWallet.spendTing(cost);
+        } else {
+            throw new IllegalStateException("팅 또는 이벤트 팅이 부족합니다.");
+        }
+
+        return new GetReceivedScoreResponseDto(rating.getScore());
     }
 }

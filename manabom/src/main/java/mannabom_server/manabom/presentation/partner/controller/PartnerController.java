@@ -3,10 +3,8 @@ package mannabom_server.manabom.presentation.partner.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mannabom_server.manabom.application.partner.dto.request.GetTargetLoveViewDetailRequestDto;
-import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
-import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
-import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
+import mannabom_server.manabom.application.partner.dto.request.*;
+import mannabom_server.manabom.application.partner.dto.response.GetReceivedScoreResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.UnlockTargetPhotoResponseDto;
@@ -57,5 +55,13 @@ public class PartnerController {
         partnerService.purchaseAdditionalProfileByTing(userId, request);
 
         return ResponseEntity.status(200).build();
+    }
+
+    @PostMapping("/score/received")
+    public ResponseEntity<GetReceivedScoreResponseDto> getReceivedScore(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid GetReceivedScoreRequestDto request
+            ) {
+        return ResponseEntity.ok(partnerService.getReceivedScore(userId, request));
     }
 }

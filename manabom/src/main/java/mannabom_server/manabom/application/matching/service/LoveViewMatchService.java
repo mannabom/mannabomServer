@@ -1,13 +1,13 @@
-package mannabom_server.manabom.application.matching.loveViewMatching.service;
+package mannabom_server.manabom.application.matching.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
-import mannabom_server.manabom.application.matching.loveViewMatching.dto.response.LoveViewMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.LoveViewMatchConditionResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
-import mannabom_server.manabom.domain.matching.loveViewMatching.entity.LoveViewRecommendHistory;
-import mannabom_server.manabom.domain.matching.loveViewMatching.repository.LoveViewRecommendHistoryRepository;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
+import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
 import mannabom_server.manabom.domain.matching.enums.RecommendType;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
@@ -28,8 +28,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static org.aspectj.util.LangUtil.safeList;
 
 @Slf4j
 @Service

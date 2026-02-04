@@ -1,10 +1,10 @@
-package mannabom_server.manabom.presentation.matching.loveViewMatching.controller;
+package mannabom_server.manabom.presentation.matching.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
-import mannabom_server.manabom.application.matching.loveViewMatching.dto.response.LoveViewMatchConditionResponseDto;
-import mannabom_server.manabom.application.matching.loveViewMatching.service.LoveViewMatchService;
+import mannabom_server.manabom.application.matching.dto.response.LoveViewMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.service.LoveViewMatchService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

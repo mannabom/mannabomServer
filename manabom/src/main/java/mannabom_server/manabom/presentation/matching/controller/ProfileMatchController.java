@@ -1,10 +1,11 @@
-package mannabom_server.manabom.presentation.matching.profileMatching.controller;
+package mannabom_server.manabom.presentation.matching.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
-import mannabom_server.manabom.application.matching.profileMatching.dto.response.ProfileMatchConditionResponseDto;
-import mannabom_server.manabom.application.matching.profileMatching.service.ProfileMatchService;
+import mannabom_server.manabom.application.matching.dto.request.ProfileRatingRequestDto;
+import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.service.ProfileMatchService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,5 +34,15 @@ public class ProfileMatchController {
             @Valid @RequestBody MatchConditionRequestDto request
     ){
         return ResponseEntity.ok(profileMatchService.matchExtra(userId, request));
+    }
+
+    @PostMapping("/rate")
+    public ResponseEntity<Void> rateProfile(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid ProfileRatingRequestDto request
+            ) {
+        profileMatchService.rate(userId, request.getTargetProfileId(), request.getScore());
+
+        return ResponseEntity.status(204).build();
     }
 }

@@ -20,6 +20,17 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     List<ProfileImage> findByProfileOrderByImageIndex(Profile profile);
 
     /**
+     * 프로필의 모든 이미지 조회
+     */
+    @Query("""
+            select pi
+            from ProfileImage pi
+            where pi.profile = :profile
+            order by pi.isMain desc, pi.imageIndex asc, pi.imageId asc
+            """)
+    List<ProfileImage> findAllByProfile(@Param("profile") Profile profile);
+
+    /**
      * 프로필의 대표 이미지 조회
      */
     Optional<ProfileImage> findByProfileAndIsMainTrue(Profile profile);
@@ -27,7 +38,7 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     /**
      * 프로필의 이미지 개수 확인
      */
-    long countByProfile(Profile profile);
+    int countByProfile(Profile profile);
 
     /**
      * 프로필의 모든 이미지 삭제
@@ -40,4 +51,9 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     @Modifying
     @Query("UPDATE ProfileImage p SET p.isMain = false WHERE p.profile = :profile")
     void unsetAllMainPhotos(@Param("profile") Profile profile);
+
+    /**
+     * 해당 photoId가 해당 유저의 것인지 확인
+     */
+    boolean existsByImageIdAndProfile(Long imageId, Profile profile);
 }

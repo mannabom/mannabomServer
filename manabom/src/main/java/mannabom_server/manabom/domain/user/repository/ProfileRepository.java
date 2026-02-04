@@ -2,10 +2,22 @@ package mannabom_server.manabom.domain.user.repository;
 
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
+import mannabom_server.manabom.domain.user.enums.Gender;
+import mannabom_server.manabom.domain.user.enums.SmokingHabit;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+<<<<<<< HEAD
+=======
+import org.springframework.data.repository.query.Param;
+>>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -42,4 +54,82 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      * 유저 ID 기준으로 프로필 삭제
      */
     void deleteByUser(User user);
+
+    Optional<Profile> findByUser_UserId(Long userId);
+
+    @Query("""
+        select p
+        from Profile p
+        where p.user.userId <> :requesterId
+          and p.gender <> :requesterGender
+          and p.birthDate between :birthFrom and :birthTo
+          and (:smokingEmpty = true or p.smoking in :smoking)
+          and (:alcoholEmpty = true or p.alcohol in :alcohol)
+          and not exists (
+              select 1
+              from ProfileRecommendHistory h
+              where h.requesterUserId = :requesterId
+                and h.targetUserId = p.user.userId
+                and h.recommendedAt >= :cooldownFrom
+          )
+        order by
+          case
+            when p.regionSido = :reqSido and p.regionSigungu = :reqSigungu then 0
+            when p.regionSido = :reqSido then 1
+            else 2
+          end,
+          p.profileId desc
+        """)
+    Page<Profile> findProfileMatchCandidates(
+            @Param("requesterId") Long requesterId,
+            @Param("requesterGender") Gender requesterGender,
+            @Param("birthFrom") LocalDate birthFrom,
+            @Param("birthTo") LocalDate birthTo,
+            @Param("smokingEmpty") boolean smokingEmpty,
+            @Param("smoking") List<SmokingHabit> smoking,
+            @Param("alcoholEmpty") boolean alcoholEmpty,
+            @Param("alcohol") List<DrinkingHabit> alcohol,
+            @Param("reqSido") String reqSido,
+            @Param("reqSigungu") String reqSigungu,
+            @Param("cooldownFrom") LocalDateTime cooldownFrom,
+            Pageable pageable
+    );
+
+    @Query("""
+        select p
+        from Profile p
+        where p.user.userId <> :requesterId
+          and p.gender <> :requesterGender
+          and p.birthDate between :birthFrom and :birthTo
+          and (:smokingEmpty = true or p.smoking in :smoking)
+          and (:alcoholEmpty = true or p.alcohol in :alcohol)
+          and not exists (
+              select 1
+              from LoveViewRecommendHistory h
+              where h.requesterUserId = :requesterId
+                and h.targetUserId = p.user.userId
+                and h.recommendedAt >= :cooldownFrom
+          )
+        order by
+          case
+            when p.regionSido = :reqSido and p.regionSigungu = :reqSigungu then 0
+            when p.regionSido = :reqSido then 1
+            else 2
+          end,
+          p.profileId desc
+        """)
+    Page<Profile> findLoveViewMatchCandidates(
+            @Param("requesterId") Long requesterId,
+            @Param("requesterGender") Gender requesterGender,
+            @Param("birthFrom") LocalDate birthFrom,
+            @Param("birthTo") LocalDate birthTo,
+            @Param("smokingEmpty") boolean smokingEmpty,
+            @Param("smoking") List<SmokingHabit> smoking,
+            @Param("alcoholEmpty") boolean alcoholEmpty,
+            @Param("alcohol") List<DrinkingHabit> alcohol,
+            @Param("reqSido") String reqSido,
+            @Param("reqSigungu") String reqSigungu,
+            @Param("cooldownFrom") LocalDateTime cooldownFrom,
+            Pageable pageable
+    );
 }

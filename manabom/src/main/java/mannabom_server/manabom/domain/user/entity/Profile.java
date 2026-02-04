@@ -120,6 +120,7 @@ public class Profile extends BaseTimeEntity {
         this.email = email;
     }
 
+<<<<<<< HEAD
 
 
 
@@ -132,4 +133,15 @@ public class Profile extends BaseTimeEntity {
         return LocalDate.now().getYear() - this.getBirthDate().getYear()+1;
     }
 
+=======
+    /**
+     * 해당 회원의 평가 점수 업데이트
+     * @param score 지금 받은 점수
+     * @param count 지금까지 받은 평가 갯수
+     */
+    public void applyNewRating(int score, int count) {
+        double totalScore = this.grade * count + score;
+        this.grade = (double) totalScore / (double) (count+1);
+    }
+>>>>>>> acf6a76e7dfa5e7e132ece11a98c8922db1eeed6
 }

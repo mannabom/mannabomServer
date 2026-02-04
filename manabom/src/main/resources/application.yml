@@ -16,10 +16,18 @@ spring:
       default_batch_fetch_size: 100
     properties:
       hibernate.hibernate.use_sql_comments: true
+      hibernate:
+        format_sql: true
+    show-sql: false  # SQL 쿼리 로그 출력 (개발용)
+
+
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+
+
+
 
 
   # Redis 설정
@@ -117,20 +125,23 @@ ting:
     cost:
       extra-profile: 5 # 팅을 소모해서 추가적인 프로필 추천을 받을 때 비용(팅 갯수)
       extra-profile-bundle5: 20 # 추가 프로필 5개 묶음 비용
-      message: 0 # 팅을 소모해서 메시지를 보낼 때 비용(팅 갯수)
-      like: 0 # 팅을 소모해서 호감 보낼 때 사용(팅 갯수)
-      view-extra-photo: 3 # 상대 사진 추가로 보기
-      view-score: 3 # 상대가 내게 준 점수 조회 비용
-      view-liked-me-profile: 5 # 나에게 호감 표시한 유저 프로필 조회 비용
+      message: 40 # 팅을 소모해서 메시지를 보낼 때 비용(팅 갯수)
+      like: 20 # 팅을 소모해서 호감 보낼 때 사용(팅 갯수)
+      view-extra-photo: 5 # 상대 사진 추가로 보기
+      view-score: 5 # 상대가 내게 준 점수 조회 비용
+      view-liked-me-profile: 5 # 나를 찜한 사람 프로필 보기 (변수 이름을 잘못 지었다 ㅠㅠ 수정 귀찮음,, 헷갈리지 말기)
       view-high-score-profile: 5 # 나에게 높은 점수 준 유저 프로필 조회 비용
 
 benefit:
   policy:
     membership: # 맴버쉽 혜택
-      monthly-extra-profiles: 30
+      monthly-extra-profiles: 35
       monthly-free-messages: 10
-      monthly-free-likes: 0
+      monthly-free-likes: 5
     vip: # VIP 혜택
-      daily-extra-profiles: 3
+      daily-extra-profiles: 2
       daily-free-messages: 0
       daily-free-likes: 0
+    basic: # 기본 지급
+      daily-profile: 10
+      daily-love-view: 10

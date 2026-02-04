@@ -1,4 +1,4 @@
-package mannabom_server.manabom.application.pushService.service;
+package mannabom_server.manabom.application.pushService.service.registerToken;
 
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.domain.deviceToken.DeviceToken;

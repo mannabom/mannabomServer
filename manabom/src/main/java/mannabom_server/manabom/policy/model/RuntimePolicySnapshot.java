@@ -5,6 +5,7 @@ package mannabom_server.manabom.policy.model;
  */
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Builder
@@ -45,8 +46,16 @@ public class RuntimePolicySnapshot {
     @Getter
     @Builder
     public static class Benefit {
+        private final Basic basic;
         private final Membership membership;
         private final Vip vip;
+
+        @Getter
+        @Builder
+        public static class Basic{
+            private final int dailyProfile;
+            private final int dailyLoveView;
+        }
 
         @Getter
         @Builder

@@ -1,6 +1,7 @@
 package mannabom_server.manabom.domain.currency.entity;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +29,11 @@ public class TingWallet {
 
     /*---기본 지급(일반 유저)---*/
     // 오늘(해당 날짜)에 사용할 수 있는 기본 제공 프로필(소개팅) 남은 횟수
+    @Getter(AccessLevel.NONE)
     @Column(name = "daily_profile_remaining", nullable = false)
     private int dailyProfileRemaining;
     // 오늘(해당 날짜)에 사용할 수 있는 기본 제공 연애관(소개팅) 남은 횟수
+    @Getter(AccessLevel.NONE)
     @Column(name = "daily_love_view_remaining", nullable = false)
     private int dailyLoveViewRemaining;
     // 기본 제공 프로필 횟수를 마지막으로 "지급/초기화"한 날짜
@@ -42,17 +45,21 @@ public class TingWallet {
     /*----------------*/
 
     //팅으로 결제한 추가 소개팅 갯수(프로필, 연애관 통합)
+    @Getter(AccessLevel.NONE)
     @Column(name = "extra_profiles_by_ting_remaining", nullable = false)
     private int extraProfilesByTingRemaining;
 
     /*---맵버쉽 관련---*/
     // 멤버십: 이번 주기에서 추가 프로필(소개팅) 남은 횟수
+    @Getter(AccessLevel.NONE)
     @Column(name = "m_monthly_extra_profiles_remaining", nullable = false)
     private int membershipMonthlyExtraProfileRemaining;
     // 멤버십: 이번 주기에서 무료 메시지 남은 횟수
+    @Getter(AccessLevel.NONE)
     @Column(name = "m_monthly_extra_messages_remaining", nullable = false)
     private int membershipMonthlyFreeMessagesRemaining;
     // 멤버십: 이번 주기에서 무료 호감(Like) 남은 횟수
+    @Getter(AccessLevel.NONE)
     @Column(name = "m_monthly_free_likes_remaining", nullable = false)
     private int membershipMonthlyFreeLikesRemaining;
     // 맴버쉽 구독 주기 시작 시각(결제 시각)
@@ -66,12 +73,15 @@ public class TingWallet {
     /*---vip 관련---*/
     // VIP: 오늘 사용할 수 있는 추가 프로필 혜택 남은 횟수
     @Column(name = "vip_daily_extra_profiles_remaining", nullable = false)
+    @Getter(AccessLevel.NONE)
     private int vipDailyExtraProfileRemaining;
     // VIP: 오늘 사용할 수 있는 무료 호감 혜택 남은 횟수
     @Column(name = "vip_daily_free_likes_remaining", nullable = false)
+    @Getter(AccessLevel.NONE)
     private int vipDailyFreeLikesRemaining;
     // VIP: 오늘 사용할 수 있는 무료 메시지 혜택 남은 횟수
     @Column(name = "vip_daily_free_messages_remaining", nullable = false)
+    @Getter(AccessLevel.NONE)
     private int vipDailyFreeMessagesRemaining;
     // VIP 일 혜택을 마지막으로 지급한 날짜
     @Column(name = "vip_granted_date")
@@ -293,26 +303,24 @@ public class TingWallet {
      * 멤버십을 활성화하고, 주기 정보 및 혜택 잔여량을 세팅합니다.
      *
      * @param cycleStartAt  멤버십 주기 시작 시각 (결제 시각 등)
-     * @param activeUntil   멤버십 만료 시각 (cycleStartAt 이후여야 함)
      * @param extraProfiles 이번 주기 제공 추가 프로필 횟수 (0 이상)
      * @param freeMessages  이번 주기 제공 무료 메시지 횟수 (0 이상)
      * @param freeLikes     이번 주기 제공 무료 호감 횟수 (0 이상)
      * @throws IllegalArgumentException 필수 값이 null이거나, 기간/혜택 값이 유효하지 않은 경우
      */
     public void activateMembership(LocalDateTime cycleStartAt,
-                                   LocalDateTime activeUntil,
                                    int extraProfiles,
                                    int freeMessages,
                                    int freeLikes){
-        if(cycleStartAt == null || activeUntil == null)
-            throw new IllegalArgumentException("맵버쉽 시작 날짜 또는 유효 날짜는 필수로 포함되어야 합니다.");
-        if(!activeUntil.isAfter(cycleStartAt))
-            throw new IllegalArgumentException("시작 날짜는 종료 날짜보다 앞서야합니다.");
+        if(cycleStartAt == null)
+            throw new IllegalArgumentException("맵버쉽 시작 날짜는 필수로 포함되어야 합니다.");
         if(extraProfiles < 0 || freeMessages < 0 || freeLikes < 0)
             throw new IllegalArgumentException("혜택은 음수가 될 수 없습니다.");
+        if(this.membershipActiveUntil != null && cycleStartAt.isBefore(this.membershipActiveUntil))
+            throw new IllegalStateException("아직 맴버쉽 혜택이 끝나지 않은 상태입니다.");
 
         this.membershipCycleStartAt = cycleStartAt;
-        this.membershipActiveUntil = activeUntil;
+        this.membershipActiveUntil = cycleStartAt.plusMonths(1).minusDays(1);
         this.membershipMonthlyExtraProfileRemaining = extraProfiles;
         this.membershipMonthlyFreeMessagesRemaining = freeMessages;
         this.membershipMonthlyFreeLikesRemaining = freeLikes;
@@ -329,6 +337,22 @@ public class TingWallet {
             now = LocalDateTime.now();
         return this.membershipActiveUntil != null && now.isBefore(this.membershipActiveUntil);
     }
+
+    public int checkMembershipFreeMessagesRemaining(LocalDateTime now) {
+        ensureMembershipActive(now);
+        return membershipMonthlyFreeMessagesRemaining;
+    }
+
+    public int checkMembershipFreeLikesRemaining(LocalDateTime now) {
+        ensureMembershipActive(now);
+        return membershipMonthlyFreeLikesRemaining;
+    }
+
+    public int checkMembershipExtraProfilesRemaining(LocalDateTime now) {
+        ensureMembershipActive(now);
+        return membershipMonthlyExtraProfileRemaining;
+    }
+
 
     /**
      * 멤버십이 활성 상태인지 강제합니다.
@@ -426,9 +450,24 @@ public class TingWallet {
     private void ensureVip(LocalDate now){
         if(now == null)
             now = LocalDate.now();
-        if(vipGrantedDate == null || vipGrantedDate.isBefore(now)){
+        if(vipGrantedDate == null || !vipGrantedDate.equals(now)){
             throw new IllegalStateException("Vip가 아니거나 확인 절차를 거치지 않았습니다.");
         }
+    }
+
+    public int checkVipFreeMessagesRemaining(LocalDate now) {
+        ensureVip(now);
+        return vipDailyFreeMessagesRemaining;
+    }
+
+    public int checkVipFreeLikesRemaining(LocalDate now) {
+        ensureVip(now);
+        return vipDailyFreeLikesRemaining;
+    }
+
+    public int checkVipExtraProfilesRemaining(LocalDate now) {
+        ensureVip(now);
+        return vipDailyExtraProfileRemaining;
     }
 
     /**

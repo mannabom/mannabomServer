@@ -13,6 +13,8 @@ services:
       - redis
     networks:
       - mannabom-net
+    volumes:
+      - /opt/mannabom/firebase:/opt/mannabom/firebase
 
   redis:
     image: redis:alpine

@@ -68,7 +68,7 @@ jobs:
           port: 22
           # source: 내 컴퓨터(GitHub Actions)에 있는 파일 위치
           # target: 서버(EC2)에 저장할 위치
-          source: "./mannabom/docker-compose.yml"
+          source: "./manabom/docker-compose.yml"
           target: "/home/ubuntu/mannabom/docker-compose.yml"
 
 

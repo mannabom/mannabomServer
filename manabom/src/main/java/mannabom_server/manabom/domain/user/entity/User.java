@@ -13,7 +13,6 @@ import mannabom_server.manabom.domain.common.BaseTimeEntity;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor
-@ToString(exclude = "profile")
 public class User extends BaseTimeEntity {
 
     @Id

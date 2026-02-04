@@ -27,11 +27,11 @@ jobs:
         with:
           java-version: '17'      # 사용할 자바 버전
           distribution: 'temurin' # 필수! (temurin, zulu, corretto, microsoft 등)
-
+          cache: gradle
       - name: Build with Gradle
         run: | #이 파일은 실행해도 되는 파일이라고 선언 + 테스트는 건너뛰고(-x test) 빌드 해서 .jar파일 만들기 
           chmod +x gradlew 
-          ./gradlew clean build -x test 
+          ./gradlew build -x test --no-daemon
 
       - name: Generate Image Tag
         id: image-tag

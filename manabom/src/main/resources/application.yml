@@ -57,6 +57,13 @@ spring:
 
 # 커스텀 설정
 app:
+  aws:
+    region: ${AWS_REGION}
+    s3:
+      bucket-name: ${S3_BUCKET_NAME}
+      access-key: ${S3_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY}
+      base-url: ${S3_BASE_URL}
   # jwt 토큰 설정
   jwt:
     secret: ${JWT_SECRET:mannabom-super-secret-key-for-development-only-change-in-production}  # 32자 이상 필수

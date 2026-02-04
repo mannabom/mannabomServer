@@ -93,7 +93,7 @@ public class PartnerService {
         List<QuestionAnswer> questionAnswers = questionAnswerRepository.findByProfileWithQuestion(targetProfile);
 
         int age = LocalDate.now().getYear() - targetProfile.getBirthDate().getYear() + 1; // 2026 - 2002 + 1 = 25
-        String region = targetProfile.getRegionSido() + " " + targetProfile.getRegionSigungu();
+        String region = targetProfile.getRegion().getSidoName() + " " + targetProfile.getRegion().getSigunguName();
 
         Optional<LikeRequest> likeRequestOpt = likeRequestRepository.findByFromUserIdAndToUserId(requesterUserId, targetUserId);
         boolean likeRequestExists = likeRequestOpt.isPresent();
@@ -134,7 +134,7 @@ public class PartnerService {
         List<QuestionAnswer> questionAnswers = questionAnswerRepository.findByProfileWithQuestion(targetProfile);
 
         int age = LocalDate.now().getYear() - targetProfile.getBirthDate().getYear() + 1; // 2026 - 2002 + 1 = 25
-        String region = targetProfile.getRegionSido() + " " + targetProfile.getRegionSigungu();
+        String region = targetProfile.getRegion().getSidoName() + " " + targetProfile.getRegion().getSigunguName();
 
         Optional<LikeRequest> likeRequestOpt = likeRequestRepository.findByFromUserIdAndToUserId(requesterUserId, targetUserId);
         boolean likeRequestExists = likeRequestOpt.isPresent();

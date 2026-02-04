@@ -3,6 +3,7 @@ package mannabom_server.manabom.domain.user.repository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -14,6 +15,14 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      */
     Optional<Profile> findByUser(User user);
 
+    /**
+     * 사용자로 프로필 조회 (지역이랑 대학까지 join fetch)
+     */
+    @Query("SELECT p FROM Profile p " +
+            "LEFT JOIN FETCH p.region " +
+            "LEFT JOIN FETCH p.university " +
+            "WHERE p.user = :user")
+    Optional<Profile> findByUserWithRegionAndUniversity(User user);
     /**
      * 닉네임으로 프로필 조회
      */

@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  mannabom-server:
+    image: ${ECR_REGISTRY_URI}:${IMAGE_TAG}
+    container_name: mannabom-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    env_file:
+      - .env.prod
+    ports:
+      - 8080:8080
+    depends_on:
+      - redis
+    networks:
+      - mannabom-net
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - mannabom-net
+
+networks:
+  mannabom-net:
+    driver: bridge

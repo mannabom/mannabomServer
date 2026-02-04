@@ -6,13 +6,13 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ChatUserStatus {
-    ACTIVE((short)0),
-    KICKED((short)1),
-    DEACTIVATED((short)2);
+    ACTIVE(0),
+    KICKED(1),
+    DEACTIVATED(2);
 
-    private final short code;
+    private final int code;
 
-    public static ChatUserStatus from(short code){
+    public static ChatUserStatus from(int code){
         for(var v: ChatUserStatus.values()) if(v.code==code) return v;
         throw new IllegalArgumentException("채팅방유저 상태: 존재하지 않은 유저 상태입니다. " + code);
     }

@@ -5,7 +5,6 @@ import com.querydsl.core.BooleanBuilder;
 
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,7 @@ import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomsSearc
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.QMeeting;
 import mannabom_server.manabom.domain.meeting.entity.QMeetingMember;
-import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
+import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingBucket;
 import org.springframework.stereotype.Repository;
 
@@ -26,7 +25,9 @@ import java.util.List;
 public class MeetingRepositoryCustomImpl implements  MeetingRepositoryCustom{
 
     private final JPAQueryFactory factory;
-
+    private static final List<String> METROPOLITAN_CITIES = List.of(
+            "서울특별시","대전광역시","부산광역시","대구광역시","인천광역시","광주광역시","울산광역시","제주특별자치도"
+    );
 
     @Override
     public List<Meeting> fetchBucketPage(MeetingRoomsSearchRequest request, MeetingBucket meetingBucket, MeetingListCursor cursor, int limit) {
@@ -35,27 +36,44 @@ public class MeetingRepositoryCustomImpl implements  MeetingRepositoryCustom{
 
         applyCommonFilters(where,meeting,request);
 
+        String sido = request.getRegion().getRegionSido();
+        String sigungu = request.getRegion().getRegionSigungu();
+
+        boolean isAnySigungu = "상관없음".equals(sigungu) || "전체".equals(sigungu);
+        boolean isMetro = METROPOLITAN_CITIES.contains(sido);
+
         switch(meetingBucket){
             case FAST_1 -> {
-                where.and(meeting.matchingStatus.eq(MatchingStatus.FASTMATCHING));
-                where.and(exactRegion(meeting,request.getRegion().getSido(), request.getRegion().getSigungu()));
+                where.and(meeting.meetingStatus.eq(MeetingStatus.FASTMATCHING));
+                if(isAnySigungu){
+                    where.and(meeting.region.sidoName.eq(sido));
+                } else
+                    where.and(exactRegion(meeting,sido, sigungu));
             }
             case FAST_2 -> {
-                where.and(meeting.matchingStatus.eq(MatchingStatus.FASTMATCHING));
-                where.and(matchSameSidoDiffSigungu(meeting,request.getRegion().getSido(), request.getRegion().getSigungu()));
+                if(isAnySigungu||!isMetro){
+                    return List.of();
+                }
+                where.and(meeting.meetingStatus.eq(MeetingStatus.FASTMATCHING));
+                where.and(matchSameSidoDiffSigungu(meeting,sido, sigungu));
             }
             case REC_1 -> {
-                where.and(meeting.matchingStatus.eq(MatchingStatus.RECRUITING));
-                where.and(exactRegion(meeting,request.getRegion().getSido(), request.getRegion().getSigungu()));
+                where.and(meeting.meetingStatus.eq(MeetingStatus.RECRUITING));
+                if(isAnySigungu)
+                    where.and(meeting.region.sidoName.eq(sido));
+                else
+                    where.and(exactRegion(meeting,sido, sigungu));
             }
             case REC_2 -> {
-                where.and(meeting.matchingStatus.eq(MatchingStatus.RECRUITING));
-                where.and(matchSameSidoDiffSigungu(meeting,request.getRegion().getSido(), request.getRegion().getSigungu()));
+                if(isAnySigungu)
+                    return List.of();
 
+                where.and(meeting.meetingStatus.eq(MeetingStatus.RECRUITING));
+                where.and(matchSameSidoDiffSigungu(meeting,sido, sigungu));
             }
             case REC_3 -> {
-                where.and(meeting.matchingStatus.eq(MatchingStatus.RECRUITING));
-                where.and(meeting.regionSido.ne(request.getRegion().getSido()));
+                where.and(meeting.meetingStatus.eq(MeetingStatus.RECRUITING));
+                where.and(meeting.region.sidoName.ne(sido));
             }
         }
 
@@ -91,16 +109,20 @@ public class MeetingRepositoryCustomImpl implements  MeetingRepositoryCustom{
 
 
     private BooleanExpression exactRegion(QMeeting meeting, String sido, String sigungu){
-        return meeting.regionSido.eq(sido).and(meeting.regionSigungu.eq(sigungu));
+        return meeting.region.sidoName.eq(sido).and(
+                meeting.region.sigunguName.in(sigungu,"전체")
+        );
     }
 
     private BooleanExpression matchSameSidoDiffSigungu(QMeeting meeting, String sido, String sigungu){
-        return meeting.regionSido.eq(sido).and(meeting.regionSigungu.ne(sigungu));
+        return meeting.region.sidoName.eq(sido).and(
+                meeting.region.sigunguName.notIn(sigungu,"전체")
+                );
     }
 
     private OrderSpecifier<?>[] orderByScoreOldest(QMeeting meeting){
         return new OrderSpecifier[]{
-                occupancyScore(meeting).desc(),
+                meeting.occupancyScore.desc(),
                 meeting.createdAt.asc(),
                 meeting.id.asc()
         };

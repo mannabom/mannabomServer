@@ -4,14 +4,14 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
 @Converter
-public class MeetingTypeConverter implements AttributeConverter<MeetingType,Short> {
+public class MeetingTypeConverter implements AttributeConverter<MeetingType,Byte> {
     @Override
-    public Short convertToDatabaseColumn(MeetingType meetingType) {
-        return meetingType==null? null : meetingType.getCode();
+    public Byte convertToDatabaseColumn(MeetingType meetingType) {
+        return meetingType==null? null : (byte)meetingType.getCode();
     }
 
     @Override
-    public MeetingType convertToEntityAttribute(Short aShort) {
-        return aShort==null? null : MeetingType.from(aShort);
+    public MeetingType convertToEntityAttribute(Byte aByte) {
+        return aByte==null? null : MeetingType.from(aByte.intValue());
     }
 }

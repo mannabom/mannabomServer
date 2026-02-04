@@ -36,12 +36,13 @@ public class User extends BaseTimeEntity {
     @Column(name = "is_membership", nullable = false)
     private Boolean isMembership = false;
 
-    @JsonIgnore
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "user")
-    private Profile profile;
+//    @JsonIgnore
+//    @OneToOne(mappedBy = "user",fetch = FetchType.LAZY)
+//    private Profile profile;
 
     @Builder
-    public User(String kakaoId, String userName) {
+    public User(Long userId, String kakaoId, String userName) {
+        this.userId = userId;
         this.kakaoId = kakaoId;
         this.userName = userName;
         this.isVerified = false;

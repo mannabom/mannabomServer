@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.region.entity.Region;
+import mannabom_server.manabom.domain.university.entity.University;
 import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
 import mannabom_server.manabom.domain.user.enums.Gender;
@@ -47,11 +49,9 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "body_type")
     private BodyType bodyType;
 
-    @Column(name = "region_sido")                       // ERD랑 달라진 부분: 시/도 + 구 분리
-    private String regionSido;
-
-    @Column(name = "region_sigungu")
-    private String regionSigungu;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "region_id")                      // ERD랑 달라진 부분: 시/도 + 구 분리
+    private Region region;
 
     @Column(name = "nick_name", unique = true)          // 앱에서 사용할 닉네임 (중복X)
     private String nickName;
@@ -73,16 +73,13 @@ public class Profile extends BaseTimeEntity {
     @Column(name = "smoking")
     private SmokingHabit smoking;
 
-    @Column(name = "university")                        // 대학명
-    private String university;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "university_id")                     // 대학명
+    private University university;
 
     @Column(name = "email")                             // 대학 인증용 이메일
     private String email;
 
-    @BatchSize(size = 8)
-    @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
-    private List<ProfileImage> profileImages = new ArrayList<>();
 
     // 질문들은 question으로 통합 Type으로 구분.
 //    private String intro;
@@ -91,15 +88,14 @@ public class Profile extends BaseTimeEntity {
 
     @Builder
     public Profile(User user, Gender gender, Integer height, BodyType bodyType,
-                   String regionSido, String regionSigungu, String nickName, Double grade,
+                   Region region, String nickName, Double grade,
                    LocalDate birthDate, String mbti, DrinkingHabit alcohol,
-                   SmokingHabit smoking, String university, String email) {
+                   SmokingHabit smoking, University university, String email) {
         this.user = user;
         this.gender = gender;
         this.height = height;
         this.bodyType = bodyType;
-        this.regionSido = regionSido;
-        this.regionSigungu = regionSigungu;
+        this.region= region;
         this.nickName = nickName;
         this.grade = grade != null ? grade : 0.0;
         this.birthDate = birthDate;
@@ -126,19 +122,6 @@ public class Profile extends BaseTimeEntity {
 
 
 
-    /**
-    * 대표 사진
-    */
-    public String extractMainImageUrl(){
-        if(this.profileImages== null || this.profileImages.isEmpty()){
-            return null;
-        }
-        return this.profileImages.stream()
-                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
-                .findFirst()
-                .map(ProfileImage::getUrl)
-                .orElseGet(()-> this.profileImages.get(0).getUrl());
-    }
 
 
 

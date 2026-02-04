@@ -1,4 +1,4 @@
-package mannabom_server.manabom.application.meeting.dto.common;
+package mannabom_server.manabom.application.meeting.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import lombok.Builder;
@@ -7,6 +7,9 @@ import mannabom_server.manabom.domain.user.entity.User;
 
 import java.util.List;
 
+/*
+* 동성 채팅방 정보
+* */
 @Getter
 @Builder
 public class MeetingChatRoomInfo {
@@ -40,15 +43,6 @@ public class MeetingChatRoomInfo {
         private String nickname;
         private String profileImage;
         private boolean isLeader;
-
-        public static TeamMember of(User user, boolean isLeader){
-            return TeamMember.builder()
-                    .userId(user.getUserId())
-                    .nickname(user.getProfile().getNickName())
-                    .isLeader(isLeader)
-                    .profileImage(user.getProfile().extractMainImageUrl())
-                    .build();
-        }
     }
 
 

@@ -2,7 +2,6 @@ package mannabom_server.manabom.application.meeting.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
-import mannabom_server.manabom.application.meeting.dto.common.MeetingChatRoomInfo;
 
 @Getter
 @Builder

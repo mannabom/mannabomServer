@@ -5,16 +5,16 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum Role {
-    LEADER((short)1),
-    MEMBER((short)0),
-    KICKED((short)3),
-    DEACTIVATED((short)4);
+public enum MeetingRole {
+    LEADER(1),
+    MEMBER(0),
+    KICKED(3),
+    DEACTIVATED(4);
 
-    private final short code;
+    private final int code;
 
-    public static Role from(short code){
-        for(var v:Role.values()) if(v.code==code) return v;
+    public static MeetingRole from(int code){
+        for(var v: MeetingRole.values()) if(v.code==code) return v;
         throw new IllegalArgumentException("미팅방 역할: 존재하지 않은 역할입니다. " + code);
     }
 

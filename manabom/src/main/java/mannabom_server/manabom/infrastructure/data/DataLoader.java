@@ -5,13 +5,21 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.enums.QuestionType;
 import mannabom_server.manabom.domain.question.repository.QuestionRepository;
+import mannabom_server.manabom.domain.region.entity.Region;
+import mannabom_server.manabom.domain.region.repository.RegionRepository;
 import mannabom_server.manabom.domain.university.entity.University;
 import mannabom_server.manabom.domain.university.repository.UniversityRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,6 +32,7 @@ public class DataLoader implements ApplicationRunner {
 
     private final QuestionRepository questionRepository;
     private final UniversityRepository universityRepository;
+    private final RegionRepository regionRepository;
 
     @Override
     @Transactional
@@ -32,7 +41,7 @@ public class DataLoader implements ApplicationRunner {
 
         loadQuestions();
         loadUniversities();
-
+        loadRegion();
         log.info("초기 데이터 로드 완료");
     }
 
@@ -164,5 +173,44 @@ public class DataLoader implements ApplicationRunner {
 
         universityRepository.saveAll(universities);
         log.info("대학 데이터 로드 완료 - 총 {}개", universities.size());
+    }
+
+    private void loadRegion(){
+        if(regionRepository.count()>0){
+            log.info("지역 데이터가 이미 존재합니다. 스킵합니다.");
+            return;
+        }
+
+        log.info("지역 데이터 로드 시작");
+
+        List<Region> regions = new ArrayList<>();
+        try(
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(
+                                new ClassPathResource("data/regions.csv").getInputStream(), StandardCharsets.UTF_8)
+                )
+        ){
+            String line;
+            boolean header = true;
+
+            while((line=br.readLine())!=null){
+                if(header){
+                    header=false; continue;
+                }
+                String[] t = line.split(",");
+                regions.add(new Region(
+                        t[0].trim(),
+                        t[1].trim(),
+                        t[2].trim(),
+                        t[3].trim()
+                ));
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("지역 데이터 로딩 실패",e);
+        }
+
+        regionRepository.saveAll(regions);
+        log.info("지역 데이터 로드 완료 - 총 {}개", regions.size());
+
     }
 }

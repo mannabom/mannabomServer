@@ -18,4 +18,10 @@ public interface UniversityRepository extends JpaRepository<University, Long> {
      * 도메인 존재 여부 확인
      */
     boolean existsByDomain(String domain);
+
+    /**
+     * 대학 이름으로 대학 조회
+     */
+    Optional<University> findByName(String name);
+
 }

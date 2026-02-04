@@ -6,11 +6,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Getter
 public enum MeetingType {
-    GENERAL((short)0);
+    GENERAL(0);
 
-    private final short code;
+    private final int code;
 
-    public static MeetingType from(short code){
+    public static MeetingType from(int code){
         for(var v: values()) if(v.code == code) return v;
         throw new IllegalArgumentException("미팅 타입: 존재하지 않은 미팅타입 입니다.");
     }

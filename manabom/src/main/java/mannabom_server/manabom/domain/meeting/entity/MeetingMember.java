@@ -6,8 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.meeting.enums.ChatUserStatus;
-import mannabom_server.manabom.domain.meeting.enums.Role;
-import mannabom_server.manabom.domain.meeting.enums.RoleConverter;
+import mannabom_server.manabom.domain.meeting.enums.MeetingRole;
+import mannabom_server.manabom.domain.meeting.enums.MeetingRoleConverter;
 import mannabom_server.manabom.domain.meeting.enums.ChatUserStatusConverter;
 import mannabom_server.manabom.domain.user.entity.User;
 import org.hibernate.annotations.CreationTimestamp;
@@ -37,8 +37,8 @@ public class MeetingMember {
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt;
 
-    @Convert(converter = RoleConverter.class)
-    private Role role;
+    @Convert(converter = MeetingRoleConverter.class)
+    private MeetingRole meetingRole;
 
     @Convert(converter = ChatUserStatusConverter.class)
     private ChatUserStatus status;
@@ -48,7 +48,7 @@ public class MeetingMember {
         return MeetingMember.builder()
                 .meeting(meeting)
                 .user(user)
-                .role(Role.LEADER)
+                .meetingRole(MeetingRole.LEADER)
                 .status(ChatUserStatus.ACTIVE)
                 .build();
     }
@@ -56,7 +56,7 @@ public class MeetingMember {
         return MeetingMember.builder()
                 .meeting(meeting)
                 .user(user)
-                .role(Role.MEMBER)
+                .meetingRole(MeetingRole.MEMBER)
                 .status(ChatUserStatus.ACTIVE)
                 .build();
     }

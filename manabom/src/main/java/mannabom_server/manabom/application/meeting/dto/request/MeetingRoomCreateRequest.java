@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import mannabom_server.manabom.application.meeting.dto.common.AgeRangeDto;
 import mannabom_server.manabom.application.meeting.dto.common.RegionDto;
 import mannabom_server.manabom.domain.meeting.enums.MeetingType;
@@ -16,6 +17,7 @@ import mannabom_server.manabom.domain.meeting.enums.MeetingType;
 
 @AllArgsConstructor
 @Getter
+@NoArgsConstructor
 public class MeetingRoomCreateRequest {
     @NotNull(message = "방 이름은 필수입니다.")
     private String roomName;
@@ -37,4 +39,10 @@ public class MeetingRoomCreateRequest {
     private MeetingType meetingType;
 
 
+    public MeetingRoomCreateRequest(String roomName, RegionDto region, AgeRangeDto ageRange, int maxMembers) {
+        this.roomName = roomName;
+        this.region = region;
+        this.ageRange = ageRange;
+        this.maxMembers = maxMembers;
+    }
 }

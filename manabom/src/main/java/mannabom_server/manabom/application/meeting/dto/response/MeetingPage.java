@@ -1,4 +1,4 @@
-package mannabom_server.manabom.application.meeting.dto.common;
+package mannabom_server.manabom.application.meeting.dto.response;
 
 import java.util.List;
 

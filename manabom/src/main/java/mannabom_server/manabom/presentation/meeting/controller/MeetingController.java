@@ -3,13 +3,12 @@ package mannabom_server.manabom.presentation.meeting.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.common.dto.ApiResponse;
-import mannabom_server.manabom.application.meeting.dto.common.MeetingPage;
+import mannabom_server.manabom.application.meeting.dto.response.MeetingPage;
 import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomCreateRequest;
 import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomJoinByCodeRequest;
-import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomJoinRequest;
 import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomsSearchRequest;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingRoomCreateDataDto;
-import mannabom_server.manabom.application.meeting.dto.response.MemberProfilesDto;
+import mannabom_server.manabom.application.meeting.dto.response.TeamMemberProfilesDto;
 import mannabom_server.manabom.application.meeting.dto.response.MyMeetingStatusDataDto;
 import mannabom_server.manabom.application.meeting.service.MeetingService;
 import org.springframework.http.ResponseEntity;
@@ -38,9 +37,9 @@ public class MeetingController {
     }
 
     /*미팅 방 입장(빠른매칭 api)*/
-    @PostMapping("/rooms/join")
-    public ResponseEntity<ApiResponse<MeetingRoomCreateDataDto>> joinMeetingById(@RequestBody MeetingRoomJoinRequest request, @AuthenticationPrincipal Long userId){
-        MeetingRoomCreateDataDto data = meetingService.enterRoomById(request,userId);
+    @PostMapping("/rooms/join/{meetingId}")
+    public ResponseEntity<ApiResponse<MeetingRoomCreateDataDto>> joinMeetingById(@PathVariable Long meetingId, @AuthenticationPrincipal Long userId){
+        MeetingRoomCreateDataDto data = meetingService.enterRoomById(meetingId,userId);
         return ResponseEntity.ok(ApiResponse.success(data, "방 입장 완료"));
     }
 
@@ -53,8 +52,8 @@ public class MeetingController {
 
     /*팀원 프로필 상세 조회*/
     @GetMapping("/member-profiles/{meetingId}")
-    public ResponseEntity<ApiResponse<MemberProfilesDto>> getMeetingMemberProfiles(@PathVariable Long meetingId, @AuthenticationPrincipal Long userId){
-        MemberProfilesDto dto =meetingService.getTeamMemberProfilesDetail(meetingId);
+    public ResponseEntity<ApiResponse<TeamMemberProfilesDto>> getMeetingMemberProfiles(@PathVariable Long meetingId, @AuthenticationPrincipal Long userId){
+        TeamMemberProfilesDto dto =meetingService.getTeamMemberProfilesDetail(meetingId);
         return ResponseEntity.ok(ApiResponse.success(dto, "미팅 팀원 프로필 상세 조회 성공"));
     }
 

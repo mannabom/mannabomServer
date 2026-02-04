@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import lombok.Builder;
 import lombok.Getter;
-import mannabom_server.manabom.application.meeting.dto.common.MeetingChatRoomInfo;
 
 @Getter
 @Builder

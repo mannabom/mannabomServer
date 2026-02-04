@@ -3,15 +3,18 @@ package mannabom_server.manabom.domain.meeting.enums;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
+
 @Converter
-public class MatchingStatusConverter implements AttributeConverter<MatchingStatus,Short> {
+public class MatchingStatusConverter implements AttributeConverter<MatchingStatus,Byte> {
     @Override
-    public Short convertToDatabaseColumn(MatchingStatus matchingStatus) {
-        return matchingStatus==null? null : matchingStatus.getCode();
+    public Byte convertToDatabaseColumn(MatchingStatus attribute) {
+        if(attribute == null) return null;
+        return (byte)attribute.getCode();
     }
 
     @Override
-    public MatchingStatus convertToEntityAttribute(Short aShort) {
-        return aShort==null? null : MatchingStatus.from(aShort);
+    public MatchingStatus convertToEntityAttribute(Byte dbData) {
+        if(dbData == null) return null;
+        return MatchingStatus.fromCode(dbData.intValue());
     }
 }

@@ -10,6 +10,6 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 public class GetUserInfoResponse {
-    private final Profile profile;
+    private final ProfileDto profile;
     private final List<QuestionAnswer> questionAnswerList;
 }

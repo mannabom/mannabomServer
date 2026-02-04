@@ -12,8 +12,11 @@ import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionRepository;
+import mannabom_server.manabom.domain.region.entity.Region;
+import mannabom_server.manabom.domain.region.repository.RegionRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
 import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
+import mannabom_server.manabom.domain.university.entity.University;
 import mannabom_server.manabom.domain.university.repository.UniversityRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
@@ -50,6 +53,7 @@ public class SignupService {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UniversityRepository universityRepository;
+    private final RegionRepository regionRepository;
 
     private final EmailService emailService;
     private final S3FileUploadService s3FileUploadService;
@@ -72,8 +76,8 @@ public class SignupService {
         progress.updateBasicInfo(
                 request.getHeight(),
                 request.getBodyType() != null ? request.getBodyType().name() : null,
-                request.getRegion().getSido(),
-                request.getRegion().getSigungu(),
+                request.getRegion().getRegionSido(),
+                request.getRegion().getRegionSigungu(),
                 request.getMbti(),
                 request.getSmokingHabit() != null ? request.getSmokingHabit().name() : null,
                 request.getDrinkingHabit() != null ? request.getDrinkingHabit().name() : null
@@ -186,9 +190,8 @@ public class SignupService {
 
         // 2. 대학 도메인 검증
         String domain = extractDomain(request.getEmail());
-        if (!universityRepository.existsByDomain(domain)) {
-            throw new IllegalArgumentException("지원하지 않는 대학 이메일입니다.");
-        }
+        University university = universityRepository.findByDomain(domain)
+                .orElseThrow(()->new IllegalArgumentException("지원하지 않는 대학 이메일입니다."));
 
         // 3. 실제 DB에서 이메일 중복 확인
         boolean dbExists = profileRepository.findByEmail(request.getEmail()).isPresent();
@@ -201,7 +204,7 @@ public class SignupService {
         String verificationCode = emailService.sendVerificationCode(request.getEmail());
 
         // 5. 진행상태 업데이트
-        progress.updateEmail(request.getEmail(), verificationCode, false);
+        progress.updateEmail(request.getEmail(), verificationCode, university.getName());
         signupProgressRepository.save(progress);
 
         log.info("이메일 인증번호 발송 완료");
@@ -232,9 +235,9 @@ public class SignupService {
         }
 
         // 3. 인증 완료 처리
-        progress.updateEmail(progress.getEmail(), null, true);
-        signupProgressRepository.save(progress);
+        progress.markEmailVerified();
 
+        signupProgressRepository.save(progress);
         log.info("이메일 인증 완료");
 
         return VerifyEmailResponseDto.builder()
@@ -526,13 +529,16 @@ public class SignupService {
      * 입력받은 회원 정보들 바탕으로 프로필 생성
      */
     private Profile createProfileFromProgress(User user, SignupProgress progress) {
+        University university = universityRepository.findByName(progress.getUniversity())
+                        .orElseThrow(()-> new IllegalArgumentException("유효하지 않은 대학입니다." + progress.getUniversity()));
+        Region region = regionRepository.findBySidoNameAndSigunguName(progress.getRegionSido(),progress.getRegionSigungu())
+                        .orElseThrow(()-> new IllegalArgumentException("유효하지 않은 지역입니다."));
         return Profile.builder()
                 .user(user)
                 .gender(Gender.valueOf(progress.getGender()))
                 .height(progress.getHeight())
                 .bodyType(progress.getBodyType() != null ? BodyType.valueOf(progress.getBodyType()) : null)
-                .regionSido(progress.getRegionSido())
-                .regionSigungu(progress.getRegionSigungu())
+                .region(region)
                 .nickName(progress.getNickName())
                 .birthDate(progress.getBirthYear() != null ?
                         LocalDate.of(progress.getBirthYear(), 1, 1) : null)
@@ -542,6 +548,7 @@ public class SignupService {
                 .smoking(progress.getSmokingHabit() != null ?
                         SmokingHabit.valueOf(progress.getSmokingHabit()) : null)
                 .email(progress.getEmail())
+                .university(university)
                 .build();
     }
 

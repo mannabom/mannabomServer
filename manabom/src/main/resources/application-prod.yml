@@ -12,7 +12,7 @@ spring:
   # JPA/Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: update     # update 사용 (배포용)
+      ddl-auto: validate     # update 사용 (배포용)
       default_batch_fetch_size: 100
     show-sql: false        # SQL 로그 비활성화 (배포용)
 

@@ -3,6 +3,7 @@ package mannabom_server.manabom.domain.chat.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.user.entity.User;
 import org.hibernate.annotations.CreationTimestamp;
@@ -14,6 +15,7 @@ import java.time.Instant;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@Getter
 public class ChatMember {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

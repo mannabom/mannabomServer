@@ -2,12 +2,17 @@ package mannabom_server.manabom.application.userInfo.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.region.service.RegionService;
 import mannabom_server.manabom.application.userInfo.dto.GetUserInfoResponse;
+import mannabom_server.manabom.application.userInfo.dto.ProfileDto;
 import mannabom_server.manabom.application.userInfo.dto.PutUserInfoRequest;
 import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionRepository;
+import mannabom_server.manabom.domain.region.entity.Region;
+import mannabom_server.manabom.domain.university.entity.University;
+import mannabom_server.manabom.domain.university.repository.UniversityRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
@@ -30,17 +35,21 @@ public class UserInfoService {
     private final QuestionRepository questionRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
     private final UserRepository userRepository;
+    private final UniversityRepository universityRepository;
+
+    private final RegionService regionService;
 
     public GetUserInfoResponse getUserInfo(Long userId){
         log.info("회원 정보 조회 서비스 계층 동작 시작");
 
         User user = userRepository.findById(userId).orElseThrow(()-> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        Profile profile = profileRepository.findByUser(user).orElseThrow(()-> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
+        Profile profile = profileRepository.findByUserWithRegionAndUniversity(user)
+                .orElseThrow(()->new IllegalArgumentException("사용자의 프로필을 찾을 수 없습니다."));
         List<QuestionAnswer> questionAnswerList = questionAnswerRepository.findByProfileWithQuestion(profile);
 
         log.info("회원 정보 조회 서비스 계층 동작 완료");
 
-        return new GetUserInfoResponse(profile, questionAnswerList);
+        return new GetUserInfoResponse(ProfileDto.of(profile), questionAnswerList);
     }
 
     @Transactional
@@ -50,18 +59,21 @@ public class UserInfoService {
 
         log.info("회원 정보 입력(프로필 수정) 서비스 계층 동작 시작");
 
+        Region region = regionService.resolveRegion(request.getProfile().getRegion().getRegionSido(),request.getProfile().getRegion().getRegionSigungu());
+        University university = universityRepository.findByName(request.getProfile().getUniversity())
+                .orElseThrow(()->new IllegalArgumentException("존재하지 않는 대학교로 수정하실 수 없습니다."));
+
         if(request.getProfile() != null) {
             profile.setGender(request.getProfile().getGender());
             profile.setHeight(request.getProfile().getHeight());
             profile.setBodyType(request.getProfile().getBodyType());
-            profile.setRegionSido(request.getProfile().getRegionSido());
-            profile.setRegionSigungu(request.getProfile().getRegionSigungu());
+            profile.setRegion(region);
             profile.setNickName(request.getProfile().getNickName());
             profile.setBirthDate(request.getProfile().getBirthDate());
             profile.setMbti(request.getProfile().getMbti());
             profile.setSmoking(request.getProfile().getSmoking());
             profile.setAlcohol(request.getProfile().getAlcohol());
-            profile.setUniversity(request.getProfile().getUniversity());
+            profile.setUniversity(university);
             profile.setEmail(request.getProfile().getEmail());
 
             profileRepository.save(profile);

@@ -41,7 +41,7 @@ public class CursorCodec {
             throw new IllegalStateException("cursor encode Failed",e);
         }
     }
-    public MeetingToken decodeAndVerify(String cursorToken, String expectedSido, String expectedSigungu){
+    public MeetingToken decodeAndVerify(String cursorToken, String expectedSidoCode, String expectedSigunguCode){
         if(cursorToken==null || cursorToken.isBlank()) return null;
         try{
             String[] parts = cursorToken.split("\\.");
@@ -70,17 +70,17 @@ public class CursorCodec {
                 throw new InvalidCursorException("커서에 점수 정보가 누락되었습니다.");
             }
 
-            if(token.sido()==null || !token.sido().equals(expectedSido))
+            if(token.sidoCode()==null || !token.sidoCode().equals(expectedSidoCode))
                 throw new InvalidCursorException("커서에 시도 정보가 누락되었거나 일치하지않습니다.");
 
-            if(token.sigungu()==null || !token.sigungu().equals(expectedSigungu))
+            if(token.sigunguCode()==null || !token.sigunguCode().equals(expectedSigunguCode))
                 throw new InvalidCursorException("커서에 시군구 정보가 누락되었거나 일치하지 않습니다.");
 
             return token;
 
         }catch (InvalidCursorException e){ throw e;}
         catch (Exception e) {
-            throw new InvalidCursorException("cursor decode failed");
+            throw new InvalidCursorException("cursor decode failed"+e);
         }
     }
     private byte[] hmac(byte[] data){
@@ -95,8 +95,8 @@ public class CursorCodec {
 
     public record MeetingToken(
             int bucketIndex,
-            String sido,
-            String sigungu,
+            String sidoCode,
+            String sigunguCode,
             Integer score,
             Instant createdAt,
             Long id

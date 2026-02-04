@@ -69,7 +69,7 @@ jobs:
           # source: 내 컴퓨터(GitHub Actions)에 있는 파일 위치  .을 빼야 manabom까지 복사가 안됨
           # target: 서버(EC2)에 저장할 위치   파일이름도 빼야함 파일 이름의 디렉토리가 생김
           source: "manabom/docker-compose.yml"
-          target: "/home/ubuntu/mannabom/"
+          target: "/home/ubuntu/"
 
 
       - name: Deploy to EC2
@@ -88,8 +88,8 @@ jobs:
               
             aws ecr get-login-password | docker login --username AWS --password-stdin ${{steps.login-ecr.outputs.registry}}
               
-            mkdir -p /home/ubuntu/mannabom
-            cd /home/ubuntu/mannabom
+            mkdir -p /home/ubuntu/manabom
+            cd /home/ubuntu/manabom
               
             echo "${{secrets.ENV_FILE_BASE64}}" | base64 -d > .env
             echo "ECR_REGISTRY_URI=${{steps.login-ecr.outputs.registry}}/mannabom/app-develop" >> .env

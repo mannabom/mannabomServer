@@ -25,7 +25,6 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-@ToString(exclude = "profileImages")
 public class Profile extends BaseTimeEntity {
 
     @Id

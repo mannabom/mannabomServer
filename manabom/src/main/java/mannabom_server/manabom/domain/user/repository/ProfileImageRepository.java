@@ -51,4 +51,9 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     @Modifying
     @Query("UPDATE ProfileImage p SET p.isMain = false WHERE p.profile = :profile")
     void unsetAllMainPhotos(@Param("profile") Profile profile);
+
+    /**
+     * 해당 photoId가 해당 유저의 것인지 확인
+     */
+    boolean existsByImageIdAndProfile(Long imageId, Profile profile);
 }

@@ -2,15 +2,24 @@ package mannabom_server.manabom.application.partner.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.partner.dto.common.LikedDto;
+import mannabom_server.manabom.application.partner.dto.common.MessagedDto;
 import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
+import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
+import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
+import mannabom_server.manabom.application.partner.dto.response.UnlockTargetPhotoResponseDto;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
 import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
+import mannabom_server.manabom.domain.partner.entity.ProfileExtraPhotoUnlock;
+import mannabom_server.manabom.domain.partner.repository.ProfileExtraPhotoUnlockRepository;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
@@ -19,14 +28,14 @@ import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
+import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -39,6 +48,9 @@ public class PartnerService {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final LikeRequestRepository likeRequestRepository;
     private final MessageRequestRepository messageRequestRepository;
+    private final ProfileExtraPhotoUnlockRepository profileExtraPhotoUnlockRepository;
+    private final RuntimePolicyService runtimePolicyService;
+    private final TingWalletRepository tingWalletRepository;
 
     @Transactional(readOnly = true)
     public GetTargetProfileDetailResponseDto getTargetProfileDetail(Long requesterUserId, GetTargetProfileDetailRequestDto request){
@@ -54,6 +66,8 @@ public class PartnerService {
         Long targetUserId = targetProfile.getUser().getUserId();
 
         List<ProfileImage> targetProfileImages = profileImageRepository.findAllByProfile(targetProfile);
+        List<Long> unlockedPhotoIds = profileExtraPhotoUnlockRepository.findUnlockedExtraPhotoIds(requesterUserId, targetUserId);
+        Set<Long> unlockedSet = new HashSet<>(unlockedPhotoIds);
 
         List<GetTargetProfileDetailResponseDto.Photo> photos = new ArrayList<>();
 
@@ -63,7 +77,7 @@ public class PartnerService {
             String photoKey = s3FileUploadService.extractS3KeyFromUrl(photoUrl);
             String presignedPhotoUrl = s3FileUploadService.presignedGetUrl(photoKey, Duration.ofMinutes(10));
 
-            if(requesterProfileImageNum <= i) {
+            if(i >= requesterProfileImageNum && !unlockedSet.contains(photoId)) {
                 photos.add(new GetTargetProfileDetailResponseDto.Photo(photoId, presignedPhotoUrl, true));
             }else {
                 photos.add(new GetTargetProfileDetailResponseDto.Photo(photoId, presignedPhotoUrl, false));
@@ -97,8 +111,93 @@ public class PartnerService {
                 .photos(photos)
                 .smoking(targetProfile.getSmoking())
                 .drinking(targetProfile.getAlcohol())
-                .liked(new GetTargetProfileDetailResponseDto.Liked(likeRequestExists, likeStatus))
-                .messaged(new GetTargetProfileDetailResponseDto.Messaged(messageRequestExists, messageRequestStatus))
+                .liked(new LikedDto(likeRequestExists, likeStatus))
+                .messaged(new MessagedDto(messageRequestExists, messageRequestStatus))
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public GetTargetLoveViewDetailResponseDto getTargetLoveViewDetail(Long requesterUserId, Long targetProfileId){
+        userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new IllegalArgumentException("요청자의 유저 정보를 찾을 수 없습니다."));
+
+        Profile targetProfile = profileRepository.findById(targetProfileId)
+                .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
+        Long targetUserId = targetProfile.getUser().getUserId();
+
+        List<QuestionAnswer> questionAnswers = questionAnswerRepository.findByProfileWithQuestion(targetProfile);
+
+        int age = LocalDate.now().getYear() - targetProfile.getBirthDate().getYear() + 1; // 2026 - 2002 + 1 = 25
+        String region = targetProfile.getRegionSido() + " " + targetProfile.getRegionSigungu();
+
+        Optional<LikeRequest> likeRequestOpt = likeRequestRepository.findByFromUserIdAndToUserId(requesterUserId, targetUserId);
+        boolean likeRequestExists = likeRequestOpt.isPresent();
+        LikeStatus likeStatus = null;
+        if(likeRequestExists){
+            likeStatus = likeRequestOpt.get().getStatus();
+        }
+
+        Optional<MessageRequest> messageRequestOpt = messageRequestRepository.findByFromUserIdAndToUserId(requesterUserId, targetUserId);
+        boolean messageRequestExists = messageRequestOpt.isPresent();
+        MessageRequestStatus messageRequestStatus = null;
+        if(messageRequestExists){
+            messageRequestStatus = messageRequestOpt.get().getStatus();
+        }
+
+        return GetTargetLoveViewDetailResponseDto.builder()
+                .nickname(targetProfile.getNickName())
+                .age(age)
+                .region(region)
+                .questionAnswers(questionAnswers)
+                .smokingHabit(targetProfile.getSmoking())
+                .drinkingHabit(targetProfile.getAlcohol())
+                .liked(new LikedDto(likeRequestExists, likeStatus))
+                .messaged(new MessagedDto(messageRequestExists, messageRequestStatus))
+                .build();
+    }
+
+    @Transactional
+    public UnlockTargetPhotoResponseDto unlockTargetPhoto(Long requesterUserId, UnlockTargetPhotoRequestDto request) {
+        RuntimePolicySnapshot p = runtimePolicyService.snapshot();
+
+        userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new IllegalArgumentException("요청자의 유저 정보를 찾을 수 없습니다."));
+
+        Profile targetProfile = profileRepository.findById(request.getTargetProfileId())
+                .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
+        Long targetUserId = targetProfile.getUser().getUserId();
+        Long photoId = request.getPhotoId();
+
+        boolean isTargetPhoto = profileImageRepository.existsByImageIdAndProfile(photoId, targetProfile);
+        if(!isTargetPhoto){
+            throw new IllegalArgumentException("해당 photoId는 대상자의 프로필 사진이 아닙니다.");
+        }
+
+        boolean alreadyUnlocked = profileExtraPhotoUnlockRepository
+                .existsByRequesterUserIdAndTargetUserIdAndPhotoId(requesterUserId, targetUserId, photoId);
+        if(alreadyUnlocked){
+            throw new IllegalStateException("이미 잠금이 풀려있는 사진입니다.");
+        }
+
+        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(requesterUserId)
+                .orElseGet(() -> tingWalletRepository.save(new TingWallet(requesterUserId)));
+
+        int cost = p.getTing().getCost().getViewExtraPhoto();
+        if(tingWallet.getEventTing() >= cost){
+            tingWallet.spendEventTing(cost);
+        } else if (tingWallet.getTing() >= cost) {
+            tingWallet.spendTing(cost);
+        } else {
+            throw new IllegalStateException("이벤트 팅과 팅이 부족합니다.");
+        }
+
+        profileExtraPhotoUnlockRepository.save(
+                new ProfileExtraPhotoUnlock(requesterUserId, targetUserId, photoId)
+        );
+
+        int tingRemains = tingWallet.getTing();
+        int eventTingRemains = tingWallet.getEventTing();
+
+        return new UnlockTargetPhotoResponseDto(tingRemains, eventTingRemains);
     }
 }

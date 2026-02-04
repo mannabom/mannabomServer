@@ -113,4 +113,14 @@ public class Profile extends BaseTimeEntity {
     public void updateEmail(String email) {
         this.email = email;
     }
+
+    /**
+     * 해당 회원의 평가 점수 업데이트
+     * @param score 지금 받은 점수
+     * @param count 지금까지 받은 평가 갯수
+     */
+    public void applyNewRating(int score, int count) {
+        double totalScore = this.grade * count + score;
+        this.grade = (double) totalScore / (double) (count+1);
+    }
 }

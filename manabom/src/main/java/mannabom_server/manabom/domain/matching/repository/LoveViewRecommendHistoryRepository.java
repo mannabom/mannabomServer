@@ -1,11 +1,11 @@
-package mannabom_server.manabom.domain.matching.profileMatching.repository;
+package mannabom_server.manabom.domain.matching.repository;
 
-import mannabom_server.manabom.domain.matching.profileMatching.entity.ProfileRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 
-public interface ProfileRecommendHistoryRepository extends JpaRepository<ProfileRecommendHistory, Long> {
+public interface LoveViewRecommendHistoryRepository extends JpaRepository<LoveViewRecommendHistory, Long> {
 
     boolean existsByRequesterUserIdAndTargetUserIdAndRecommendedAtAfter(
             Long requesterUserId, Long targetUserId, LocalDateTime after

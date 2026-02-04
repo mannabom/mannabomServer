@@ -1,4 +1,4 @@
-package mannabom_server.manabom.application.matching.profileMatching.dto.response;
+package mannabom_server.manabom.application.matching.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

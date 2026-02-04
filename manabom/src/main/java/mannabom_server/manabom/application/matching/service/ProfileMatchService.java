@@ -1,15 +1,17 @@
-package mannabom_server.manabom.application.matching.profileMatching.service;
+package mannabom_server.manabom.application.matching.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
-import mannabom_server.manabom.application.matching.profileMatching.dto.response.ProfileMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
-import mannabom_server.manabom.domain.matching.profileMatching.entity.ProfileRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.ProfileRating;
+import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.matching.enums.RecommendType;
-import mannabom_server.manabom.domain.matching.profileMatching.repository.ProfileRecommendHistoryRepository;
+import mannabom_server.manabom.domain.matching.repository.ProfileRatingRepository;
+import mannabom_server.manabom.domain.matching.repository.ProfileRecommendHistoryRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import mannabom_server.manabom.domain.user.entity.User;
@@ -20,6 +22,7 @@ import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -46,6 +49,7 @@ public class ProfileMatchService {
     private final S3FileUploadService s3FileUploadService;
 
     private final TingWalletRepository tingWalletRepository;
+    private final ProfileRatingRepository profileRatingRepository;
 
     @Transactional
     public ProfileMatchConditionResponseDto matchFree(Long requesterUserId, MatchConditionRequestDto request) {
@@ -258,5 +262,40 @@ public class ProfileMatchService {
     private void validateAgeRange(Integer minAge, Integer maxAge) {
         if (minAge == null || maxAge == null) throw new IllegalArgumentException("minAge/maxAge는 필수입니다.");
         if (minAge > maxAge) throw new IllegalArgumentException("minAge는 maxAge보다 클 수 없습니다.");
+    }
+
+    @Transactional
+    public void rate(Long fromUserId, Long targetProfileId, int score){
+        if(fromUserId == null){
+            throw new IllegalArgumentException("fromUserId가 비어있습니다.");
+        }
+        if(targetProfileId == null){
+            throw new IllegalArgumentException("toUserId가 비어있습니다.");
+        }
+        if (score < 1 || score > 5) {
+            throw new IllegalArgumentException("score의 범위는 1~5 여야합니다.");
+        }
+
+        Profile targetProfile = profileRepository.findById(targetProfileId)
+                .orElseThrow(() -> new IllegalArgumentException("대상의 프로필이 존재하지 않습니다."));
+        Long targetUserId = targetProfile.getUser().getUserId();
+
+        if(profileRatingRepository.existsByFromUserIdAndTargetUserId(fromUserId, targetUserId)){
+            throw new IllegalStateException("이미 평가한 상대입니다.");
+        }
+
+        int count = profileRatingRepository.countByTargetUserId(targetUserId);
+
+        try{
+            ProfileRating rating = ProfileRating.builder()
+                    .fromUserId(fromUserId)
+                    .targetUserId(targetUserId)
+                    .score(score)
+                    .build();
+            profileRatingRepository.save(rating);
+            targetProfile.applyNewRating(score, count);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("이미 평가한 상대입니다.");
+        }
     }
 }

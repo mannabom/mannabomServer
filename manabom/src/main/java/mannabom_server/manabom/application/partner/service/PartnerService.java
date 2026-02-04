@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.partner.dto.common.LikedDto;
 import mannabom_server.manabom.application.partner.dto.common.MessagedDto;
 import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
+import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
 import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
@@ -199,5 +200,34 @@ public class PartnerService {
         int eventTingRemains = tingWallet.getEventTing();
 
         return new UnlockTargetPhotoResponseDto(tingRemains, eventTingRemains);
+    }
+
+    @Transactional
+    public void purchaseAdditionalProfileByTing(Long userId, PurchaseAdditionalProfileByTingRequestDto request){
+        RuntimePolicySnapshot p = runtimePolicyService.snapshot();
+
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 유저 정보를 찾을 수 없습니다."));
+        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
+
+        int cost;
+        int num = request.getAdditionalProfileNumByTing();
+        if(num == 1){
+            cost = p.getTing().getCost().getExtraProfile();
+        } else if (num == 5) {
+            cost = p.getTing().getCost().getExtraProfileBundle5();
+        }else {
+            throw new IllegalArgumentException("추가로 구매하는 프로필의 갯수가 1 또는 5가 아닙니다.");
+        }
+
+        if(tingWallet.getEventTing() >= cost){
+            tingWallet.spendEventTing(cost);
+        }else if(tingWallet.getTing() >= cost){
+            tingWallet.spendTing(cost);
+        }else {
+            throw new IllegalStateException("팅이나 이벤트 팅이 부족합니다.");
+        }
+        tingWallet.addExtraProfileByTing(num);
     }
 }

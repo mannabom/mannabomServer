@@ -199,8 +199,8 @@ public class ProfileMatchService {
                 smoking,
                 drinkingEmpty,
                 drinking,
-                requesterProfile.getRegionSido(),
-                requesterProfile.getRegionSigungu(),
+                requesterProfile.getRegion().getSidoName(),
+                requesterProfile.getRegion().getSigunguName(),
                 cooldownFrom,
                 PageRequest.of(0, p.getMatch().getCandidatePoolSize())
         );
@@ -230,8 +230,8 @@ public class ProfileMatchService {
      * @return 요청자의 주소와 대상의 주소를 비교하여 우선순위를 계산하여 리턴해줌
      */
     private int computePriority(Profile target, Profile requesterProfile) {
-        boolean sameSido = Objects.equals(target.getRegionSido(), requesterProfile.getRegionSido());
-        boolean sameSigungu = Objects.equals(target.getRegionSigungu(), requesterProfile.getRegionSigungu());
+        boolean sameSido = Objects.equals(target.getRegion().getSidoName(), requesterProfile.getRegion().getSidoName());
+        boolean sameSigungu = Objects.equals(target.getRegion().getSigunguName(), requesterProfile.getRegion().getSigunguName());
         if (sameSido && sameSigungu) return 0;
         if (sameSido) return 1;
         return 2;

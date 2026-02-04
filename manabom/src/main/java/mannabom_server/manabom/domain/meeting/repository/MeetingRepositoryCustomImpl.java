@@ -36,8 +36,8 @@ public class MeetingRepositoryCustomImpl implements  MeetingRepositoryCustom{
 
         applyCommonFilters(where,meeting,request);
 
-        String sido = request.getRegion().getRegionSido();
-        String sigungu = request.getRegion().getRegionSigungu();
+        String sido = request.getRegion().getSido();
+        String sigungu = request.getRegion().getSigungu();
 
         boolean isAnySigungu = "상관없음".equals(sigungu) || "전체".equals(sigungu);
         boolean isMetro = METROPOLITAN_CITIES.contains(sido);

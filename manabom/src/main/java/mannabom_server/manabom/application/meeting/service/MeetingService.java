@@ -74,7 +74,7 @@ public class MeetingService {
                         user,
                         req.getRoomName(),
                         profile.getGender(),
-                        regionService.resolveRegion(req.getRegion().getRegionSido(),req.getRegion().getRegionSigungu()),
+                        regionService.resolveRegion(req.getRegion().getSido(),req.getRegion().getSigungu()),
                         req.getAgeRange().getMin(),
                         req.getAgeRange().getMax(),
                         req.getMaxMembers(),
@@ -261,7 +261,7 @@ public class MeetingService {
 
     /*조건별 방 리스트 조회*/
     public MeetingPage<MeetingRoomSearchItemDto> getMeetingList(MeetingRoomsSearchRequest req, int pageSize, String cursorToken){
-        Region region = regionService.resolveRegion(req.getRegion().getRegionSido(), req.getRegion().getRegionSigungu());
+        Region region = regionService.resolveRegion(req.getRegion().getSido(), req.getRegion().getSigungu());
         CursorCodec.MeetingToken token = cursorCodec.decodeAndVerify(cursorToken,region.getSidoCode(), region.getSigunguCode());
 
         int bucketIndex = token== null ? 0: token.bucketIndex();

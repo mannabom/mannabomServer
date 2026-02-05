@@ -23,6 +23,6 @@ public class LikeController {
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid SendLikeRequestDto request
             ){
-        return ResponseEntity.ok(likeService.sendLike(userId, request.getTargetUserId()));
+        return ResponseEntity.ok(likeService.sendLike(userId, request.getTargetProfileId()));
     }
 }

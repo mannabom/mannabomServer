@@ -1,19 +1,18 @@
-package mannabom_server.manabom.application.like.service;
+package mannabom_server.manabom.application.messageRequest.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mannabom_server.manabom.application.currency.service.TingWalletService;
-import mannabom_server.manabom.application.like.dto.response.SendLikeResponseDto;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
+import mannabom_server.manabom.application.currency.service.TingWalletService;
+import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
-import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
-import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
+import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
+import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
-import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.stereotype.Service;
@@ -22,27 +21,27 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-public class LikeService {
-    private final LikeRequestRepository likeRequestRepository;
-    private final TingWalletRepository tingWalletRepository;
+@Slf4j
+public class MessageRequestService {
+    private final MessageRequestRepository messageRequestRepository;
     private final PushService pushService;
+    private final ProfileRepository profileRepository;
+    private final TingWalletRepository tingWalletRepository;
     private final RuntimePolicyService runtimePolicyService;
     private final TingWalletService tingWalletService;
-    private final ProfileRepository profileRepository;
 
     @Transactional
-    public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId){
-        if(fromUserId == null) throw new IllegalArgumentException("요청자의 userId가 비어있습니다.");
-        if(toProfileId == null) throw new IllegalArgumentException("targetProfileId가 비어있습니다.");
+    public SendMessageResponseDto sendMessageRequest(Long fromUserId, Long toProfileId, String message) {
+        if(fromUserId == null) throw new IllegalArgumentException("요청자의 정보를 찾을 수 없습니다.");
+        if(toProfileId == null) throw new IllegalArgumentException("toProfileId가 비어있습니다.");
 
         Profile toProfile = profileRepository.findById(toProfileId)
-                .orElseThrow(() -> new IllegalArgumentException("대상의 프로필을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("대상자의 프로필을 찾을 수 없습니다."));
         Long toUserId = toProfile.getUser().getUserId();
 
-        if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("자기자신에게 보낼 수 없습니다.");
+        if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -50,14 +49,14 @@ public class LikeService {
         TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(fromUserId)
                 .orElseGet(() -> tingWalletRepository.save(new TingWallet(fromUserId)));
 
-        likeRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
+        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
                 .ifPresent(existing -> {
                     throw new IllegalStateException("이미 요청을 보냈습니다.");
                 });
 
-        int vipLikeRemains = 0;
-        int membershipLikeRemains = 0;
-        int likeCost = p.getTing().getCost().getLike();
+        int vipMessageRemains = 0;
+        int membershipMessageRemains = 0;
+        int messageCost = p.getTing().getCost().getMessage();
 
         boolean vip = tingWallet.isVip(
                 p.getTing().getVipThreshold(),
@@ -67,37 +66,37 @@ public class LikeService {
                 today
         );
         if(vip){
-            vipLikeRemains = tingWallet.checkVipFreeLikesRemaining(today);
+            vipMessageRemains = tingWallet.checkVipFreeMessagesRemaining(today);
         }
         boolean membership = tingWallet.isMembershipActive(now);
         if(membership){
-            membershipLikeRemains = tingWallet.checkMembershipFreeLikesRemaining(now);
+            membershipMessageRemains = tingWallet.checkMembershipFreeMessagesRemaining(now);
         }
 
-        if(tingWallet.getEventTing() >= likeCost) {
-            tingWallet.spendEventTing(likeCost);
-        } else if (vipLikeRemains > 0){
-            tingWallet.consumeVipFreeLike(today);
-        } else if (membershipLikeRemains > 0) {
-            tingWallet.consumeMembershipFreeLike(now);
-        } else if (tingWallet.getTing() >= likeCost) {
-            tingWallet.spendTing(likeCost);
+        if(tingWallet.getEventTing() >= messageCost) {
+            tingWallet.spendEventTing(messageCost);
+        } else if (vipMessageRemains > 0){
+            tingWallet.consumeVipFreeMessage(today);
+        } else if (membershipMessageRemains > 0) {
+            tingWallet.consumeMembershipFreeMessage(now);
+        } else if (tingWallet.getTing() >= messageCost) {
+            tingWallet.spendTing(messageCost);
         } else {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
 
-        LikeRequest likeRequest = new LikeRequest(fromUserId, toUserId);
-        likeRequestRepository.save(likeRequest);
+        MessageRequest messageRequest = new MessageRequest(fromUserId, toUserId, message);
+        messageRequestRepository.save(messageRequest);
 
         try {
-            pushService.sendToUser(toUserId, PushMessages.likeReceived(fromUserId));
+            pushService.sendToUser(toUserId, PushMessages.messageRequestReceived(fromUserId, message));
         } catch (Exception e) {
-            log.warn("좋아요 푸시 전송 실패 fromUserId={} toUserId={}", fromUserId, toUserId, e);
+            log.warn("메시지 요청 푸시 전송 실패 fromUserId={} toUserId={}", fromUserId, toUserId, e);
         }
 
         CheckTingWalletResponseDto response = tingWalletService.checkTingWallet(fromUserId);
 
-        return SendLikeResponseDto.builder()
+        return SendMessageResponseDto.builder()
                 .freeLikeNum(response.getFreeLikeNum())
                 .freeMessageNum(response.getFreeMessageNum())
                 .eventTingNum(response.getEventTingNum())
@@ -106,5 +105,6 @@ public class LikeService {
                 .freeLoveViewNum(response.getFreeLoveViewNum())
                 .additionalProfileNum(response.getAdditionalProfileNum())
                 .build();
+
     }
 }

@@ -3,6 +3,7 @@ package mannabom_server.manabom.domain.likeRequest.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
 import java.time.LocalDateTime;
 
@@ -31,6 +32,10 @@ public class LikeRequest {
     private Long toUserId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    private LikeSource source;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LikeStatus status;
 
@@ -43,9 +48,10 @@ public class LikeRequest {
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
 
-    public LikeRequest(Long fromUserId, Long toUserId) {
+    public LikeRequest(Long fromUserId, Long toUserId, LikeSource source) {
         this.fromUserId = fromUserId;
         this.toUserId = toUserId;
+        this.source = source;
         this.status = LikeStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }

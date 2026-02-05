@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
+import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 
 import java.time.LocalDateTime;
 
@@ -36,6 +37,10 @@ public class MessageRequest {
     private String message;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    private MessageSource source;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MessageRequestStatus status;
 
@@ -48,10 +53,11 @@ public class MessageRequest {
     @Column(name="responded_at")
     private LocalDateTime respondedAt;
 
-    public MessageRequest(Long fromUserId, Long toUserId, String message) {
+    public MessageRequest(Long fromUserId, Long toUserId, String message, MessageSource source) {
         this.fromUserId = fromUserId;
         this.toUserId = toUserId;
         this.message = message;
+        this.source = source;
         this.status = MessageRequestStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }

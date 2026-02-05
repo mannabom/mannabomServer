@@ -8,10 +8,7 @@ import mannabom_server.manabom.application.partner.dto.request.GetReceivedScoreR
 import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileDetailRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
-import mannabom_server.manabom.application.partner.dto.response.GetReceivedScoreResponseDto;
-import mannabom_server.manabom.application.partner.dto.response.GetTargetLoveViewDetailResponseDto;
-import mannabom_server.manabom.application.partner.dto.response.GetTargetProfileDetailResponseDto;
-import mannabom_server.manabom.application.partner.dto.response.UnlockTargetPhotoResponseDto;
+import mannabom_server.manabom.application.partner.dto.response.*;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
@@ -264,5 +261,20 @@ public class PartnerService {
         }
 
         return new GetReceivedScoreResponseDto(rating.getScore());
+    }
+
+    @Transactional(readOnly = true)
+    public CheckReceivedScoreResponseDto checkReceivedScore(Long userId, Long targetProfileId){
+        Profile targetProfile = profileRepository.findById(targetProfileId)
+                .orElseThrow(() -> new IllegalArgumentException("상대방 프로필을 찾을 수 없습니다."));
+        Long targetUserId = targetProfile.getUser().getUserId();
+
+        boolean received = profileRatingRepository.existsByFromUserIdAndTargetUserId(targetUserId, userId);
+
+        if(received){
+            return new CheckReceivedScoreResponseDto(true);
+        } else {
+            return new CheckReceivedScoreResponseDto(false);
+        }
     }
 }

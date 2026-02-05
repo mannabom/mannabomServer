@@ -34,6 +34,9 @@ public class LikeRequest {
     @Column(nullable = false)
     private LikeStatus status;
 
+    @Column
+    private String rejectReason;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -52,8 +55,9 @@ public class LikeRequest {
         this.respondedAt = LocalDateTime.now();
     }
 
-    public void reject(){
+    public void reject(String reason){
         this.status = LikeStatus.REJECTED;
+        this.rejectReason = reason;
         this.respondedAt = LocalDateTime.now();
     }
 }

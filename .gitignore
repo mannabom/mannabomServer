@@ -44,4 +44,6 @@ EOF
 manabom/.env*
 manabom/src/.env*
 
-manabom/src/main/resources/firebase/*
+#firebase 비밀키
+**/src/main/resources/firebase/
+**/src/main/resources/firebase/*.json

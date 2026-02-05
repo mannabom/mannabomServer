@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class SendLikeRequestDto {
-    @NotNull(message = "targetUserId는 필수입니다.")
-    private Long targetUserId;
+    @NotNull(message = "targetProfileId는 필수입니다.")
+    private Long targetProfileId;
 }

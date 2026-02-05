@@ -30,4 +30,37 @@ public final class PushMessages {
                 )
         );
     }
+
+    public static PushMessage messageRequestReceived(Long fromUserId, String shortMessage) {
+        if(shortMessage == null || shortMessage.isBlank())
+            shortMessage = "새 메시지 요청이 도착했습니다.";
+
+        shortMessage = shortMessage.strip().replaceAll("\\s+", " ");
+
+        if (shortMessage.length() > 60)
+            shortMessage = shortMessage.substring(0, 60) + "…";
+
+        String body = shortMessage;
+
+        return new PushMessage(
+                "새 메시지 요청",
+                body,
+                Map.of(
+                        "type", "MESSAGE_REQUEST_RECEIVED",
+                        "fromUserId", String.valueOf(fromUserId)
+                )
+        );
+    }
+
+    public static PushMessage messageRequestResponded(boolean accepted, Long requestId) {
+        return new PushMessage(
+                "메시지 요청 결과",
+                accepted ? "상대가 메시지 요청을 수락했습니다." : "상대가 메시지 요청을 거절했습니다.",
+                Map.of(
+                        "type", "MESSAGE_REQUEST_RESPONDED",
+                        "accepted", String.valueOf(accepted),
+                        "messageRequestId", String.valueOf(requestId)
+                )
+        );
+    }
 }

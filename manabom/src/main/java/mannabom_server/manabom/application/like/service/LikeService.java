@@ -10,6 +10,7 @@ import mannabom_server.manabom.application.pushService.service.pushSender.PushSe
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
+import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
 import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
@@ -34,7 +35,7 @@ public class LikeService {
     private final ProfileRepository profileRepository;
 
     @Transactional
-    public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId){
+    public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId, LikeSource source){
         if(fromUserId == null) throw new IllegalArgumentException("요청자의 userId가 비어있습니다.");
         if(toProfileId == null) throw new IllegalArgumentException("targetProfileId가 비어있습니다.");
 
@@ -86,7 +87,7 @@ public class LikeService {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
 
-        LikeRequest likeRequest = new LikeRequest(fromUserId, toUserId);
+        LikeRequest likeRequest = new LikeRequest(fromUserId, toUserId, source);
         likeRequestRepository.save(likeRequest);
 
         try {

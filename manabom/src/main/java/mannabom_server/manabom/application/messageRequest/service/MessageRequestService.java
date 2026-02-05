@@ -10,6 +10,7 @@ import mannabom_server.manabom.application.pushService.service.pushSender.PushSe
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
+import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
@@ -33,7 +34,7 @@ public class MessageRequestService {
     private final TingWalletService tingWalletService;
 
     @Transactional
-    public SendMessageResponseDto sendMessageRequest(Long fromUserId, Long toProfileId, String message) {
+    public SendMessageResponseDto sendMessageRequest(Long fromUserId, Long toProfileId, String message, MessageSource source) {
         if(fromUserId == null) throw new IllegalArgumentException("요청자의 정보를 찾을 수 없습니다.");
         if(toProfileId == null) throw new IllegalArgumentException("toProfileId가 비어있습니다.");
 
@@ -85,7 +86,7 @@ public class MessageRequestService {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
 
-        MessageRequest messageRequest = new MessageRequest(fromUserId, toUserId, message);
+        MessageRequest messageRequest = new MessageRequest(fromUserId, toUserId, message, source);
         messageRequestRepository.save(messageRequest);
 
         try {

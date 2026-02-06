@@ -5,13 +5,11 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.request.ProfileRatingRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayProfileListResponseDto;
 import mannabom_server.manabom.application.matching.service.ProfileMatchService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/match/profile")
@@ -44,5 +42,12 @@ public class ProfileMatchController {
         profileMatchService.rate(userId, request.getTargetProfileId(), request.getScore());
 
         return ResponseEntity.status(204).build();
+    }
+
+    @GetMapping("/simple/today")
+    public ResponseEntity<RecommendedTodayProfileListResponseDto> getRecommendedTodayProfileList(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(profileMatchService.getRecommendedTodayProfileList(userId));
     }
 }

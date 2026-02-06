@@ -4,6 +4,7 @@ import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface LoveViewRecommendHistoryRepository extends JpaRepository<LoveViewRecommendHistory, Long> {
 
@@ -13,5 +14,11 @@ public interface LoveViewRecommendHistoryRepository extends JpaRepository<LoveVi
 
     long countByRequesterUserIdAndRecommendedAtBetween(
             Long requesterUserId, LocalDateTime start, LocalDateTime end
+    );
+
+    List<LoveViewRecommendHistory> findByRequesterUserIdAndRecommendedAtGreaterThanEqualAndRecommendedAtLessThanOrderByRecommendedAtDesc(
+            Long requesterUserId,
+            LocalDateTime from,
+            LocalDateTime to
     );
 }

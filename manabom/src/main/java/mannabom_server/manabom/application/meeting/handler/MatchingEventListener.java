@@ -21,9 +21,13 @@ public class MatchingEventListener {
     @Async
     @EventListener
     public void handleMatchRequest(MeetingMatchingEvent event){
-        if(!atomic.tryLock(event.getMeetingId())) return;
+        Long myId = event.getMeetingId();
+        if(!atomic.tryLock(event.getMeetingId())) {
+            log.debug("이미 매칭 프로세스가 진행 중인 팀입니다: {}", myId);
+            return;
+        }
         try {
-            log.info("Async Matching Start for Team: {}", event.getMeetingId());
+            log.info("실시간 매칭 시작: {}", myId);
             List<Long> opponents = meetingMatchingService.findOpponent(event);
 
             if(opponents.isEmpty()){
@@ -42,13 +46,13 @@ public class MatchingEventListener {
                             continue;
                         try {
                             meetingMatchingService.processMatchSuccess(event, opponent);
-
+                            log.info("실시간 매칭 성공! {} <-> {}", myId, opponentId);
+                            return;
                         } catch (Exception e) {
                             meetingMatchingService.rollbackMatch(event, opponent);
                             log.error("매칭 처리 중 오류 발생으로 롤백합니다. My: {}, Opponent: {}", event.getMeetingId(), opponentId, e);
-                            throw e;
+                            return;
                         }
-                        return;
                     } finally {
                         atomic.tryUnlock(opponentId);
                     }
@@ -59,8 +63,6 @@ public class MatchingEventListener {
             }
             log.info("모든 후보가 실패하였으므로 대기열에 등록합니다. {}", event.getMeetingId());
             meetingMatchingService.addToQueue(event);
-
-
         }
         catch (Exception e) {
             log.error("Meeting Matching error",e);

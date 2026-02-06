@@ -1,6 +1,5 @@
 package mannabom_server.manabom.application.chat.service;
 
-import com.google.firestore.v1.TransactionOptions;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +10,14 @@ import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberQueryRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
+import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -33,6 +36,8 @@ public class ChatRoomService {
     private final ChatMemberRepository chatMemberRepository;
     private final ChatMemberQueryRepository chatMemberQueryRepository;
     private final MeetingMemberService meetingMemberService;
+    private final UserRepository userRepository;
+    private final MeetingRepository meetingRepository;
 
     @Transactional
     public Long createMeetingChatRoom(Meeting meeting,User user){
@@ -65,19 +70,42 @@ public class ChatRoomService {
         return MatchedChatRoomInfo.of(chatRoom.getId(),participants);
     }
 
+    /**
+    *프로필 매칭 채팅방 생성
+     * */
     @Transactional
-    public Long createProfileChatRoom(){
-        ChatRoom chatRoom = ChatRoom.createProfileChatRoom();
+    public Long createProfileChatRoom(ProfileRecommendHistory profileHistory){
+        ChatRoom chatRoom = ChatRoom.createProfileChatRoom(profileHistory);
         chatRoomRepository.save(chatRoom);
+
+        setOneToOneChatMember(chatRoom, profileHistory.getRequesterUserId(),profileHistory.getTargetUserId());
 
         return chatRoom.getId();
     }
+    /**
+     *연애코드 매칭 채팅방 생성
+     * */
     @Transactional
-    public Long createLoveviewChatRoom(){
-        ChatRoom chatRoom = ChatRoom.createLoveviewChatRoom();
+    public Long createLoveViewChatRoom(LoveViewRecommendHistory loveViewHistory){
+        ChatRoom chatRoom = ChatRoom.createLoveviewChatRoom(loveViewHistory);
         chatRoomRepository.save(chatRoom);
 
+        setOneToOneChatMember(chatRoom, loveViewHistory.getRequesterUserId(),loveViewHistory.getTargetUserId());
+
         return chatRoom.getId();
+    }
+
+    private void setOneToOneChatMember(ChatRoom chatRoom, Long user1Id, Long user2Id){
+        User user1 = userRepository.findById(user1Id)
+                .orElseThrow(()->new IllegalArgumentException("일대일 매칭 채팅방 생성: 존재하지 않는 requesterId 입니다. "+ user1Id));
+        User user2 = userRepository.findById(user2Id)
+                .orElseThrow(()->new IllegalArgumentException("일대일 매칭 채팅방 생성: 존재하지 않는 targetUserId 입니다. "+ user2Id));
+        List<ChatMember> chatMembers = List.of(
+                ChatMember.create(chatRoom, user1),
+                ChatMember.create(chatRoom, user2)
+        );
+
+        chatMemberRepository.saveAll(chatMembers);
     }
     @Transactional
     public Long joinChatRoom(Meeting meeting, User user){
@@ -93,6 +121,28 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findByMeeting(meeting)
                 .orElseThrow(()-> new IllegalArgumentException("미팅id와 연결된 채팅방: 존재하지 않은 채팅방입니다."));
         return room.getId();
+    }
+
+    public void leaveChatRoom(Long roomId){
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 채팅방아이디 입니다."));
+
+//        switch (room.getType()){
+//            case MEETING_GROUP -> {
+//                Meeting meeting = meetingRepository.findById(room.getId())
+//                        .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 미팅아이디 입니다."));
+//                meeting.leaveMeeting();
+//            }
+//            case MEETING_MATCH -> {
+//
+//            }
+//            case LOVEVIEW_MATCH -> {
+//
+//            }
+//            case PROFILE_MATCH -> {
+//
+//            }
+//        }
     }
 
 }

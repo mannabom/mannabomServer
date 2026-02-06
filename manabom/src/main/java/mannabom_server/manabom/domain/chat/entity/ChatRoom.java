@@ -9,9 +9,10 @@ import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
 import mannabom_server.manabom.domain.chat.enums.ChatRoomTypeConverter;
 import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
-import org.hibernate.annotations.Fetch;
 
 @Entity
 @Table(name = "chat_rooms")
@@ -38,6 +39,14 @@ public class ChatRoom extends BaseTimeEntity {
     @JoinColumn(name = "match_id")
     private MeetingMatch match;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profile_recommend_history_id")
+    private ProfileRecommendHistory profile;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "love_view_recommend_history_id")
+    private LoveViewRecommendHistory loveView;
+
     public static ChatRoom createMeetingChatRoom(Meeting meeting){
         return ChatRoom.builder()
                 .meeting(meeting)
@@ -54,30 +63,43 @@ public class ChatRoom extends BaseTimeEntity {
                 .build();
     }
 
-    public static ChatRoom createProfileChatRoom(){
+    public static ChatRoom createProfileChatRoom(ProfileRecommendHistory profile){
         return ChatRoom.builder()
                 .chatStatus(ChatStatus.ENABLED)
-                .type(ChatRoomType.DM_PROFILE)
+                .type(ChatRoomType.PROFILE_MATCH)
+                .profile(profile)
                 .build();
     }
 
-    public static ChatRoom createLoveviewChatRoom(){
+    public static ChatRoom createLoveviewChatRoom(LoveViewRecommendHistory loveView){
         return ChatRoom.builder()
                 .chatStatus(ChatStatus.ENABLED)
-                .type(ChatRoomType.DM_CODE)
+                .type(ChatRoomType.LOVEVIEW_MATCH)
+                .loveView(loveView)
                 .build();
     }
 
     @PrePersist
     @PreUpdate
     public void validate(){
-        if (ChatRoomType.MEETING_GROUP.equals(this.type)) {
-            if (this.meeting == null) throw new IllegalStateException("미팅 채팅방에는 미팅 정보가 필수입니다.");
-            if (this.match != null) throw new IllegalStateException("미팅 채팅방에는 매칭 정보가 들어갈 수 없습니다.");
+        checkRequiredField();
+        int nonNullCount =0;
+        if(meeting!=null) nonNullCount++;
+        if(profile!=null) nonNullCount++;
+        if(match!=null) nonNullCount++;
+        if(loveView!=null) nonNullCount++;
+
+        if(nonNullCount!=1){
+            throw new IllegalStateException("채팅방은 하나의 정보만 가질 수 있습니다.");
         }
-        else if (ChatRoomType.MEETING_MATCH.equals(this.type)) {
-            if (this.match == null) throw new IllegalStateException("매칭 채팅방에는 매칭 정보가 필수입니다.");
-            if (this.meeting != null) throw new IllegalStateException("매칭 채팅방에는 미팅 정보가 들어갈 수 없습니다.");
+    }
+    private void checkRequiredField(){
+        switch (this.type){
+            case MEETING_MATCH -> {if(this.match==null) throw new IllegalStateException("미팅 매칭 채팅방에는 미팅 매칭 정보가 필수입니다.");}
+            case MEETING_GROUP -> {if(this.meeting==null) throw new IllegalStateException("미팅 동성 채팅방에는 미팅 정보가 필수입니다.");}
+            case PROFILE_MATCH -> {if(this.profile==null) throw new IllegalStateException("프로필 매칭 채팅방에는 프로필 정보가 필수입니다.");}
+            case LOVEVIEW_MATCH -> {if(this.loveView==null) throw new IllegalStateException("연애코드 매칭 채팅방에는 연애코드 정보가 필수입니다.");}
+
         }
     }
 

@@ -17,20 +17,24 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class RedisMatchQueue {
     private final StringRedisTemplate redis;
+    private final static String ACTIVE_KEY= "match:active_keys";
 
     public void add(MeetingMatchingEvent meta){
         String id = String.valueOf(meta.getMeetingId());
-
+        String tKey = timeKey(meta.getSidoCode(), meta.getMemberCount(), meta.getGender());
         redis.execute(new SessionCallback<Object>() {
             @Override
             public List<Object> execute(@NonNull RedisOperations operations) throws DataAccessException {
                 RedisOperations<String, String> stringOps = (RedisOperations<String, String>) operations;
                 stringOps.multi();
 
-                stringOps.opsForZSet().add(timeKey(meta.getSidoCode(), meta.getMemberCount(), meta.getGender()),id, meta.getMatchingStartAtMs());
+                stringOps.opsForZSet().add(tKey,id, meta.getMatchingStartAtMs());
                 stringOps.opsForZSet().add(ageSigKey(meta.getSidoCode(), meta.getSigunguCode(), meta.getMemberCount(), meta.getGender()), id, meta.getAvgage());
                 stringOps.opsForZSet().add(ageSidoKey(meta.getSidoCode(), meta.getMemberCount(), meta.getGender()),id, meta.getAvgage());
                 stringOps.opsForZSet().add(timeSigKey(meta.getSidoCode(),meta.getSigunguCode(), meta.getMemberCount(), meta.getGender()),id, meta.getMatchingStartAtMs());
+
+                stringOps.opsForSet().add(ACTIVE_KEY,tKey);
+
                 return stringOps.exec();
             }
         });
@@ -63,6 +67,10 @@ public class RedisMatchQueue {
                 return stringOps.exec();
             }
         });
+    }
+
+    public void removeActiveKey(String queueKey){
+        redis.opsForZSet().remove(ACTIVE_KEY,queueKey);
     }
 
     public String timeKey(String sidoCode, int memberCount, String gender){
@@ -167,9 +175,4 @@ public class RedisMatchQueue {
         if (any != null) specific.addAll(any);
         return specific;
     }
-
-
-
-
-
 }

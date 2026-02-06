@@ -1,4 +1,4 @@
-package mannabom_server.manabom.infrastructure.redis.meetingmatching;
+package mannabom_server.manabom.application.meeting.handler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -3,8 +3,6 @@ package mannabom_server.manabom.domain.meeting.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
-import mannabom_server.manabom.domain.meeting.enums.ChatUserStatus;
-import mannabom_server.manabom.domain.meeting.enums.MeetingRole;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatusConverter;
 import mannabom_server.manabom.domain.region.entity.Region;
@@ -16,9 +14,7 @@ import org.hibernate.annotations.DynamicUpdate;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+
 
 
 @Entity
@@ -198,6 +194,4 @@ public class Meeting extends BaseTimeEntity {
         }
         this.meetingStatus= MeetingStatus.MATCHED;
     }
-
-
 }

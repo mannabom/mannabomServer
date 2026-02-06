@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.LoveViewMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayLoveViewListResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayProfileListResponseDto;
 import mannabom_server.manabom.application.matching.service.LoveViewMatchService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,5 +35,12 @@ public class LoveViewMatchingController {
         LoveViewMatchConditionResponseDto responseDto = loveViewMatchService.matchExtra(userId, request);
 
         return ResponseEntity.ok(responseDto);
+    }
+
+    @GetMapping("/simple/today")
+    public ResponseEntity<RecommendedTodayLoveViewListResponseDto> getRecommendedTodayLoveViewList(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(loveViewMatchService.getRecommendedTodayLoveViewList(userId));
     }
 }

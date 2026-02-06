@@ -93,7 +93,10 @@ server:
 meeting:
   cursor:
     secret: ${MEETING_SECRET_KEY:local-dev-key-do-not-user-in-prod}
-
+  match:
+    scheduler:
+      initial-delay: 1800000
+      fixed_delay: 1800000
 
 #fcm 설정
 fcm:

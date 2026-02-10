@@ -60,9 +60,10 @@ public class UserInfoController {
      */
     @GetMapping("/api/user/active_membership")
     public ResponseEntity<Void> activeMembership(
-            @AuthenticationPrincipal Long userId
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("targetProfileId") Long targetProfileId
     ){
-        userInfoService.activeMembership(userId);
+        userInfoService.activeMembership(targetProfileId);
         return ResponseEntity.status(200).build();
     }
 
@@ -72,9 +73,10 @@ public class UserInfoController {
     @GetMapping("/api/user/add_ting")
     public ResponseEntity<Void> addTing(
             @AuthenticationPrincipal Long userId,
-            @RequestParam("amount") int amount
+            @RequestParam("amount") int amount,
+            @RequestParam("targetProfileId") Long targetProfileId
     ){
-        userInfoService.addTing(userId, amount);
+        userInfoService.addTing(amount, targetProfileId);
 
         return ResponseEntity.status(200).build();
     }

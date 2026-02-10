@@ -13,6 +13,7 @@ import mannabom_server.manabom.domain.user.enums.SmokingHabit;
 @NoArgsConstructor
 public class ProfileMatchConditionResponseDto {
     private Long profileId;
+    private String nickName;
     private String profileImageUrl;
     private Integer age;
     private String mbti;

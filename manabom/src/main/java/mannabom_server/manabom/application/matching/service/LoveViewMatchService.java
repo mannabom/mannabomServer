@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.LoveViewMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayLoveViewListResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
@@ -142,6 +143,48 @@ public class LoveViewMatchService {
         return toResponse(today, pickedProfile, qnas);
     }
 
+    @Transactional(readOnly = true)
+    public RecommendedTodayLoveViewListResponseDto getRecommendedTodayLoveViewList(Long userId){
+        LocalDate today = LocalDate.now();
+        LocalDateTime start = today.atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+
+        List<LoveViewRecommendHistory> histories =
+                loveViewRecommendHistoryRepository.findByRequesterUserIdAndRecommendedAtGreaterThanEqualAndRecommendedAtLessThanOrderByRecommendedAtDesc(
+                        userId, start, end
+                );
+
+        if(histories.isEmpty()){
+            return new RecommendedTodayLoveViewListResponseDto(List.of());
+        }
+
+        List<Long> targetUserIds = histories.stream()
+                .map(LoveViewRecommendHistory::getTargetUserId)
+                .toList();
+
+        List<Profile> targetProfiles = profileRepository.findAllByUser_UserIdIn(targetUserIds);
+
+        Map<Long, Profile> map = targetProfiles.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        p -> p.getUser().getUserId(),
+                        p -> p,
+                        (a, b) -> a
+                ));
+
+        List<LoveViewMatchConditionResponseDto> result = new ArrayList<>();
+        for(LoveViewRecommendHistory h : histories){
+            Profile profile = map.get(h.getTargetUserId());
+            if(profile == null) continue;
+
+            List<QuestionAnswer> qnas = questionAnswerRepository.findByProfileWithQuestion(profile);
+            qnas.sort(Comparator.comparingLong(qa -> qa.getQuestion().getQuestionId()));
+
+            result.add(toResponse(today, profile, qnas));
+        }
+
+        return new RecommendedTodayLoveViewListResponseDto(result);
+    }
+
     private LoveViewMatchConditionResponseDto toResponse(
             LocalDate today, Profile pickedProfile,
             List<QuestionAnswer> questionAnswers
@@ -150,6 +193,7 @@ public class LoveViewMatchService {
 
         return new LoveViewMatchConditionResponseDto(
                 pickedProfile.getProfileId(),
+                pickedProfile.getNickName(),
                 age,
                 pickedProfile.getMbti(),
                 pickedProfile.getAlcohol(),

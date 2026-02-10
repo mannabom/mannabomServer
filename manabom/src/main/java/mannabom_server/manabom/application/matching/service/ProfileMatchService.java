@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
+import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayProfileListResponseDto;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
@@ -33,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -153,6 +155,41 @@ public class ProfileMatchService {
         return toResponse(picked);
     }
 
+    @Transactional(readOnly = true)
+    public RecommendedTodayProfileListResponseDto getRecommendedTodayProfileList(Long userId){
+        LocalDateTime start = LocalDate.now().atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+
+        List<ProfileRecommendHistory> histories =
+                historyRepository.findByRequesterUserIdAndRecommendedAtGreaterThanEqualAndRecommendedAtLessThanOrderByRecommendedAtDesc(
+                        userId, start, end
+                );
+
+        if(histories.isEmpty()){
+            return new RecommendedTodayProfileListResponseDto(List.of());
+        }
+
+        List<Long> targetUserIds = new ArrayList<>();
+        for(ProfileRecommendHistory history : histories){
+            targetUserIds.add(history.getTargetUserId());
+        }
+
+        List<Profile> targetProfiles = profileRepository.findAllByUser_UserIdIn(targetUserIds);
+
+        Map<Long, Profile> map = targetProfiles.stream()
+                .collect(java.util.stream.Collectors.toMap(p -> p.getUser().getUserId(), p -> p));
+
+        List<ProfileMatchConditionResponseDto> result = new ArrayList<>();
+        for(ProfileRecommendHistory history : histories){
+            Profile profile = map.get(history.getTargetUserId());
+            if(profile != null){
+                result.add(toResponse(profile));
+            }
+        }
+
+        return new RecommendedTodayProfileListResponseDto(result);
+    }
+
     private ProfileMatchConditionResponseDto toResponse(Profile profile) {
         String url = profileImageRepository.findByProfileAndIsMainTrue(profile)
                 .map(ProfileImage::getUrl)
@@ -170,6 +207,7 @@ public class ProfileMatchService {
 
         return new ProfileMatchConditionResponseDto(
                 profile.getProfileId(),
+                profile.getNickName(),
                 presignedUrl,
                 age,
                 profile.getMbti(),

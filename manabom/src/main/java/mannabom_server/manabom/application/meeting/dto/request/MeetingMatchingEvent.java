@@ -1,11 +1,15 @@
 package mannabom_server.manabom.application.meeting.dto.request;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MeetingMatchingEvent {
     private Long meetingId;
     private String gender;

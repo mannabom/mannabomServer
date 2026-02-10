@@ -131,4 +131,6 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
             @Param("cooldownFrom") LocalDateTime cooldownFrom,
             Pageable pageable
     );
+
+    List<Profile> findAllByUser_UserIdIn(List<Long> userIds);
 }

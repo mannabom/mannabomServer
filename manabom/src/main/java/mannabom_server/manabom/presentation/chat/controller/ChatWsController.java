@@ -48,8 +48,8 @@ public class ChatWsController {
     }
     private String topicBy(ChatRoomType type){
         return switch(type){
-            case DM_PROFILE -> "/topic/dm-profile/rooms/";
-            case DM_CODE -> "/topic/dm-code/rooms/";
+            case PROFILE_MATCH -> "/topic/dm-profile/rooms/";
+            case LOVEVIEW_MATCH -> "/topic/dm-code/rooms/";
             case MEETING_GROUP -> "/topic/meeting-group/rooms/";
             case MEETING_MATCH -> "/topic/meeting-match/rooms/";
         };

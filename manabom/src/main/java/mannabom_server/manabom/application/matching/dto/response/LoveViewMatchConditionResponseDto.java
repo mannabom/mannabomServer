@@ -12,6 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class LoveViewMatchConditionResponseDto {
     private final Long profileId;
+    private final String nickName;
     private final int age;
     private final String mbti;
     private final DrinkingHabit drinkingHabit;

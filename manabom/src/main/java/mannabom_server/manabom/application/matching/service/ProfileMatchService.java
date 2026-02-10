@@ -207,6 +207,7 @@ public class ProfileMatchService {
 
         return new ProfileMatchConditionResponseDto(
                 profile.getProfileId(),
+                profile.getNickName(),
                 presignedUrl,
                 age,
                 profile.getMbti(),

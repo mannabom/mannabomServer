@@ -193,6 +193,7 @@ public class LoveViewMatchService {
 
         return new LoveViewMatchConditionResponseDto(
                 pickedProfile.getProfileId(),
+                pickedProfile.getNickName(),
                 age,
                 pickedProfile.getMbti(),
                 pickedProfile.getAlcohol(),

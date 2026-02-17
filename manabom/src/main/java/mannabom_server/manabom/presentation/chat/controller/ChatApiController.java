@@ -7,6 +7,7 @@ import mannabom_server.manabom.application.chat.dto.response.ChatInitialSyncResp
 import mannabom_server.manabom.application.chat.dto.response.ChatRoomListResponse;
 import mannabom_server.manabom.application.chat.dto.response.ChatSyncResponse;
 import mannabom_server.manabom.application.chat.service.ChatMemberService;
+import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.chat.service.ChatService;
 import mannabom_server.manabom.application.common.dto.ApiResponse;
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
@@ -24,6 +25,7 @@ public class ChatApiController {
     private final ChatMemberService chatMemberService;
     private final S3FileUploadService s3FileUploadService;
     private final ChatService chatService;
+    private final ChatRoomService chatRoomService;
 
     @PostMapping("/rooms/{roomId}/read")
     public ResponseEntity<ApiResponse<Void>> readMessage(@PathVariable Long roomId, @AuthenticationPrincipal Long userId,@RequestBody ChatMessageRequest request){
@@ -58,6 +60,12 @@ public class ChatApiController {
     public ResponseEntity<ApiResponse<ChatHistoryResponse>> getChatMessagesListHistory(@PathVariable Long roomId, @AuthenticationPrincipal Long userId, @RequestBody ChatMessageRequest request){
         ChatHistoryResponse response = chatService.getChatHistory(roomId, userId, request.getLastReadMessageId());
         return ResponseEntity.ok(ApiResponse.success(response,"과거 채팅 메시지 조회 완료했습니다."));
+    }
+
+    @DeleteMapping("/rooms/{roomId}/leave")
+    public ResponseEntity<ApiResponse<Void>> leaveChatRoom(@PathVariable Long roomId, @AuthenticationPrincipal Long userId){
+        chatRoomService.leaveChatRoom(roomId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null,"채팅방 나가기 완료했습니다."));
     }
 
 

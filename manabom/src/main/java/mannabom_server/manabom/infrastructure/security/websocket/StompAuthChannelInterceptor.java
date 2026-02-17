@@ -3,6 +3,7 @@ package mannabom_server.manabom.infrastructure.security.websocket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -21,8 +22,10 @@ import java.util.regex.Pattern;
 @Slf4j
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtUtil jwtUtil;
-    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/(dm-profile|dm-code|meeting-group|meeting-match)/rooms/(\\d+)$");
+    private final StringRedisTemplate redisTemplate;
 
+    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/(dm-profile|dm-code|meeting-group|meeting-match)/rooms/(\\d+)$");
+    private static final String USER_LOCATION_PREFIX = "user:location:";
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -45,21 +48,34 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 Long userId = jwtUtil.getUserIdFromToken(token);
                 acc.setUser(new UserPrincipal(userId));
             }
-
-
         }
 
         //방 입장(웹소켓 구독)은 해당 방에 존재하는지
         if(StompCommand.SUBSCRIBE.equals(command)){
-            String dest = acc.getDestination();
-            Long roomId = parseRoomId(dest);
-            log.debug(roomId+"구독");
+            Principal principal = acc.getUser();
+            if(principal!=null){
+                String userId = principal.getName();
+                String dest = acc.getDestination();
+                Long roomId = parseRoomId(dest);
+
+                redisTemplate.opsForValue().set(USER_LOCATION_PREFIX+userId,String.valueOf(roomId));
+                log.debug("웹소켓 구독: 유저 {} 가 방 {} 에 입장하여 Redis에 위치를 기록했습니다.", userId, roomId);
+            }
+
         }
 
+        if(StompCommand.DISCONNECT.equals(command)){
+            Principal principal = acc.getUser();
+            if(principal!=null){
+                String userId = principal.getName();
+                redisTemplate.delete(USER_LOCATION_PREFIX+userId);
+                log.debug("유저 {} 접속 종료로 Redis 위치 정보를 삭제합니다.", userId);
+            }
+        }
+
+
+
         return message;
-
-
-
     }
 
 

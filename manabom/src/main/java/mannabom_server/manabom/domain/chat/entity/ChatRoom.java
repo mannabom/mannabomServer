@@ -13,6 +13,8 @@ import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 @Entity
 @Table(name = "chat_rooms")
@@ -33,6 +35,7 @@ public class ChatRoom extends BaseTimeEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "meeting_id")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Meeting meeting;
 
     @OneToOne(fetch = FetchType.LAZY)
@@ -102,5 +105,7 @@ public class ChatRoom extends BaseTimeEntity {
 
         }
     }
-
+    public void deactivate(){
+        this.chatStatus = ChatStatus.DISABLED;
+    }
 }

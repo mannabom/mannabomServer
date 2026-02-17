@@ -16,16 +16,19 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class NotificationController {
     private final SseService sseService;
     private final NotificationService notificationService;
+
     @GetMapping(value = "/sse/connect", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter connectStream(@RequestHeader(required = false, defaultValue = "", value = "Last-Event-ID") String lastEventId, @AuthenticationPrincipal Long userId){
         return sseService.createEmitterConnection(userId, lastEventId);
     }
 
-
+    /**
+     * 배포 전 삭제
+     * **/
     @PostMapping("/test/send")
     public String sendTestNotification(@RequestBody TestNotificationRequest request) {
 
-        // 우리가 아까 만든 통합 알림 메서드 호출 (DB저장 + SSE전송 + 실패시 Push)
+        // 아까 만든 통합 알림 메서드 호출 (DB저장 + SSE전송 + 실패시 Push)
         notificationService.sendNotification(
                 request.targetUserId(),
                 SseEventName.MATCH_FOUND, // 테스트용 이벤트 타입

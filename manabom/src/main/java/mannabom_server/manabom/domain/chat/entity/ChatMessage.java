@@ -1,6 +1,8 @@
 package mannabom_server.manabom.domain.chat.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
@@ -16,6 +18,8 @@ import mannabom_server.manabom.domain.user.entity.User;
 @Table(name = "chat_messages")
 @Getter
 @NoArgsConstructor
+@Builder
+@AllArgsConstructor
 public class ChatMessage extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

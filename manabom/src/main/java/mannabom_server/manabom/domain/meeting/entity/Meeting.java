@@ -9,7 +9,7 @@ import mannabom_server.manabom.domain.region.entity.Region;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.enums.GenderConverter;
-import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.*;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +23,8 @@ import java.time.temporal.ChronoUnit;
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @DynamicUpdate
+@SQLDelete(sql = "UPDATE meeting SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class Meeting extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -64,6 +66,8 @@ public class Meeting extends BaseTimeEntity {
     private Integer remainingRejectCount = 3;
     @Builder.Default
     private double avgAge=0.0;
+
+    private Instant deletedAt;
 
     public static Meeting create(
             User createdBy,
@@ -113,10 +117,10 @@ public class Meeting extends BaseTimeEntity {
             currentMembers--;
             avgAge = tmp/currentMembers;
             updateOccupancyScore();
-            return;
+        } else {
+            this.currentMembers = 0;
+            this.avgAge = 0.0;
         }
-
-        //미팅 삭제 로직
     }
 
 

@@ -62,5 +62,24 @@ public class MeetingMemberService {
     }
 
 
+    public void deactivateStatus(Long meetingId, Long userId){
+        MeetingMember mm = isActivate(userId).orElseThrow(()-> new IllegalArgumentException("채팅방나가기: 미팅방에 입장하지 않은 유저입니다."));
+        if(!mm.getMeeting().getId().equals(meetingId)){
+            throw new IllegalArgumentException("채팅방 나가기: 유효하지 않은 채팅방아이디입니다.");
+        }
+        mm.deactivate();
+    }
+
+    public void appointNextLeader(Long meetingId){
+        List<MeetingMember> list = getActiveMembers(meetingId);
+        if (!list.isEmpty()) {
+            MeetingMember nextLeader = list.get(0);
+            nextLeader.appointLeader();
+
+            log.info("미팅 [{}]의 새로운 리더로 유저 [{}]가 선출되었습니다.", meetingId, nextLeader.getUser().getUserId());
+        }
+    }
+
+
 
 }

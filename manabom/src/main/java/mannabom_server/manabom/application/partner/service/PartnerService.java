@@ -109,6 +109,8 @@ public class PartnerService {
         return GetTargetProfileDetailResponseDto.builder()
                 .nickname(targetProfile.getNickName())
                 .age(age)
+                .height(targetProfile.getHeight())
+                .bodyType(targetProfile.getBodyType())
                 .region(region)
                 .questionAnswers(questionAnswers)
                 .photos(photos)

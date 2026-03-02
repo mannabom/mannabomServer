@@ -13,6 +13,7 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     int countChatMemberByRoomIdAndStatus(Long roomId, ChatMemberStatus status);
 
     Optional<ChatMember> findByRoomIdAndUser_UserIdAndStatus(Long roomId, Long userId, ChatMemberStatus status);
+    Optional<ChatMember> findByRoomIdAndUserId(Long chatRoomId, Long userId);
 
     List<ChatMember> findAllByUser_UserIdAndStatus(Long userId, ChatMemberStatus status);
 

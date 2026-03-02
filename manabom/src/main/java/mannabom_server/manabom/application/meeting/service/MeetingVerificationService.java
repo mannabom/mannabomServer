@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
@@ -90,10 +91,10 @@ public class MeetingVerificationService {
                 }
             }
         }
-        int totalMembers = chatMemberRepository.countByRoomIdAndStatus(chatRoomId, Status);
+        int totalMembers = chatMemberRepository.countChatMemberByRoomIdAndStatus(chatRoomId, ChatMemberStatus.ACTIVATE);
         int nearbyCount = nearbyIds.size();
         if(nearbyCount>=(totalMembers/2)){
-            List<ChatMember> members = chatMemberRepository.findAllByIdIn(nearbyIds);
+            List<ChatMember> members = chatMemberRepository.findAllById(nearbyIds);
             boolean hasMale = members.stream().anyMatch(
                     m-> profileRepository.findByUser(m.getUser()).get().getGender()== Gender.MALE
             );
@@ -124,7 +125,7 @@ public class MeetingVerificationService {
 
     private void reward(Long chatRoomId, List<Long> userIds){
         for(Long userId : userIds){
-            ChatMember m = chatMemberRepository.findByRoomIdAndUserIdAndStatus(chatRoomId,userId)
+            ChatMember m = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(chatRoomId,userId, ChatMemberStatus.ACTIVATE)
                     .orElseThrow(()->new IllegalArgumentException("현재 채팅방에 속해있는 멤버가 아닙니다."));
             MeetingParticipant p = meetingParticipantRepository.findByChatMemberId(m.getId())
                     .orElseThrow(()-> new IllegalStateException("인증 참여 정보가 생성되지 않았습니다."));

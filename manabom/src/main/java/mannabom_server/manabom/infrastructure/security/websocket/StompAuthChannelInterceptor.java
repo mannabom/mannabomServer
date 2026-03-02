@@ -24,7 +24,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
 
-    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/(dm-profile|dm-code|meeting-group|meeting-match)/rooms/(\\d+)$");
+    private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/rooms/(\\d+).*");
     private static final String USER_LOCATION_PREFIX = "user:location:";
 
     @Override
@@ -64,6 +64,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
         }
 
+
         if(StompCommand.DISCONNECT.equals(command)){
             Principal principal = acc.getUser();
             if(principal!=null){
@@ -95,7 +96,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             log.error("웹소켓 구독: 잘못된 destination 형식, destination={}",destination);
             throw new IllegalArgumentException("웹소켓 구독: 잘못된 destination 형식"+destination);
         }
-        return Long.parseLong(m.group(2));
+        return Long.parseLong(m.group(1));
 
     }
 }

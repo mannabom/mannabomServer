@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,4 +33,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
 
     @Query("SELECT m FROM ChatMessage m WHERE m.room.id = :roomId ORDER BY m.id DESC")
     List<ChatMessage> findLatestMessages(@Param("roomId") Long roomId, Pageable pageable);
+    int countChatMessagesByRoom_Id(Long roomId);
+
+    int countChatMessagesByRoom_IdAndCreatedAtAfter(Long roomId, Instant after);
 }
+

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
 import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
@@ -156,7 +157,7 @@ public class PhotoRequestService {
         return chatMemberRepository.findByRoomId(chatRoomId)
                 .stream()
                 .filter(m-> !m.getUser().getUserId().equals(userId))
-                .filter(m-> m.getStatus()== ChatMemberStatus.ACTIVE)
+                .filter(m-> m.getStatus()== ChatMemberStatus.ACTIVATE)
                 .map(ChatMember::getUser)
                 .findFirst()
                 .orElseThrow(()-> new IllegalStateException("상대방이 채팅방을 나갔습니다."));

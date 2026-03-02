@@ -32,6 +32,7 @@ public class LoveViewPhotoRequest extends BaseTimeEntity {
     @JoinColumn(name = "receiver_id")
     private User receiver;
 
+    @Enumerated(EnumType.STRING)
     private PhotoRequestStatus status;
 
     public void accept(){

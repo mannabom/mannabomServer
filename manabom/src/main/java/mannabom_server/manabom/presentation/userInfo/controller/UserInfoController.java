@@ -2,14 +2,18 @@ package mannabom_server.manabom.presentation.userInfo.controller;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mannabom_server.manabom.application.userInfo.dto.CheckEntitlementsResponseDto;
-import mannabom_server.manabom.application.userInfo.dto.GetUserInfoResponse;
-import mannabom_server.manabom.application.userInfo.dto.GetUserMainPhotoResponseDto;
-import mannabom_server.manabom.application.userInfo.dto.PutUserInfoRequest;
+import mannabom_server.manabom.application.userInfo.dto.common.UserAllPhotosDto;
+import mannabom_server.manabom.application.userInfo.dto.request.DeleteUserPhotoRequest;
+import mannabom_server.manabom.application.userInfo.dto.response.CheckEntitlementsResponseDto;
+import mannabom_server.manabom.application.userInfo.dto.response.GetUserInfoResponse;
+import mannabom_server.manabom.application.userInfo.dto.response.GetUserMainPhotoResponseDto;
+import mannabom_server.manabom.application.userInfo.dto.request.PutUserInfoRequest;
 import mannabom_server.manabom.application.userInfo.service.UserInfoService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @AllArgsConstructor
@@ -53,6 +57,42 @@ public class UserInfoController {
             @AuthenticationPrincipal Long userId
     ){
         return ResponseEntity.ok(userInfoService.checkEntitlements(userId));
+    }
+
+    /**
+     * 내 프로필 사진 전체 조회
+     * GET /api/v1/users/me/photos
+     */
+    @GetMapping("/api/user/all_photos")
+    public ResponseEntity<UserAllPhotosDto> getMyPhotos(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(userInfoService.getUserAllPhotos(userId));
+    }
+
+    /**
+     * 내 프로필 사진 추가(업로드)
+     * POST /api/v1/users/me/photos
+     * multipart/form-data: photo=<file>
+     */
+    @PostMapping(path = "/api/user/photo",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserAllPhotosDto> addMyPhoto(
+            @AuthenticationPrincipal Long userId,
+            @RequestPart("photo") MultipartFile photo
+            ) {
+        return ResponseEntity.ok(userInfoService.putUserPhoto(userId, photo));
+    }
+
+    /**
+     * 내 프로필 사진 삭제
+     * DELETE /api/v1/users/me/photos/{photoId}
+     */
+    @DeleteMapping("/api/user/photo")
+    public ResponseEntity<UserAllPhotosDto> deleteMyPhoto(
+            @AuthenticationPrincipal Long userId, // 프로젝트 인증 방식에 맞게 수정
+            @RequestBody DeleteUserPhotoRequest request
+            ) {
+        return ResponseEntity.ok(userInfoService.deleteUserPhoto(userId, request.getPhotoId()));
     }
 
     /**

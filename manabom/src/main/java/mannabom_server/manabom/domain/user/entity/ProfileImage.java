@@ -2,10 +2,7 @@ package mannabom_server.manabom.domain.user.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 
 /**
@@ -36,6 +33,7 @@ public class ProfileImage extends BaseTimeEntity {
     @Column(name = "original_name")
     private String originalName;                // 사용자 업로드 원본명
 
+    @Setter
     @Column(name = "image_index", nullable = false)
     private Integer imageIndex;                 // 표시 순서
 

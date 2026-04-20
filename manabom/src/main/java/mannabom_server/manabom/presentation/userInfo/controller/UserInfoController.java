@@ -61,7 +61,7 @@ public class UserInfoController {
 
     /**
      * 내 프로필 사진 전체 조회
-     * GET /api/v1/users/me/photos
+     * GET /api/user/all_photos
      */
     @GetMapping("/api/user/all_photos")
     public ResponseEntity<UserAllPhotosDto> getMyPhotos(
@@ -72,7 +72,7 @@ public class UserInfoController {
 
     /**
      * 내 프로필 사진 추가(업로드)
-     * POST /api/v1/users/me/photos
+     * POST /api/user/photo
      * multipart/form-data: photo=<file>
      */
     @PostMapping(path = "/api/user/photo",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -85,7 +85,7 @@ public class UserInfoController {
 
     /**
      * 내 프로필 사진 삭제
-     * DELETE /api/v1/users/me/photos/{photoId}
+     * DELETE /api/user/photo
      */
     @DeleteMapping("/api/user/photo")
     public ResponseEntity<UserAllPhotosDto> deleteMyPhoto(

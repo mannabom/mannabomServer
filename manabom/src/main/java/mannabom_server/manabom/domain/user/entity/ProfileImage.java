@@ -9,7 +9,15 @@ import mannabom_server.manabom.domain.common.BaseTimeEntity;
  * 프로필 이미지 엔터티
  */
 @Entity
-@Table(name = "profile_image")
+@Table(
+        name = "profile_image",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_profile_image_profile_id_image_index",
+                        columnNames = {"profile_id", "image_index"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProfileImage extends BaseTimeEntity {

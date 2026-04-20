@@ -30,6 +30,7 @@ import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -184,26 +185,37 @@ public class UserInfoService {
     public UserAllPhotosDto putUserPhoto(Long userId, MultipartFile photo){
         Profile profile = profileRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
-        List<ProfileImage> images = profileImageRepository.findAllByProfile(profile);
+        List<ProfileImage> images = profileImageRepository.findAllByProfileForUpdate(profile);
 
         String url = s3FileUploadService.uploadFile(photo, "profiles");
-        String fileName = extractFileNameFromS3Url(url);
+        try {
+            String fileName = extractFileNameFromS3Url(url);
 
-        int nextIdx = images.stream()
-                .mapToInt(ProfileImage::getImageIndex)
-                .max()
-                .orElse(-1) + 1;
+            int nextIdx = images.stream()
+                    .mapToInt(ProfileImage::getImageIndex)
+                    .max()
+                    .orElse(-1) + 1;
 
-        boolean isMain = images.isEmpty();
+            boolean isMain = images.isEmpty();
 
-        String originalName = "profile_"+ nextIdx;
+            String originalName = "profile_"+ nextIdx;
 
-        log.info("image url : {}", url);
+            log.debug("image url : {}", url);
 
-        profileImageRepository.save(new ProfileImage(profile, url, fileName, originalName, nextIdx, isMain));
+            profileImageRepository.save(new ProfileImage(profile, url, fileName, originalName, nextIdx, isMain));
+            profileImageRepository.flush();
 
-        List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
-        return new UserAllPhotosDto(photos);
+            List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+            return new UserAllPhotosDto(photos);
+        } catch (DataIntegrityViolationException e) {
+            if(url != null)
+                s3FileUploadService.deleteFile(url);
+            throw new IllegalStateException("프로필 사진 저장 중 충돌이 발생했습니다.");
+        } catch (RuntimeException e) {
+            if(url != null)
+                s3FileUploadService.deleteFile(url);
+            throw e;
+        }
     }
 
     @Transactional
@@ -211,7 +223,7 @@ public class UserInfoService {
         Profile profile = profileRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
 
-        List<ProfileImage> images = profileImageRepository.findAllByProfile(profile);
+        List<ProfileImage> images = profileImageRepository.findAllByProfileForUpdate(profile);
         if(images == null || images.size() < 2){
             throw new IllegalStateException("사진은 2개 이상일 때만 삭제할 수 있습니다.");
         }
@@ -228,7 +240,9 @@ public class UserInfoService {
         if(target == null)
             throw new IllegalStateException("해당 사용자 프로필 사진이 아닙니다.");
 
-        s3FileUploadService.deleteFile(target.getUrl());
+        if(!s3FileUploadService.deleteFile(target.getUrl())) {
+            throw new IllegalStateException("프로필 사진 삭제에 실패했습니다");
+        }
         profileImageRepository.delete(target);
         images.remove(target);
 
@@ -237,10 +251,14 @@ public class UserInfoService {
             image.setImageIndex(i);
             if(i == 0)
                 image.setAsMain();
+            else
+                image.unsetAsMain();
         }
         profileImageRepository.saveAll(images);
+        profileImageRepository.flush();
 
         List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+
         return new UserAllPhotosDto(photos);
     }
 

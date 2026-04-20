@@ -1,8 +1,10 @@
 package mannabom_server.manabom.domain.user.repository;
 
+import jakarta.persistence.LockModeType;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,6 +31,18 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
             order by pi.isMain desc, pi.imageIndex asc, pi.imageId asc
             """)
     List<ProfileImage> findAllByProfile(@Param("profile") Profile profile);
+
+    /**
+     * 프로필의 모든 이미지 조회(비관적 락)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select pi
+            from ProfileImage pi
+            where pi.profile = :profile
+            order by pi.isMain desc, pi.imageIndex asc, pi.imageId asc
+            """)
+    List<ProfileImage> findAllByProfileForUpdate(@Param("profile") Profile profile);
 
     /**
      * 프로필의 대표 이미지 조회

@@ -70,4 +70,9 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
      * 해당 photoId가 해당 유저의 것인지 확인
      */
     boolean existsByImageIdAndProfile(Long imageId, Profile profile);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE ProfileImage pi SET pi.imageIndex = pi.imageIndex - 1 " +
+            "WHERE pi.profile = :profile AND pi.imageIndex > :deletedIndex")
+    void decrementIndexesAfter(@Param("profile") Profile profile, @Param("deletedIndex") int deletedIndex);
 }

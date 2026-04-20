@@ -244,17 +244,17 @@ public class UserInfoService {
             throw new IllegalStateException("프로필 사진 삭제에 실패했습니다");
         }
         profileImageRepository.delete(target);
-        images.remove(target);
+        profileImageRepository.flush();
 
-        for(int i = 0; i < images.size(); i++){
-            ProfileImage image = images.get(i);
-            image.setImageIndex(i);
-            if(i == 0)
-                image.setAsMain();
-            else
-                image.unsetAsMain();
+        profileImageRepository.decrementIndexesAfter(profile, target.getImageIndex());
+
+        List<ProfileImage> remaining = profileImageRepository.findAllByProfile(profile);
+        remaining.sort(Comparator.comparingInt(ProfileImage::getImageIndex));
+        for (int i = 0; i < remaining.size(); i++) {
+            if(i == 0) remaining.get(i).setAsMain();
+            else remaining.get(i).unsetAsMain();
         }
-        profileImageRepository.saveAll(images);
+        profileImageRepository.saveAll(remaining);
         profileImageRepository.flush();
 
         List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);

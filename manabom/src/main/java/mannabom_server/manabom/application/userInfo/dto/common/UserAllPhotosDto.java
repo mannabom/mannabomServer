@@ -13,8 +13,8 @@ public class UserAllPhotosDto {
     @Getter
     @AllArgsConstructor
     public static class Photo{
-        Long id;
-        Integer index;
-        String url;
+        private Long id;
+        private Integer index;
+        private String url;
     }
 }

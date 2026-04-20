@@ -8,5 +8,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Getter
 public class DeleteUserPhotoRequest {
-    Long photoId;
+    private Long photoId;
 }

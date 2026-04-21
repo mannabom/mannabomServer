@@ -4,14 +4,15 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import mannabom_server.manabom.application.region.service.RegionService;
-import mannabom_server.manabom.application.userInfo.dto.GetUserInfoResponse;
-import mannabom_server.manabom.application.userInfo.dto.ProfileDto;
 
 import mannabom_server.manabom.application.signup.service.S3FileUploadService;
-import mannabom_server.manabom.application.userInfo.dto.CheckEntitlementsResponseDto;
-import mannabom_server.manabom.application.userInfo.dto.GetUserMainPhotoResponseDto;
 
-import mannabom_server.manabom.application.userInfo.dto.PutUserInfoRequest;
+import mannabom_server.manabom.application.userInfo.dto.common.ProfileDto;
+import mannabom_server.manabom.application.userInfo.dto.request.PutUserInfoRequest;
+import mannabom_server.manabom.application.userInfo.dto.response.CheckEntitlementsResponseDto;
+import mannabom_server.manabom.application.userInfo.dto.common.UserAllPhotosDto;
+import mannabom_server.manabom.application.userInfo.dto.response.GetUserInfoResponse;
+import mannabom_server.manabom.application.userInfo.dto.response.GetUserMainPhotoResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.question.entity.Question;
@@ -29,10 +30,11 @@ import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
-import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -169,6 +171,97 @@ public class UserInfoService {
         return new GetUserMainPhotoResponseDto(s3FileUploadService.presignedGetUrl(key, Duration.ofMinutes(10)));
     }
 
+    @Transactional(readOnly = true)
+    public UserAllPhotosDto getUserAllPhotos(Long userId){
+        Profile profile = profileRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
+
+        List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+
+        return new UserAllPhotosDto(photos);
+    }
+
+    @Transactional
+    public UserAllPhotosDto putUserPhoto(Long userId, MultipartFile photo){
+        Profile profile = profileRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
+        List<ProfileImage> images = profileImageRepository.findAllByProfileForUpdate(profile);
+
+        String url = s3FileUploadService.uploadFile(photo, "profiles");
+        try {
+            String fileName = extractFileNameFromS3Url(url);
+
+            int nextIdx = images.stream()
+                    .mapToInt(ProfileImage::getImageIndex)
+                    .max()
+                    .orElse(-1) + 1;
+
+            boolean isMain = images.isEmpty();
+
+            String originalName = "profile_"+ nextIdx;
+
+            log.debug("image url : {}", url);
+
+            profileImageRepository.save(new ProfileImage(profile, url, fileName, originalName, nextIdx, isMain));
+            profileImageRepository.flush();
+
+            List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+            return new UserAllPhotosDto(photos);
+        } catch (DataIntegrityViolationException e) {
+            if(url != null)
+                s3FileUploadService.deleteFile(url);
+            throw new IllegalStateException("프로필 사진 저장 중 충돌이 발생했습니다.");
+        } catch (RuntimeException e) {
+            if(url != null)
+                s3FileUploadService.deleteFile(url);
+            throw e;
+        }
+    }
+
+    @Transactional
+    public UserAllPhotosDto deleteUserPhoto(Long userId, Long photoId){
+        Profile profile = profileRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
+
+        List<ProfileImage> images = profileImageRepository.findAllByProfileForUpdate(profile);
+        if(images == null || images.size() < 2){
+            throw new IllegalStateException("사진은 2개 이상일 때만 삭제할 수 있습니다.");
+        }
+
+        images.sort(Comparator.comparingInt(ProfileImage::getImageIndex));
+
+        ProfileImage target = null;
+        for(ProfileImage image : images){
+            if(image.getImageId().equals(photoId)){
+                target = image;
+                break;
+            }
+        }
+        if(target == null)
+            throw new IllegalStateException("해당 사용자 프로필 사진이 아닙니다.");
+
+        if(!s3FileUploadService.deleteFile(target.getUrl())) {
+            throw new IllegalStateException("프로필 사진 삭제에 실패했습니다");
+        }
+        profileImageRepository.delete(target);
+        profileImageRepository.flush();
+
+        profileImageRepository.decrementIndexesAfter(profile, target.getImageIndex());
+
+        List<ProfileImage> remaining = profileImageRepository.findAllByProfile(profile);
+        remaining.sort(Comparator.comparingInt(ProfileImage::getImageIndex));
+        for (int i = 0; i < remaining.size(); i++) {
+            if(i == 0) remaining.get(i).setAsMain();
+            else remaining.get(i).unsetAsMain();
+        }
+        profileImageRepository.saveAll(remaining);
+        profileImageRepository.flush();
+
+        List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+
+        return new UserAllPhotosDto(photos);
+    }
+
     @Transactional
     public CheckEntitlementsResponseDto checkEntitlements(Long userId) {
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
@@ -185,6 +278,31 @@ public class UserInfoService {
         );
 
         return new CheckEntitlementsResponseDto(isMembership, membershipActiveUntil, isVip);
+    }
+
+    private List<UserAllPhotosDto.Photo> getUserAllPhotos(Profile profile){
+        List<ProfileImage> images = profileImageRepository.findAllByProfile(profile);
+        images.sort(Comparator.comparingInt(ProfileImage::getImageIndex));
+        List<UserAllPhotosDto.Photo> photos = new ArrayList<>();
+        for(ProfileImage image : images){
+            Long photoId = image.getImageId();
+            Integer photoIndex = image.getImageIndex();
+            String key = s3FileUploadService.extractS3KeyFromUrl(image.getUrl());
+            String presignedUrl = s3FileUploadService.presignedGetUrl(key, Duration.ofMinutes(10));
+
+            photos.add(new UserAllPhotosDto.Photo(photoId, photoIndex, presignedUrl));
+        }
+
+        return photos;
+    }
+
+    /**
+     * S3 URL에서 파일명 추출
+     */
+    private String extractFileNameFromS3Url(String s3Url) {
+        if (s3Url == null) return null;
+        int lastSlashIndex = s3Url.lastIndexOf('/');
+        return lastSlashIndex != -1 ? s3Url.substring(lastSlashIndex + 1) : s3Url;
     }
 
     /**

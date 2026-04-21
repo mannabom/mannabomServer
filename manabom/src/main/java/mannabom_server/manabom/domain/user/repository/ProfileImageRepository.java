@@ -1,8 +1,10 @@
 package mannabom_server.manabom.domain.user.repository;
 
+import jakarta.persistence.LockModeType;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,6 +33,18 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
     List<ProfileImage> findAllByProfile(@Param("profile") Profile profile);
 
     /**
+     * 프로필의 모든 이미지 조회(비관적 락)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select pi
+            from ProfileImage pi
+            where pi.profile = :profile
+            order by pi.isMain desc, pi.imageIndex asc, pi.imageId asc
+            """)
+    List<ProfileImage> findAllByProfileForUpdate(@Param("profile") Profile profile);
+
+    /**
      * 프로필의 대표 이미지 조회
      */
     Optional<ProfileImage> findByProfileAndIsMainTrue(Profile profile);
@@ -56,4 +70,9 @@ public interface ProfileImageRepository extends JpaRepository<ProfileImage, Long
      * 해당 photoId가 해당 유저의 것인지 확인
      */
     boolean existsByImageIdAndProfile(Long imageId, Profile profile);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE ProfileImage pi SET pi.imageIndex = pi.imageIndex - 1 " +
+            "WHERE pi.profile = :profile AND pi.imageIndex > :deletedIndex")
+    void decrementIndexesAfter(@Param("profile") Profile profile, @Param("deletedIndex") int deletedIndex);
 }

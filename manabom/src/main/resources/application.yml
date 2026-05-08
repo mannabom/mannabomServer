@@ -57,6 +57,9 @@ spring:
 
 # 커스텀 설정
 app:
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+
   aws:
     region: ${AWS_REGION}
     s3:

@@ -91,9 +91,6 @@ jobs:
 
           printf "%s" "$ENV_FILE_BASE64" | base64 -d > .env
           sed -i '/^IMAGE_URI=/d;/^IMAGE_TAG=/d' .env
-          echo "IMAGE_URI=$IMAGE_URI" >> .env
-          echo "IMAGE_TAG=$IMAGE_TAG" >> .env
-          grep '^IMAGE_' .env
 
           gcloud compute scp .env \
             ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }}:/home/${{ secrets.GCP_VM_USER }}/manabom/.env \
@@ -103,23 +100,18 @@ jobs:
           gcloud compute ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }} \
             --zone=${{ secrets.GCP_ZONE }} \
             --quiet \
-            --command='
+            --command="
               set -e
 
               mkdir -p ~/manabom
               cd ~/manabom
 
-              set -a
-              . ./.env
-              set +a
-
-              test -n "$IMAGE_URI"
-              test -n "$IMAGE_TAG"
-              grep "^IMAGE_" .env
+              export IMAGE_URI='$IMAGE_URI'
+              export IMAGE_TAG='$IMAGE_TAG'
 
               gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
               docker-compose -f docker-compose.prod.yml pull
               docker-compose -f docker-compose.prod.yml up -d --remove-orphans
               docker image prune -f
-            '
+            "

@@ -9,7 +9,7 @@ import mannabom_server.manabom.application.partner.dto.request.GetTargetProfileD
 import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditionalProfileByTingRequestDto;
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
 import mannabom_server.manabom.application.partner.dto.response.*;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
@@ -46,7 +46,7 @@ public class PartnerService {
     private final ProfileRepository profileRepository;
     private final ProfileImageRepository profileImageRepository;
     private final UserRepository userRepository;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
     private final QuestionAnswerRepository questionAnswerRepository;
     private final LikeRequestRepository likeRequestRepository;
     private final MessageRequestRepository messageRequestRepository;
@@ -77,8 +77,8 @@ public class PartnerService {
         for(int i = 0; i < targetProfileImages.size(); i++){
             Long photoId = targetProfileImages.get(i).getImageId();
             String photoUrl = targetProfileImages.get(i).getUrl();
-            String photoKey = s3FileUploadService.extractS3KeyFromUrl(photoUrl);
-            String presignedPhotoUrl = s3FileUploadService.presignedGetUrl(photoKey, Duration.ofMinutes(10));
+            String photoKey = fileStoragePort.extractKeyFromUrl(photoUrl);
+            String presignedPhotoUrl = fileStoragePort.presignedGetUrl(photoKey, Duration.ofMinutes(10));
 
             if(i >= requesterProfileImageNum && !unlockedSet.contains(photoId)) {
                 photos.add(new GetTargetProfileDetailResponseDto.Photo(photoId, presignedPhotoUrl, true));

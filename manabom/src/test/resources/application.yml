@@ -1,3 +1,11 @@
+fcm:
+  enabled: false
+
+meeting:
+  match:
+    timeout-consumer:
+      enabled: false
+
 match:
   scheduler:
     initial-delay: 0

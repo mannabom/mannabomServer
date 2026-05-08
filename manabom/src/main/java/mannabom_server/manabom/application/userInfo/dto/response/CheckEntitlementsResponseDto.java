@@ -1,4 +1,4 @@
-package mannabom_server.manabom.application.userInfo.dto;
+package mannabom_server.manabom.application.userInfo.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

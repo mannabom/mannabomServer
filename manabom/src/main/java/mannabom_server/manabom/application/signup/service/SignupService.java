@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.signup.dto.request.*;
 import mannabom_server.manabom.application.signup.dto.response.*;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
@@ -58,7 +59,7 @@ public class SignupService {
     private final RegionRepository regionRepository;
 
     private final EmailService emailService;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
     private final JwtUtil jwtUtil;
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -272,14 +273,13 @@ public class SignupService {
         for (int i = 0; i < request.getPhotos().size(); i++) {
             MultipartFile photo = request.getPhotos().get(i);
 
-            // 수정: S3에 업로드 (전체 URL 반환)
-            String s3Url = s3FileUploadService.uploadFile(photo, "profiles");
-            String s3Key = s3FileUploadService.extractS3KeyFromUrl(s3Url);
+            String fileUrl = fileStoragePort.uploadFile(photo, "profiles");
+            String fileKey = fileStoragePort.extractKeyFromUrl(fileUrl);
 
             // Redis에 저장
-            progress.addProfileImage(String.valueOf(i), s3Url);
+            progress.addProfileImage(String.valueOf(i), fileUrl);
 
-            String presignedUrl = s3FileUploadService.presignedGetUrl(s3Key, Duration.ofMinutes(10));
+            String presignedUrl = fileStoragePort.presignedGetUrl(fileKey, Duration.ofMinutes(10));
 
             uploadedPhotos.add(ProfilePhotosResponseDto.UploadedPhotoDto.builder()
                     .photoId(UUID.randomUUID().toString())
@@ -658,12 +658,12 @@ public class SignupService {
         int index = 0;
 
         for (Map.Entry<String, String> entry : sortedEntries) {
-            String s3Url = entry.getValue(); // 원본 URL
-            String fileName = extractFileNameFromS3Url(s3Url);
+            String storageUrl = entry.getValue(); // 원본 URL
+            String fileName = extractFileNameFromStorageUrl(storageUrl);
 
             ProfileImage image = ProfileImage.builder()
                     .profile(profile)
-                    .url(s3Url)
+                    .url(storageUrl)
                     .fileName(fileName)
                     .originalName("profile_" + entry.getKey())
                     .imageIndex(index)
@@ -761,12 +761,12 @@ public class SignupService {
     }
 
     /**
-     * S3 URL에서 파일명 추출
+     * 스토리지 URL에서 파일명 추출
      */
-    private String extractFileNameFromS3Url(String s3Url) {
-        if (s3Url == null) return null;
-        int lastSlashIndex = s3Url.lastIndexOf('/');
-        return lastSlashIndex != -1 ? s3Url.substring(lastSlashIndex + 1) : s3Url;
+    private String extractFileNameFromStorageUrl(String storageUrl) {
+        if (storageUrl == null) return null;
+        int lastSlashIndex = storageUrl.lastIndexOf('/');
+        return lastSlashIndex != -1 ? storageUrl.substring(lastSlashIndex + 1) : storageUrl;
     }
 
     /**

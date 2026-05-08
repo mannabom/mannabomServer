@@ -1,9 +1,9 @@
-package mannabom_server.manabom.application.userInfo.dto;
+package mannabom_server.manabom.application.userInfo.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import mannabom_server.manabom.application.userInfo.dto.common.ProfileDto;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
-import mannabom_server.manabom.domain.user.entity.Profile;
 
 import java.util.List;
 

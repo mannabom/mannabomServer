@@ -6,7 +6,7 @@ import mannabom_server.manabom.application.auth.dto.request.KakaoLoginRequestDto
 import mannabom_server.manabom.application.auth.dto.request.RefreshTokenRequestDto;
 import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseDto;
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
@@ -53,7 +53,7 @@ public class AuthService {
     private final ProfileImageRepository profileImageRepository;
     private final JwtUtil jwtUtil;
     private final DeviceTokenRepository deviceTokenRepository;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
     private final TingWalletRepository tingWalletRepository;
 
     // 사업자 등록 하기 전 임시 개발환경 전용 설정
@@ -344,15 +344,15 @@ public class AuthService {
 
         Optional<TingWallet> tingWalletOpt = tingWalletRepository.findById(userId);
 
-        List<String> s3UrlsToDelete = new ArrayList<>();
+        List<String> storageUrlsToDelete = new ArrayList<>();
 
         if(profile != null){
             List<ProfileImage> images = profileImageRepository.findAllByProfile(profile);
 
             for(ProfileImage img : images){
-                String s3Url = img.getUrl();
-                if(s3Url != null && !s3Url.isBlank()){
-                    s3UrlsToDelete.add(s3Url);
+                String storageUrl = img.getUrl();
+                if(storageUrl != null && !storageUrl.isBlank()){
+                    storageUrlsToDelete.add(storageUrl);
                 }
             }
 
@@ -366,29 +366,29 @@ public class AuthService {
                 () -> log.warn("회원 탈퇴 중 지갑이 존재하지 않습니다. userId : {}", userId)
         );
 
-        if(!s3UrlsToDelete.isEmpty()) {
+        if(!storageUrlsToDelete.isEmpty()) {
             if(TransactionSynchronizationManager.isSynchronizationActive()){
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit(){
-                        for(String url : s3UrlsToDelete){
+                        for(String url : storageUrlsToDelete){
                             try{
-                                s3FileUploadService.deleteFile(url);
-                                log.info("S3 이미지 삭제 완료, url : {}", url);
+                                fileStoragePort.deleteFile(url);
+                                log.info("스토리지 이미지 삭제 완료, url : {}", url);
                             } catch (Exception e){
-                                log.error("S3 이미지 삭제 실패, url : {}", url, e);
+                                log.error("스토리지 이미지 삭제 실패, url : {}", url, e);
                             }
                         }
                     }
                 });
             } else {
-                log.warn("트랜잭션 동기화 비활성 - S3 즉시 삭제로 처리");
-                for(String url : s3UrlsToDelete){
+                log.warn("트랜잭션 동기화 비활성 - 스토리지 즉시 삭제로 처리");
+                for(String url : storageUrlsToDelete){
                     try{
-                        s3FileUploadService.deleteFile(url);
-                        log.info("S3 이미지 삭제 완료, url : {}", url);
+                        fileStoragePort.deleteFile(url);
+                        log.info("스토리지 이미지 삭제 완료, url : {}", url);
                     } catch (Exception e){
-                        log.error("S3 이미지 삭제 실패, url : {}", url, e);
+                        log.error("스토리지 이미지 삭제 실패, url : {}", url, e);
                     }
                 }
             }

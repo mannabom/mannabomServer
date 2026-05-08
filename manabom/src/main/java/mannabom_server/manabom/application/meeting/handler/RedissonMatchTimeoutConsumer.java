@@ -7,9 +7,11 @@ import org.redisson.api.RBlockingQueue;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "meeting.match.timeout-consumer.enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 @RequiredArgsConstructor
 public class RedissonMatchTimeoutConsumer implements ApplicationRunner {
@@ -34,7 +36,7 @@ public class RedissonMatchTimeoutConsumer implements ApplicationRunner {
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
-                    log.error("응답 만료: 매칭 자동 처리 중 에러 발생");
+                    log.error("응답 만료: 매칭 자동 처리 중 에러 발생", e);
                 }
             }
         }).start();

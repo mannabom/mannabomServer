@@ -40,6 +40,10 @@ dependencies {
 	implementation 'software.amazon.awssdk:auth:2.20.26'
 	implementation 'software.amazon.awssdk:regions:2.20.26'
 
+	// 파일 업로드 처리: GCP Cloud Storage
+	implementation platform('com.google.cloud:libraries-bom:26.80.0')
+	implementation 'com.google.cloud:google-cloud-storage'
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

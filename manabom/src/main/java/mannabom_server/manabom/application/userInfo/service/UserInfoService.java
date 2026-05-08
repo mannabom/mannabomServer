@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import mannabom_server.manabom.application.region.service.RegionService;
 
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 
 import mannabom_server.manabom.application.userInfo.dto.common.ProfileDto;
 import mannabom_server.manabom.application.userInfo.dto.request.PutUserInfoRequest;
@@ -55,7 +55,7 @@ public class UserInfoService {
     private final UniversityRepository universityRepository;
     private final RegionService regionService;
     private final ProfileImageRepository profileImageRepository;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
     private final TingWalletRepository tingWalletRepository;
     private final RuntimePolicyService runtimePolicyService;
 
@@ -165,10 +165,10 @@ public class UserInfoService {
         ProfileImage mainImage = profileImageRepository.findByProfileAndIsMainTrue(profile)
                 .orElseThrow(() -> new IllegalStateException("해당 사용자의 메인 프로필 사진을 찾을 수 없습니다."));
 
-        String key = s3FileUploadService.extractS3KeyFromUrl(mainImage.getUrl());
+        String key = fileStoragePort.extractKeyFromUrl(mainImage.getUrl());
         log.info("메인 프로필 사진 제공 완료, url : {}", mainImage.getUrl());
 
-        return new GetUserMainPhotoResponseDto(s3FileUploadService.presignedGetUrl(key, Duration.ofMinutes(10)));
+        return new GetUserMainPhotoResponseDto(fileStoragePort.presignedGetUrl(key, Duration.ofMinutes(10)));
     }
 
     @Transactional(readOnly = true)
@@ -187,9 +187,9 @@ public class UserInfoService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
         List<ProfileImage> images = profileImageRepository.findAllByProfileForUpdate(profile);
 
-        String url = s3FileUploadService.uploadFile(photo, "profiles");
+        String url = fileStoragePort.uploadFile(photo, "profiles");
         try {
-            String fileName = extractFileNameFromS3Url(url);
+            String fileName = extractFileNameFromStorageUrl(url);
 
             int nextIdx = images.stream()
                     .mapToInt(ProfileImage::getImageIndex)
@@ -209,11 +209,11 @@ public class UserInfoService {
             return new UserAllPhotosDto(photos);
         } catch (DataIntegrityViolationException e) {
             if(url != null)
-                s3FileUploadService.deleteFile(url);
+                fileStoragePort.deleteFile(url);
             throw new IllegalStateException("프로필 사진 저장 중 충돌이 발생했습니다.");
         } catch (RuntimeException e) {
             if(url != null)
-                s3FileUploadService.deleteFile(url);
+                fileStoragePort.deleteFile(url);
             throw e;
         }
     }
@@ -240,7 +240,7 @@ public class UserInfoService {
         if(target == null)
             throw new IllegalStateException("해당 사용자 프로필 사진이 아닙니다.");
 
-        if(!s3FileUploadService.deleteFile(target.getUrl())) {
+        if(!fileStoragePort.deleteFile(target.getUrl())) {
             throw new IllegalStateException("프로필 사진 삭제에 실패했습니다");
         }
         profileImageRepository.delete(target);
@@ -287,8 +287,8 @@ public class UserInfoService {
         for(ProfileImage image : images){
             Long photoId = image.getImageId();
             Integer photoIndex = image.getImageIndex();
-            String key = s3FileUploadService.extractS3KeyFromUrl(image.getUrl());
-            String presignedUrl = s3FileUploadService.presignedGetUrl(key, Duration.ofMinutes(10));
+            String key = fileStoragePort.extractKeyFromUrl(image.getUrl());
+            String presignedUrl = fileStoragePort.presignedGetUrl(key, Duration.ofMinutes(10));
 
             photos.add(new UserAllPhotosDto.Photo(photoId, photoIndex, presignedUrl));
         }
@@ -297,12 +297,12 @@ public class UserInfoService {
     }
 
     /**
-     * S3 URL에서 파일명 추출
+     * 스토리지 URL에서 파일명 추출
      */
-    private String extractFileNameFromS3Url(String s3Url) {
-        if (s3Url == null) return null;
-        int lastSlashIndex = s3Url.lastIndexOf('/');
-        return lastSlashIndex != -1 ? s3Url.substring(lastSlashIndex + 1) : s3Url;
+    private String extractFileNameFromStorageUrl(String storageUrl) {
+        if (storageUrl == null) return null;
+        int lastSlashIndex = storageUrl.lastIndexOf('/');
+        return lastSlashIndex != -1 ? storageUrl.substring(lastSlashIndex + 1) : storageUrl;
     }
 
     /**

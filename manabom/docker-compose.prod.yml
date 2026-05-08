@@ -1,7 +1,7 @@
 
 services:
   mannabom-server:
-    image: ${ECR_REGISTRY_URI}:${IMAGE_TAG}
+    image: ${IMAGE_URI}:${IMAGE_TAG}
     container_name: mannabom-server
     environment:
       - SPRING_PROFILES_ACTIVE=prod
@@ -10,15 +10,31 @@ services:
     ports:
       - 8080:8080
     depends_on:
+      - postgres
       - redis
     networks:
       - mannabom-net
     volumes:
       - /opt/mannabom/firebase:/opt/mannabom/firebase
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mannabom-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - mannabom-net
 
   redis:
     image: redis:alpine
     container_name: redis
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -30,4 +46,5 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data: {}
   redis_data: {}

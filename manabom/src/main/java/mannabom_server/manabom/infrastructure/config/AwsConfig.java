@@ -2,6 +2,7 @@ package mannabom_server.manabom.infrastructure.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -13,6 +14,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * AWS 관련 설정
  */
 @Configuration
+@ConditionalOnProperty(name = "app.storage.provider", havingValue = "s3")
 @Slf4j
 public class AwsConfig {
 

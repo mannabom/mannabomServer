@@ -109,6 +109,14 @@ jobs:
               mkdir -p ~/manabom
               cd ~/manabom
 
+              set -a
+              . ./.env
+              set +a
+
+              test -n "$IMAGE_URI"
+              test -n "$IMAGE_TAG"
+              grep "^IMAGE_" .env
+
               gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
               docker-compose -f docker-compose.prod.yml pull

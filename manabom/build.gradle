@@ -80,4 +80,11 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'gcsUploadTest', findProperty('gcsUploadTest') ?: System.getProperty('gcsUploadTest', 'false')
+	systemProperty 'gcsUploadTest.bucket', findProperty('gcsUploadTest.bucket') ?: System.getProperty('gcsUploadTest.bucket', 'mannabom-prod-storage')
+	systemProperty 'gcsUploadTest.baseUrl', findProperty('gcsUploadTest.baseUrl') ?: System.getProperty('gcsUploadTest.baseUrl', 'https://storage.googleapis.com/mannabom-prod-storage/')
+	systemProperty 'fcmConfigTest', findProperty('fcmConfigTest') ?: System.getProperty('fcmConfigTest', 'false')
+	systemProperty 'fcmDryRunTest', findProperty('fcmDryRunTest') ?: System.getProperty('fcmDryRunTest', 'false')
+	systemProperty 'fcm.serviceAccountPath', findProperty('fcm.serviceAccountPath') ?: System.getProperty('fcm.serviceAccountPath', '')
+	systemProperty 'fcm.testToken', findProperty('fcm.testToken') ?: System.getProperty('fcm.testToken', '')
 }

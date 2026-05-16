@@ -67,11 +67,17 @@ public class MessageRequest {
     }
 
     public void accept() {
+        if (this.status != MessageRequestStatus.PENDING) {
+            throw new IllegalStateException("이미 응답한 메시지 요청입니다.");
+        }
         this.status = MessageRequestStatus.ACCEPTED;
         this.respondedAt = LocalDateTime.now();
     }
 
     public void reject(String reason) {
+        if (this.status != MessageRequestStatus.PENDING) {
+            throw new IllegalStateException("이미 응답한 메시지 요청입니다.");
+        }
         this.status = MessageRequestStatus.REJECTED;
         this.rejectReason = reason;
         this.respondedAt = LocalDateTime.now();

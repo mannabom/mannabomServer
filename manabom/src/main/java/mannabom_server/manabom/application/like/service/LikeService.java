@@ -2,19 +2,24 @@ package mannabom_server.manabom.application.like.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
 import mannabom_server.manabom.application.like.dto.response.SendLikeResponseDto;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
+import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
 import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
+import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
+import mannabom_server.manabom.domain.matching.repository.ProfileRecommendHistoryRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
-import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.stereotype.Service;
@@ -33,6 +38,9 @@ public class LikeService {
     private final RuntimePolicyService runtimePolicyService;
     private final TingWalletService tingWalletService;
     private final ProfileRepository profileRepository;
+    private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
+    private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
+    private final ChatRoomService chatRoomService;
 
     @Transactional
     public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId, LikeSource source){
@@ -107,5 +115,51 @@ public class LikeService {
                 .freeLoveViewNum(response.getFreeLoveViewNum())
                 .additionalProfileNum(response.getAdditionalProfileNum())
                 .build();
+    }
+
+    @Transactional
+    public RespondSignalResponseDto respondLike(Long responderUserId, Long likeRequestId, boolean accepted, String rejectReason) {
+        if (responderUserId == null) throw new IllegalArgumentException("응답자의 userId가 비어있습니다.");
+        if (likeRequestId == null) throw new IllegalArgumentException("likeRequestId가 비어있습니다.");
+
+        LikeRequest likeRequest = likeRequestRepository.findByIdForUpdate(likeRequestId)
+                .orElseThrow(() -> new IllegalArgumentException("좋아요 요청을 찾을 수 없습니다."));
+        if (!responderUserId.equals(likeRequest.getToUserId())) {
+            throw new IllegalArgumentException("좋아요 요청을 받은 사용자만 응답할 수 있습니다.");
+        }
+
+        Long chatRoomId = null;
+        if (accepted) {
+            likeRequest.accept();
+            chatRoomId = createChatRoom(likeRequest.getFromUserId(), likeRequest.getToUserId(), likeRequest.getSource());
+        } else {
+            likeRequest.reject(rejectReason);
+        }
+
+        try {
+            pushService.sendToUser(likeRequest.getFromUserId(), PushMessages.likeResponded(accepted, likeRequest.getToUserId()));
+        } catch (Exception e) {
+            log.warn("좋아요 응답 푸시 전송 실패 likeRequestId={} accepted={}", likeRequestId, accepted, e);
+        }
+
+        return RespondSignalResponseDto.builder()
+                .accepted(accepted)
+                .chatRoomId(chatRoomId)
+                .status(likeRequest.getStatus().name())
+                .build();
+    }
+
+    private Long createChatRoom(Long requesterUserId, Long targetUserId, LikeSource source) {
+        if (source == LikeSource.PROFILE_MATCH) {
+            ProfileRecommendHistory history = profileRecommendHistoryRepository
+                    .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
+                    .orElseThrow(() -> new IllegalStateException("프로필 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
+            return chatRoomService.createProfileChatRoom(history);
+        }
+
+        LoveViewRecommendHistory history = loveViewRecommendHistoryRepository
+                .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
+                .orElseThrow(() -> new IllegalStateException("연애관 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
+        return chatRoomService.createLoveViewChatRoom(history);
     }
 }

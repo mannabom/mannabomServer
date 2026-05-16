@@ -57,11 +57,17 @@ public class LikeRequest {
     }
 
     public void accept(){
+        if (this.status != LikeStatus.PENDING) {
+            throw new IllegalStateException("이미 응답한 좋아요 요청입니다.");
+        }
         this.status = LikeStatus.ACCEPTED;
         this.respondedAt = LocalDateTime.now();
     }
 
     public void reject(String reason){
+        if (this.status != LikeStatus.PENDING) {
+            throw new IllegalStateException("이미 응답한 좋아요 요청입니다.");
+        }
         this.status = LikeStatus.REJECTED;
         this.rejectReason = reason;
         this.respondedAt = LocalDateTime.now();

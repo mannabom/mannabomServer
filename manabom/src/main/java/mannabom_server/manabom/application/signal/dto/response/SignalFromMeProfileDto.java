@@ -21,7 +21,7 @@ public class SignalFromMeProfileDto {
     private String toUserImageUrl; // LOVE_VIEW면 null
     private String message; // MESSAGE 외 null
 
-    private String status; // PENDING | REJECT, HIGH_SCORE는 null
+    private String status; // PENDING | REJECTED, HIGH_SCORE는 null
     private String rejectReason; // 없으면 null
 
     private LocalDateTime receivedAt;

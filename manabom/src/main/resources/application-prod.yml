@@ -99,6 +99,9 @@ logging:
     com.mannabom: INFO          # 배포용은 INFO 레벨
     org.springframework.security: WARN
     org.springframework.web: WARN
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.type.descriptor.sql: OFF
   file:
     name: /var/log/mannabom/app.log  # 로그 파일 저장
 

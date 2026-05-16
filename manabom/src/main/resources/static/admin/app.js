@@ -311,6 +311,7 @@ function renderUserDetail(user) {
             ${kv("가입일", formatDate(user.createdAt))}
             ${kv("인증", user.verified ? "완료" : "미완료")}
             ${kv("멤버십", user.membership ? "활성" : "비활성")}
+            ${kv("멤버십 만료", formatDate(user.wallet?.membershipActiveUntil))}
             ${kv("계정 상태", statusBadge(user.accountStatus))}
             ${kv("상태 사유", user.statusReason || "-")}
         </section>

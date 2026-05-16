@@ -32,9 +32,6 @@ public class User extends BaseTimeEntity {
     @Column(name = "phone_num")
     private String phoneNum;
 
-    @Column(name = "is_membership", nullable = false)
-    private Boolean isMembership = false;
-
 //    @JsonIgnore
 //    @OneToOne(mappedBy = "user",fetch = FetchType.LAZY)
 //    private Profile profile;
@@ -45,7 +42,6 @@ public class User extends BaseTimeEntity {
         this.kakaoId = kakaoId;
         this.userName = userName;
         this.isVerified = false;
-        this.isMembership = false;
     }
 
     /**
@@ -53,12 +49,5 @@ public class User extends BaseTimeEntity {
      */
     public void verifyEmail() {
         this.isVerified = true;
-    }
-
-    /**
-     * 멤버십 상태 변경
-     */
-    public void updateMembership(boolean isMembership) {
-        this.isMembership = isMembership;
     }
 }

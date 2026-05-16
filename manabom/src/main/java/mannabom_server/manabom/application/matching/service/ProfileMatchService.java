@@ -314,9 +314,13 @@ public class ProfileMatchService {
             throw new IllegalArgumentException("score의 범위는 1~5 여야합니다.");
         }
 
-        Profile targetProfile = profileRepository.findById(targetProfileId)
+        Profile targetProfile = profileRepository.findByIdForUpdate(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("대상의 프로필이 존재하지 않습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+
+        if(fromUserId.equals(targetUserId)){
+            throw new IllegalArgumentException("자기자신은 평가할 수 없습니다.");
+        }
 
         if(profileRatingRepository.existsByFromUserIdAndTargetUserId(fromUserId, targetUserId)){
             throw new IllegalStateException("이미 평가한 상대입니다.");

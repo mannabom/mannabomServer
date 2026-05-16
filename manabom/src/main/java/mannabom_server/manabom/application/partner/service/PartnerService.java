@@ -21,7 +21,9 @@ import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
 import mannabom_server.manabom.domain.partner.entity.ProfileExtraPhotoUnlock;
+import mannabom_server.manabom.domain.partner.entity.ProfileScoreViewUnlock;
 import mannabom_server.manabom.domain.partner.repository.ProfileExtraPhotoUnlockRepository;
+import mannabom_server.manabom.domain.partner.repository.ProfileScoreViewUnlockRepository;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
@@ -54,6 +56,7 @@ public class PartnerService {
     private final RuntimePolicyService runtimePolicyService;
     private final TingWalletRepository tingWalletRepository;
     private final ProfileRatingRepository profileRatingRepository;
+    private final ProfileScoreViewUnlockRepository profileScoreViewUnlockRepository;
 
     @Transactional(readOnly = true)
     public GetTargetProfileDetailResponseDto getTargetProfileDetail(Long requesterUserId, GetTargetProfileDetailRequestDto request){
@@ -165,17 +168,34 @@ public class PartnerService {
     public UnlockTargetPhotoResponseDto unlockTargetPhoto(Long requesterUserId, UnlockTargetPhotoRequestDto request) {
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
 
-        userRepository.findById(requesterUserId)
+        User requesterUser = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new IllegalArgumentException("요청자의 유저 정보를 찾을 수 없습니다."));
+        Profile requesterProfile = profileRepository.findByUser(requesterUser)
+                .orElseThrow(() -> new IllegalArgumentException("요청자의 프로필을 찾을 수 없습니다."));
+        int requesterProfileImageNum = profileImageRepository.countByProfile(requesterProfile);
 
         Profile targetProfile = profileRepository.findById(request.getTargetProfileId())
                 .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
         Long photoId = request.getPhotoId();
 
-        boolean isTargetPhoto = profileImageRepository.existsByImageIdAndProfile(photoId, targetProfile);
-        if(!isTargetPhoto){
+        List<ProfileImage> targetProfileImages = profileImageRepository.findAllByProfile(targetProfile);
+        int targetPhotoIndex = -1;
+        for (int i = 0; i < targetProfileImages.size(); i++) {
+            if (targetProfileImages.get(i).getImageId().equals(photoId)) {
+                targetPhotoIndex = i;
+                break;
+            }
+        }
+        if(targetPhotoIndex < 0){
             throw new IllegalArgumentException("해당 photoId는 대상자의 프로필 사진이 아닙니다.");
+        }
+
+        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(requesterUserId)
+                .orElseGet(() -> tingWalletRepository.save(new TingWallet(requesterUserId)));
+
+        if(targetPhotoIndex < requesterProfileImageNum) {
+            return new UnlockTargetPhotoResponseDto(tingWallet.getTing(), tingWallet.getEventTing());
         }
 
         boolean alreadyUnlocked = profileExtraPhotoUnlockRepository
@@ -183,9 +203,6 @@ public class PartnerService {
         if(alreadyUnlocked){
             throw new IllegalStateException("이미 잠금이 풀려있는 사진입니다.");
         }
-
-        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(requesterUserId)
-                .orElseGet(() -> tingWalletRepository.save(new TingWallet(requesterUserId)));
 
         int cost = p.getTing().getCost().getViewExtraPhoto();
         if(tingWallet.getEventTing() >= cost){
@@ -200,10 +217,7 @@ public class PartnerService {
                 new ProfileExtraPhotoUnlock(requesterUserId, targetUserId, photoId)
         );
 
-        int tingRemains = tingWallet.getTing();
-        int eventTingRemains = tingWallet.getEventTing();
-
-        return new UnlockTargetPhotoResponseDto(tingRemains, eventTingRemains);
+        return new UnlockTargetPhotoResponseDto(tingWallet.getTing(), tingWallet.getEventTing());
     }
 
     @Transactional
@@ -251,15 +265,22 @@ public class PartnerService {
             return new GetReceivedScoreResponseDto(-1);
         }
 
-        int cost = p.getTing().getCost().getViewScore();
-        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(userId)
-                .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
-        if(tingWallet.getEventTing() >= cost){
-            tingWallet.spendEventTing(cost);
-        } else if (tingWallet.getTing() >= cost){
-            tingWallet.spendTing(cost);
-        } else {
-            throw new IllegalStateException("팅 또는 이벤트 팅이 부족합니다.");
+        boolean alreadyViewed = profileScoreViewUnlockRepository.existsByRequesterUserIdAndTargetUserId(userId, targetUserId);
+        if(!alreadyViewed){
+            TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(userId)
+                    .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
+            alreadyViewed = profileScoreViewUnlockRepository.existsByRequesterUserIdAndTargetUserId(userId, targetUserId);
+            if(!alreadyViewed){
+                int cost = p.getTing().getCost().getViewScore();
+                if(tingWallet.getEventTing() >= cost){
+                    tingWallet.spendEventTing(cost);
+                } else if (tingWallet.getTing() >= cost){
+                    tingWallet.spendTing(cost);
+                } else {
+                    throw new IllegalStateException("팅 또는 이벤트 팅이 부족합니다.");
+                }
+                profileScoreViewUnlockRepository.save(new ProfileScoreViewUnlock(userId, targetUserId));
+            }
         }
 
         return new GetReceivedScoreResponseDto(rating.getScore());

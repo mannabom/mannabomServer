@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class PurchaseAdditionalProfileByTingRequestDto {
-    @NotNull
-    private int additionalProfileNumByTing;
+    @NotNull(message = "additionalProfileNumByTing은 필수입니다.")
+    private Integer additionalProfileNumByTing;
 }

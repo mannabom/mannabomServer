@@ -33,6 +33,8 @@ import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -79,6 +81,10 @@ public class UserInfoService {
         Profile profile = profileRepository.findByUser(user).orElseThrow(() -> new IllegalArgumentException("해당 사용자의 프로필을 찾을 수 없습니다."));
 
         log.info("회원 정보 입력(프로필 수정) 서비스 계층 동작 시작");
+
+        if(request == null || request.getProfile() == null) {
+            throw new IllegalArgumentException("수정할 프로필 정보가 비어있습니다.");
+        }
 
         Region region = regionService.resolveRegion(request.getProfile().getRegion().getSido(),request.getProfile().getRegion().getSigungu());
         University university = universityRepository.findByName(request.getProfile().getUniversity())
@@ -240,9 +246,7 @@ public class UserInfoService {
         if(target == null)
             throw new IllegalStateException("해당 사용자 프로필 사진이 아닙니다.");
 
-        if(!fileStoragePort.deleteFile(target.getUrl())) {
-            throw new IllegalStateException("프로필 사진 삭제에 실패했습니다");
-        }
+        String targetUrl = target.getUrl();
         profileImageRepository.delete(target);
         profileImageRepository.flush();
 
@@ -258,6 +262,8 @@ public class UserInfoService {
         profileImageRepository.flush();
 
         List<UserAllPhotosDto.Photo> photos = getUserAllPhotos(profile);
+
+        deleteFileAfterCommit(targetUrl);
 
         return new UserAllPhotosDto(photos);
     }
@@ -303,6 +309,30 @@ public class UserInfoService {
         if (storageUrl == null) return null;
         int lastSlashIndex = storageUrl.lastIndexOf('/');
         return lastSlashIndex != -1 ? storageUrl.substring(lastSlashIndex + 1) : storageUrl;
+    }
+
+    private void deleteFileAfterCommit(String url) {
+        if (url == null || url.isBlank()) return;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteFileQuietly(url);
+                }
+            });
+            return;
+        }
+        deleteFileQuietly(url);
+    }
+
+    private void deleteFileQuietly(String url) {
+        try {
+            if(!fileStoragePort.deleteFile(url)) {
+                log.warn("스토리지 프로필 사진 삭제 실패, url : {}", url);
+            }
+        } catch (Exception e) {
+            log.error("스토리지 프로필 사진 삭제 중 오류 발생, url : {}", url, e);
+        }
     }
 
     /**

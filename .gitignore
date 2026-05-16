@@ -47,3 +47,6 @@ manabom/src/.env*
 #firebase 비밀키
 **/src/main/resources/firebase/
 **/src/main/resources/firebase/*.json
+
+# 더미 데이터 자동 생성 스크립트
+/manabom/scripts/seed_dummy_users.py

@@ -21,11 +21,14 @@ import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +43,7 @@ public class AdminUserService {
     private final TingWalletRepository tingWalletRepository;
     private final UserAccountRestrictionRepository userAccountRestrictionRepository;
     private final AdminAuditService adminAuditService;
+    private final FileStoragePort fileStoragePort;
 
     @Transactional(readOnly = true)
     public AdminUserListResponse searchUsers(AdminPrincipal admin,
@@ -68,7 +72,11 @@ public class AdminUserService {
                     r.sidoName,
                     r.sigunguName,
                     u.isVerified,
-                    u.isMembership,
+                    case
+                        when wallet.membershipActiveUntil is not null and wallet.membershipActiveUntil > current_timestamp
+                        then true
+                        else false
+                    end,
                     restriction.status,
                     u.createdAt
                 )
@@ -76,6 +84,7 @@ public class AdminUserService {
                 left join Profile p on p.user = u
                 left join p.university uni
                 left join p.region r
+                left join TingWallet wallet on wallet.userId = u.userId
                 left join UserAccountRestriction restriction on restriction.userId = u.userId
                 """ + where + " order by u.userId desc";
 
@@ -119,7 +128,7 @@ public class AdminUserService {
                 .kakaoId(user.getKakaoId())
                 .userName(user.getUserName())
                 .verified(user.getIsVerified())
-                .membership(user.getIsMembership())
+                .membership(wallet != null && wallet.isMembershipActive(LocalDateTime.now()))
                 .accountStatus(restriction == null ? UserAccountStatus.ACTIVE : restriction.getStatus())
                 .statusReason(restriction == null ? null : restriction.getReason())
                 .createdAt(user.getCreatedAt())
@@ -248,9 +257,10 @@ public class AdminUserService {
     }
 
     private AdminUserDetailResponse.Photo toPhoto(ProfileImage image) {
+        String key = fileStoragePort.extractKeyFromUrl(image.getUrl());
         return AdminUserDetailResponse.Photo.builder()
                 .imageId(image.getImageId())
-                .url(image.getUrl())
+                .url(fileStoragePort.presignedGetUrl(key, Duration.ofMinutes(10)))
                 .imageIndex(image.getImageIndex())
                 .main(image.getIsMain())
                 .build();

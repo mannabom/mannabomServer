@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>만나봄 관리자</title>
+    <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+<main id="loginView" class="login-shell">
+    <section class="login-panel">
+        <div>
+            <p class="eyebrow">MANNABOM ADMIN</p>
+            <h1>관리자 로그인</h1>
+        </div>
+        <form id="loginForm" class="stack">
+            <label>
+                <span>아이디</span>
+                <input id="loginIdInput" type="text" autocomplete="username" required>
+            </label>
+            <label>
+                <span>비밀번호</span>
+                <input id="passwordInput" type="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="primary">로그인</button>
+            <p id="loginError" class="error-text"></p>
+        </form>
+    </section>
+</main>
+
+<main id="adminView" class="app-shell hidden">
+    <aside class="sidebar">
+        <div class="brand">
+            <strong>만나봄</strong>
+            <span>Admin</span>
+        </div>
+        <nav class="nav">
+            <button class="nav-item active" data-view="usersView">회원</button>
+            <button class="nav-item" data-view="policiesView">운영 정책</button>
+            <button class="nav-item" data-view="pushView">푸시 알림</button>
+            <button class="nav-item" data-view="inquiriesView">문의</button>
+            <button class="nav-item" data-view="auditsView">감사 로그</button>
+            <button class="nav-item super-only" data-view="adminsView">관리자 계정</button>
+        </nav>
+        <div class="sidebar-footer">
+            <p id="adminName"></p>
+            <button id="logoutButton" class="ghost">로그아웃</button>
+        </div>
+    </aside>
+
+    <section class="workspace">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">ADMIN CONSOLE</p>
+                <h2 id="pageTitle">회원 관리</h2>
+            </div>
+            <button id="refreshButton" class="secondary">새로고침</button>
+        </header>
+
+        <section id="usersView" class="view">
+            <div class="filter-grid">
+                <label>
+                    <span>검색 대상</span>
+                    <select id="userSearchType">
+                        <option value="ALL">전체</option>
+                        <option value="KAKAO_ID">카카오 ID</option>
+                        <option value="NICKNAME">닉네임</option>
+                        <option value="USER_ID">유저 ID</option>
+                        <option value="PROFILE_ID">프로필 ID</option>
+                        <option value="USER_NAME">이름</option>
+                    </select>
+                </label>
+                <label>
+                    <span>회원 상태</span>
+                    <select id="userStatusFilter">
+                        <option value="ALL">모든 유저</option>
+                        <option value="ACTIVE">정상 유저만</option>
+                        <option value="SUSPENDED">정지된 유저만</option>
+                        <option value="WITHDRAWN">탈퇴 처리 유저만</option>
+                    </select>
+                </label>
+                <label>
+                    <span>페이지 크기</span>
+                    <select id="userPageSize">
+                        <option value="20">20명</option>
+                        <option value="50">50명</option>
+                        <option value="100">100명</option>
+                    </select>
+                </label>
+                <button id="clearUserFilterButton" class="ghost">초기화</button>
+            </div>
+            <div class="toolbar">
+                <input id="userKeyword" type="search" placeholder="userId, profileId, 카카오 ID, 이름, 닉네임 검색">
+                <button id="userSearchButton" class="secondary">검색</button>
+            </div>
+            <div class="content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>회원 목록</h3>
+                        <span id="userCount" class="muted"></span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Profile</th>
+                                <th>닉네임</th>
+                                <th>학교</th>
+                                <th>지역</th>
+                                <th>상태</th>
+                            </tr>
+                            </thead>
+                            <tbody id="usersTable"></tbody>
+                        </table>
+                    </div>
+                    <div class="pager">
+                        <button id="prevPageButton" class="ghost">이전</button>
+                        <span id="pageInfo"></span>
+                        <button id="nextPageButton" class="ghost">다음</button>
+                    </div>
+                </section>
+
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>회원 상세</h3>
+                        <span id="selectedUserLabel" class="muted">선택 없음</span>
+                    </div>
+                    <div id="userDetail" class="detail-empty">회원을 선택하세요.</div>
+                    <p id="userActionResult" class="feedback"></p>
+                </section>
+            </div>
+        </section>
+
+        <section id="policiesView" class="view hidden">
+            <div class="content-grid one">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>정책 값</h3>
+                        <span class="muted">SUPER_ADMIN 전용</span>
+                    </div>
+                    <div id="policyList" class="policy-list"></div>
+                </section>
+            </div>
+        </section>
+
+        <section id="pushView" class="view hidden">
+            <div class="content-grid one">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>푸시 알림 발송</h3>
+                        <span class="muted">SUPER_ADMIN, OPERATOR</span>
+                    </div>
+                    <form id="pushForm" class="form-panel">
+                        <div class="inline-grid">
+                            <label>
+                                <span>대상</span>
+                                <select id="pushTargetType">
+                                    <option value="USER">특정 회원</option>
+                                    <option value="ALL">전체 회원</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>User ID</span>
+                                <input id="pushUserId" type="number" min="1" placeholder="특정 회원 발송 시 입력">
+                            </label>
+                        </div>
+                        <label>
+                            <span>제목</span>
+                            <input id="pushTitle" type="text" required>
+                        </label>
+                        <label>
+                            <span>내용</span>
+                            <textarea id="pushBody" required></textarea>
+                        </label>
+                        <label>
+                            <span>발송 사유</span>
+                            <input id="pushReason" type="text" placeholder="감사 로그에 남길 사유">
+                        </label>
+                        <button type="submit" class="primary">발송</button>
+                        <p id="pushResult" class="muted"></p>
+                    </form>
+                </section>
+            </div>
+        </section>
+
+        <section id="adminsView" class="view hidden">
+            <div class="content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>관리자 목록</h3>
+                        <span class="muted">SUPER_ADMIN 전용</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>아이디</th>
+                                <th>이름</th>
+                                <th>권한</th>
+                                <th>상태</th>
+                            </tr>
+                            </thead>
+                            <tbody id="adminsTable"></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>관리자 생성/수정</h3>
+                        <span id="selectedAdminLabel" class="muted">신규</span>
+                    </div>
+                    <form id="adminForm" class="form-panel">
+                        <input id="adminIdInput" type="hidden">
+                        <label>
+                            <span>아이디</span>
+                            <input id="adminLoginIdInput" type="text" required>
+                        </label>
+                        <label>
+                            <span>이름</span>
+                            <input id="adminNameInput" type="text" required>
+                        </label>
+                        <label>
+                            <span>상태</span>
+                            <select id="adminStatusInput">
+                                <option value="ACTIVE">활성화</option>
+                                <option value="DISABLED">비활성화</option>
+                            </select>
+                        </label>
+                        <div>
+                            <p class="section-title">접근 권한</p>
+                            <div id="adminRoleCards" class="role-grid"></div>
+                        </div>
+                        <label>
+                            <span>비밀번호</span>
+                            <input id="adminPasswordInput" type="password" autocomplete="new-password" placeholder="신규 또는 재설정 시 입력">
+                        </label>
+                        <div class="inline-grid">
+                            <button type="submit" class="primary">저장</button>
+                            <button id="newAdminButton" type="button" class="ghost">신규</button>
+                        </div>
+                        <button id="deleteAdminButton" type="button" class="ghost danger hidden">삭제</button>
+                        <p id="adminFormResult" class="muted"></p>
+                    </form>
+                </section>
+            </div>
+        </section>
+
+        <section id="inquiriesView" class="view hidden">
+            <div class="content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>문의 목록</h3>
+                        <select id="inquiryStatusFilter">
+                            <option value="">전체</option>
+                            <option value="OPEN">답변 대기</option>
+                            <option value="ANSWERED">답변 완료</option>
+                            <option value="CLOSED">종료</option>
+                        </select>
+                    </div>
+                    <div id="inquiryList" class="list-panel"></div>
+                </section>
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>문의 상세</h3>
+                        <span id="selectedInquiryLabel" class="muted">선택 없음</span>
+                    </div>
+                    <div id="inquiryDetail" class="detail-empty">문의를 선택하세요.</div>
+                </section>
+            </div>
+        </section>
+
+        <section id="auditsView" class="view hidden">
+            <section class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h3>감사 로그</h3>
+                        <p class="muted">관리자 작업 이력을 최신순으로 확인합니다.</p>
+                    </div>
+                    <div class="inline-grid compact">
+                        <select id="auditPageSize">
+                            <option value="20">20개</option>
+                            <option value="30" selected>30개</option>
+                            <option value="50">50개</option>
+                        </select>
+                        <button id="prevAuditPageButton" class="ghost" type="button">이전</button>
+                        <button id="nextAuditPageButton" class="ghost" type="button">다음</button>
+                    </div>
+                </div>
+                <p id="auditPageInfo" class="muted"></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>시간</th>
+                            <th>관리자</th>
+                            <th>작업</th>
+                            <th>대상</th>
+                            <th>변경</th>
+                            <th>사유</th>
+                            <th>IP</th>
+                        </tr>
+                        </thead>
+                        <tbody id="auditsTable"></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+    </section>
+</main>
+
+<script src="/admin/app.js"></script>
+</body>
+</html>

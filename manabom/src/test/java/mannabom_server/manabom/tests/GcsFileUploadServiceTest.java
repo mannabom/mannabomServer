@@ -3,8 +3,10 @@ package mannabom_server.manabom.tests;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import mannabom_server.manabom.infrastructure.storage.GcsFileUploadService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -95,6 +97,31 @@ class GcsFileUploadServiceTest {
         assertThatThrownBy(() -> service.uploadFile(file, "profiles"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("파일 업로드에 실패했습니다.");
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "gcsUploadTest", matches = "true")
+    void uploadFileStoresImageInRealGcsBucket() throws Exception {
+        String bucketName = System.getProperty("gcsUploadTest.bucket", "mannabom-prod-storage");
+        String baseUrl = System.getProperty(
+                "gcsUploadTest.baseUrl",
+                "https://storage.googleapis.com/" + bucketName + "/"
+        );
+        Storage realStorage = StorageOptions.getDefaultInstance().getService();
+        GcsFileUploadService realService = new GcsFileUploadService(realStorage, bucketName, baseUrl);
+        MockMultipartFile file = imageFile("codex-app-code-upload-test.png", 120, 120);
+
+        String url = realService.uploadFile(file, "diagnostics/app-code");
+        String objectName = realService.extractKeyFromUrl(url);
+        BlobInfo uploaded = realStorage.get(BlobId.of(bucketName, objectName));
+
+        assertThat(url).startsWith(baseUrl + "diagnostics/app-code/");
+        assertThat(url).endsWith(".png");
+        assertThat(uploaded).isNotNull();
+        assertThat(uploaded.getContentType()).isEqualTo("image/png");
+        assertThat(uploaded.getSize()).isGreaterThan(0);
+
+        System.out.println("Real GCS upload test object: " + url);
     }
 
     private MockMultipartFile imageFile(String fileName, int width, int height) throws Exception {

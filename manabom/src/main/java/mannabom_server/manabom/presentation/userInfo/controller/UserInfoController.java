@@ -1,5 +1,6 @@
 package mannabom_server.manabom.presentation.userInfo.controller;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.userInfo.dto.common.UserAllPhotosDto;
@@ -90,7 +91,7 @@ public class UserInfoController {
     @DeleteMapping("/api/user/photo")
     public ResponseEntity<UserAllPhotosDto> deleteMyPhoto(
             @AuthenticationPrincipal Long userId, // 프로젝트 인증 방식에 맞게 수정
-            @RequestBody DeleteUserPhotoRequest request
+            @RequestBody @Valid DeleteUserPhotoRequest request
             ) {
         return ResponseEntity.ok(userInfoService.deleteUserPhoto(userId, request.getPhotoId()));
     }

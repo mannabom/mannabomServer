@@ -1,5 +1,6 @@
 package mannabom_server.manabom.domain.user.repository;
 
+import jakarta.persistence.LockModeType;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
@@ -8,6 +9,7 @@ import mannabom_server.manabom.domain.user.enums.SmokingHabit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import org.springframework.data.repository.query.Param;
@@ -21,6 +23,10 @@ import java.util.Optional;
 
 @Repository
 public interface ProfileRepository extends JpaRepository<Profile, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Profile p where p.profileId = :profileId")
+    Optional<Profile> findByIdForUpdate(@Param("profileId") Long profileId);
+
     /**
      * 사용자로 프로필 조회
      */
@@ -71,6 +77,18 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
                 and h.targetUserId = p.user.userId
                 and h.recommendedAt >= :cooldownFrom
           )
+          and not exists (
+              select 1
+              from LikeRequest lr
+              where lr.fromUserId = :requesterId
+                and lr.toUserId = p.user.userId
+          )
+          and not exists (
+              select 1
+              from MessageRequest mr
+              where mr.fromUserId = :requesterId
+                and mr.toUserId = p.user.userId
+          )
         order by
           case
             when p.region.sidoName = :reqSido and p.region.sigunguName = :reqSigungu then 0
@@ -108,6 +126,18 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
               where h.requesterUserId = :requesterId
                 and h.targetUserId = p.user.userId
                 and h.recommendedAt >= :cooldownFrom
+          )
+          and not exists (
+              select 1
+              from LikeRequest lr
+              where lr.fromUserId = :requesterId
+                and lr.toUserId = p.user.userId
+          )
+          and not exists (
+              select 1
+              from MessageRequest mr
+              where mr.fromUserId = :requesterId
+                and mr.toUserId = p.user.userId
           )
         order by
           case

@@ -31,7 +31,7 @@ public class AdminJwtUtil {
     private final long refreshTokenExpiration;
 
     public AdminJwtUtil(
-            @Value("${app.admin.jwt.secret:mannabom-admin-super-secret-key-for-development-only-change-this}") String secret,
+            @Value("${app.admin.jwt.secret}") String secret,
             @Value("${app.jwt.secret}") String userJwtSecret,
             @Value("${app.admin.jwt.access-token-expiration:3600000}") long accessTokenExpiration,
             @Value("${app.admin.jwt.refresh-token-expiration:604800000}") long refreshTokenExpiration

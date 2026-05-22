@@ -312,7 +312,7 @@ function renderUserDetail(user) {
             ${kv("인증", user.verified ? "완료" : "미완료")}
             ${kv("멤버십", user.membership ? "활성" : "비활성")}
             ${kv("멤버십 만료", formatDate(user.wallet?.membershipActiveUntil))}
-            ${kv("계정 상태", statusBadge(user.accountStatus))}
+            ${kvHtml("계정 상태", statusBadge(user.accountStatus))}
             ${kv("상태 사유", user.statusReason || "-")}
         </section>
         <section>
@@ -826,7 +826,11 @@ async function request(url, options = {}) {
 }
 
 function kv(label, value) {
-    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${value === undefined || value === null ? "-" : value}</span></div>`;
+    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${value === undefined || value === null ? "-" : escapeHtml(value)}</span></div>`;
+}
+
+function kvHtml(label, valueHtml) {
+    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${valueHtml === undefined || valueHtml === null ? "-" : valueHtml}</span></div>`;
 }
 
 function statusBadge(status) {

@@ -62,6 +62,12 @@ app:
     access-token-expiration: 86_400_000   # 24시간 (밀리초)
     refresh-token-expiration: 604_800_000 # 7일 (밀리초)
 
+  admin:
+    jwt:
+      secret: ${ADMIN_JWT_SECRET:${APP_ADMIN_JWT_SECRET}}
+      access-token-expiration: 3_600_000
+      refresh-token-expiration: 604_800_000
+
   # 카카오 OAuth 설정 (프로덕션)
   kakao:
     client-id: ${KAKAO_CLIENT_ID}

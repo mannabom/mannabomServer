@@ -335,39 +335,4 @@ public class UserInfoService {
         }
     }
 
-    /**
-     * 임시용, 출시 전 삭제해야함, 확인 필요, 삭제 예정, 지우기, 삭제삭제삭제
-     * 혹시라도 이 매소드 쓰면 이거 지우고 사용중이라고 써두기!
-     */
-    @Transactional
-    public void activeMembership(Long profileId){
-        Profile profile = profileRepository.findById(profileId)
-                .orElseThrow();
-        Long userId = profile.getUser().getUserId();
-        RuntimePolicySnapshot p = runtimePolicyService.snapshot();
-        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(userId)
-                .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
-        tingWallet.activateMembership(
-                LocalDateTime.now(),
-                p.getBenefit().getMembership().getCycleExtraProfiles(),
-                p.getBenefit().getMembership().getCycleFreeMessages(),
-                p.getBenefit().getMembership().getCycleFreeLikes()
-        );
-    }
-
-    /**
-     * 임시용, 출시 전 삭제해야함, 확인 필요, 삭제 예정, 지우기, 삭제삭제삭제
-     * 혹시라도 이 매소드 쓰면 이거 지우고 사용중이라고 써두기!
-     */
-    @Transactional
-    public void addTing(int amount, Long targetProfileId){
-        Profile targetProfile = profileRepository.findById(targetProfileId)
-                .orElseThrow();
-        Long targetUserId = targetProfile.getUser().getUserId();
-        TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(targetUserId)
-                .orElseGet(() -> tingWalletRepository.save(new TingWallet(targetUserId)));
-        tingWallet.addTing(amount);
-        log.info("[관리자 기능] 팅 지급 완료, 현재 팅 보유량(팅 : {}, 이벤트 팅 : {})", tingWallet.getTing(), tingWallet.getEventTing());
-    }
-
 }

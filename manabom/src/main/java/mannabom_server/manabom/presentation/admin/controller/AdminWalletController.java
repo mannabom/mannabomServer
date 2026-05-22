@@ -3,6 +3,7 @@ package mannabom_server.manabom.presentation.admin.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import mannabom_server.manabom.application.admin.dto.request.AdminActivateMembershipRequest;
 import mannabom_server.manabom.application.admin.dto.request.AdminAdjustWalletRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminWalletResponse;
 import mannabom_server.manabom.application.admin.service.AdminWalletService;
@@ -34,6 +35,16 @@ public class AdminWalletController {
             HttpServletRequest httpRequest
     ) {
         return ResponseEntity.ok(adminWalletService.adjustWallet(admin, userId, request, clientIp(httpRequest)));
+    }
+
+    @PostMapping("/membership")
+    public ResponseEntity<AdminWalletResponse> activateMembership(
+            @AuthenticationPrincipal AdminPrincipal admin,
+            @PathVariable Long userId,
+            @RequestBody @Valid AdminActivateMembershipRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return ResponseEntity.ok(adminWalletService.activateMembership(admin, userId, request, clientIp(httpRequest)));
     }
 
     private String clientIp(HttpServletRequest request) {

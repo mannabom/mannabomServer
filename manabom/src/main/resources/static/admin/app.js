@@ -339,6 +339,11 @@ function renderUserDetail(user) {
             ${kv("팅", user.wallet?.ting ?? "-")}
             ${kv("이벤트 팅", user.wallet?.eventTing ?? "-")}
         </section>
+        <section class="action-box">
+            <p class="section-title">멤버십 활성화</p>
+            ${reasonControl("membershipReason", "멤버십 활성화 사유", ["결제 확인", "결제 보정", "이벤트 지급", "기타"])}
+            <button id="membershipActivateButton" class="secondary">멤버십 활성화</button>
+        </section>
         <section>
             <p class="section-title">사진</p>
             <div class="photo-grid">
@@ -373,8 +378,10 @@ function renderUserDetail(user) {
     $("statusSelect").value = user.accountStatus || "ACTIVE";
     $("statusSaveButton").addEventListener("click", saveUserStatus);
     $("walletSaveButton").addEventListener("click", saveWallet);
+    $("membershipActivateButton").addEventListener("click", activateMembership);
     bindReasonControl("statusReason", user.statusReason || "");
     bindReasonControl("walletReason", "");
+    bindReasonControl("membershipReason", "");
     loadUserHistory(user.userId);
 }
 
@@ -413,6 +420,26 @@ async function saveWallet() {
     $("walletReasonOther").classList.add("hidden");
     await loadUserDetail(state.selectedUserId);
     showUserActionResult("지갑 조정이 반영되었습니다.");
+}
+
+async function activateMembership() {
+    if (!state.selectedUserId) return;
+    try {
+        await request(`/api/admin/users/${state.selectedUserId}/wallet/membership`, {
+            method: "POST",
+            body: {
+                reason: getReasonValue("membershipReason")
+            }
+        });
+        $("membershipReasonSelect").value = "결제 확인";
+        $("membershipReasonOther").value = "";
+        $("membershipReasonOther").classList.add("hidden");
+        await loadUserDetail(state.selectedUserId);
+        await loadUsers();
+        showUserActionResult("멤버십이 활성화되었습니다.");
+    } catch (error) {
+        showUserActionResult(`멤버십 활성화 실패: ${error.message}`, true);
+    }
 }
 
 function showUserActionResult(message, error = false) {
@@ -830,6 +857,7 @@ function auditActionLabel(actionType) {
         ADMIN_PASSWORD_RESET: "비밀번호 재설정",
         USER_STATUS_UPDATE: "회원 상태 변경",
         WALLET_ADJUST: "팅 지갑 조정",
+        MEMBERSHIP_ACTIVATE: "멤버십 활성화",
         POLICY_UPDATE: "운영 정책 변경",
         PUSH_SEND: "푸시 발송"
     };

@@ -10,7 +10,8 @@ const state = {
     searchType: "ALL",
     accountStatus: "ALL",
     auditPage: 0,
-    auditSize: 30
+    auditSize: 30,
+    isActivatingMembership: false
 };
 
 const policyKeys = [
@@ -424,11 +425,21 @@ async function saveWallet() {
 
 async function activateMembership() {
     if (!state.selectedUserId) return;
+    if (state.isActivatingMembership) return;
+
+    const reason = getReasonValue("membershipReason");
+    if (!reason) {
+        showUserActionResult("멤버십 활성화 사유를 입력해 주세요.", true);
+        return;
+    }
+
+    state.isActivatingMembership = true;
+    $("membershipActivateButton").disabled = true;
     try {
         await request(`/api/admin/users/${state.selectedUserId}/wallet/membership`, {
             method: "POST",
             body: {
-                reason: getReasonValue("membershipReason")
+                reason
             }
         });
         $("membershipReasonSelect").value = "결제 확인";
@@ -439,6 +450,9 @@ async function activateMembership() {
         showUserActionResult("멤버십이 활성화되었습니다.");
     } catch (error) {
         showUserActionResult(`멤버십 활성화 실패: ${error.message}`, true);
+    } finally {
+        state.isActivatingMembership = false;
+        $("membershipActivateButton").disabled = false;
     }
 }
 

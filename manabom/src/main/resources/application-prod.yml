@@ -67,6 +67,9 @@ app:
       secret: ${ADMIN_JWT_SECRET:${APP_ADMIN_JWT_SECRET}}
       access-token-expiration: 3_600_000
       refresh-token-expiration: 604_800_000
+    audit:
+      trust-proxy: ${ADMIN_AUDIT_TRUST_PROXY:false}
+      trusted-proxies: ${ADMIN_AUDIT_TRUSTED_PROXIES:}
 
   # 카카오 OAuth 설정 (프로덕션)
   kakao:

@@ -8,9 +8,12 @@ import mannabom_server.manabom.application.admin.dto.request.AdminAdjustWalletRe
 import mannabom_server.manabom.application.admin.dto.response.AdminWalletResponse;
 import mannabom_server.manabom.application.admin.service.AdminWalletService;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/admin/users/{userId}/wallet")
@@ -18,6 +21,12 @@ import org.springframework.web.bind.annotation.*;
 public class AdminWalletController {
 
     private final AdminWalletService adminWalletService;
+
+    @Value("${app.admin.audit.trust-proxy:false}")
+    private boolean trustProxy;
+
+    @Value("${app.admin.audit.trusted-proxies:}")
+    private String trustedProxies;
 
     @GetMapping
     public ResponseEntity<AdminWalletResponse> getWallet(
@@ -48,10 +57,24 @@ public class AdminWalletController {
     }
 
     private String clientIp(HttpServletRequest request) {
+        String remoteAddr = request.getRemoteAddr();
+        if (!trustProxy || !isTrustedProxy(remoteAddr)) {
+            return remoteAddr;
+        }
+
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.split(",")[0].trim();
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String remoteAddr) {
+        if (remoteAddr == null || remoteAddr.isBlank() || trustedProxies == null || trustedProxies.isBlank()) {
+            return false;
+        }
+        return Arrays.stream(trustedProxies.split(","))
+                .map(String::trim)
+                .anyMatch(remoteAddr::equals);
     }
 }

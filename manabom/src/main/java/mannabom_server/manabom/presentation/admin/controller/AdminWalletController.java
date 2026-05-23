@@ -64,7 +64,12 @@ public class AdminWalletController {
 
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            return Arrays.stream(forwarded.split(","))
+                    .map(String::trim)
+                    .filter(ip -> !ip.isBlank())
+                    .filter(ip -> !"unknown".equalsIgnoreCase(ip))
+                    .findFirst()
+                    .orElse(remoteAddr);
         }
         return remoteAddr;
     }

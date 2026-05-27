@@ -10,7 +10,7 @@ import mannabom_server.manabom.application.chat.service.ChatMemberService;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.chat.service.ChatService;
 import mannabom_server.manabom.application.common.dto.ApiResponse;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +23,7 @@ import java.util.List;
 @RequestMapping("/api/chat")
 public class ChatApiController {
     private final ChatMemberService chatMemberService;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStorage;
     private final ChatService chatService;
     private final ChatRoomService chatRoomService;
 
@@ -35,7 +35,7 @@ public class ChatApiController {
 
     @PostMapping("/upload/image")
     public ResponseEntity<ApiResponse<String>> uploadChatImage(@RequestParam("file")MultipartFile file){
-        return ResponseEntity.ok(ApiResponse.success(s3FileUploadService.uploadFile(file, "chat"), "이미지 업로드 성공하였습니다."));
+        return ResponseEntity.ok(ApiResponse.success(fileStorage.uploadFile(file, "chat"), "이미지 업로드 성공하였습니다."));
     }
 
     @GetMapping("/sync/initial")

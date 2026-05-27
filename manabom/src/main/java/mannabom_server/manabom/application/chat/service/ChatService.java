@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.request.ChatSendRequest;
 import mannabom_server.manabom.application.chat.dto.response.*;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.application.notification.service.NotificationService;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
@@ -20,6 +20,7 @@ import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.infrastructure.storage.S3FileUploadService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -43,7 +44,7 @@ public class ChatService {
     private final StringRedisTemplate stringRedisTemplate;
 
     private final ChatMemberService chatMemberService;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStorage;
     private final NotificationService notificationService;
 
     private static final int PAGE_SIZE = 50;

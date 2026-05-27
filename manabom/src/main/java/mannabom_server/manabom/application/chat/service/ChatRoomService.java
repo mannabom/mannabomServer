@@ -152,6 +152,10 @@ public class ChatRoomService {
         switch (room.getType()){
             case MEETING_GROUP -> {
                 referenceId = room.getMeeting().getId();
+                List<MeetingMember> activeMembers = meetingMemberService.getActiveMembers(referenceId);
+                if (activeMembers.size() == 1 && activeMembers.get(0).getUser().getUserId().equals(userId)) {
+                    room.delete();
+                }
             }
             case MEETING_MATCH -> {
                 referenceId = room.getMatch().getId();

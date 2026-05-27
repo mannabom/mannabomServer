@@ -366,14 +366,17 @@ public class MeetingService {
                 .orElseThrow(() -> new IllegalArgumentException("프로필 정보를 찾을 수 없습니다."));
 
         validateMeetingStatus(meeting);
+        boolean isLeader = meetingMemberService.isLeader(meetingId, userId);
+
         meeting.deleteMember(profile.computeAge());
         meetingMemberService.deactivateStatus(meetingId,userId);
 
         List<MeetingMember> activeMembers = meetingMemberService.getActiveMembers(meetingId);
         if(activeMembers.isEmpty()){
-            meetingRepository.delete(meeting);
+            meeting.delete();
+            return;
         }
-        if(meetingMemberService.isLeader(meetingId, userId)){
+        if(isLeader){
             meetingMemberService.appointNextLeader(meetingId);
         }
     }

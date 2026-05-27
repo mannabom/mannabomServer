@@ -1,6 +1,7 @@
 package mannabom_server.manabom.domain.meeting.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
@@ -197,5 +198,9 @@ public class Meeting extends BaseTimeEntity {
             throw new IllegalStateException("매칭 성공: 현재 상태에서는 매칭 완료할 수 없습니다. status=" + this.meetingStatus);
         }
         this.meetingStatus= MeetingStatus.MATCHED;
+    }
+
+    public void delete(){
+        this.deletedAt = Instant.now();
     }
 }

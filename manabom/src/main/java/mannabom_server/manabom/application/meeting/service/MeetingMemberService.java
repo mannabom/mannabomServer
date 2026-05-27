@@ -63,10 +63,9 @@ public class MeetingMemberService {
 
 
     public void deactivateStatus(Long meetingId, Long userId){
-        MeetingMember mm = isActivate(userId).orElseThrow(()-> new IllegalArgumentException("채팅방나가기: 미팅방에 입장하지 않은 유저입니다."));
-        if(!mm.getMeeting().getId().equals(meetingId)){
-            throw new IllegalArgumentException("채팅방 나가기: 유효하지 않은 채팅방아이디입니다.");
-        }
+        MeetingMember mm = meetingMemberRepository
+                .findByMeeting_IdAndUser_UserIdAndStatus(meetingId, userId, ChatUserStatus.ACTIVE)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방나가기: 미팅방에 입장하지 않은 유저입니다."));
         mm.deactivate();
     }
 

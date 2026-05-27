@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
 import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayProfileListResponseDto;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.matching.entity.ProfileRating;
@@ -48,7 +48,7 @@ public class ProfileMatchService {
 
     private final ProfileRecommendHistoryRepository historyRepository;
     private final RuntimePolicyService runtimePolicyService;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
 
     private final TingWalletRepository tingWalletRepository;
     private final ProfileRatingRepository profileRatingRepository;
@@ -197,9 +197,9 @@ public class ProfileMatchService {
 
         String presignedUrl = null;
         if (url != null) {
-            String s3Key = s3FileUploadService.extractS3KeyFromUrl(url);
-            if (s3Key != null && !s3Key.isBlank()) {
-                presignedUrl = s3FileUploadService.presignedGetUrl(s3Key, Duration.ofMinutes(10));
+            String fileKey = fileStoragePort.extractKeyFromUrl(url);
+            if (fileKey != null && !fileKey.isBlank()) {
+                presignedUrl = fileStoragePort.presignedGetUrl(fileKey, Duration.ofMinutes(10));
             }
         }
 
@@ -314,9 +314,13 @@ public class ProfileMatchService {
             throw new IllegalArgumentException("score의 범위는 1~5 여야합니다.");
         }
 
-        Profile targetProfile = profileRepository.findById(targetProfileId)
+        Profile targetProfile = profileRepository.findByIdForUpdate(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("대상의 프로필이 존재하지 않습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+
+        if(fromUserId.equals(targetUserId)){
+            throw new IllegalArgumentException("자기자신은 평가할 수 없습니다.");
+        }
 
         if(profileRatingRepository.existsByFromUserIdAndTargetUserId(fromUserId, targetUserId)){
             throw new IllegalStateException("이미 평가한 상대입니다.");

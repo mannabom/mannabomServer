@@ -2,13 +2,19 @@ package mannabom_server.manabom.application.messageRequest.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
 import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
+import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
+import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
+import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
+import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
+import mannabom_server.manabom.domain.matching.repository.ProfileRecommendHistoryRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 import mannabom_server.manabom.domain.messageRequest.repository.MessageRequestRepository;
@@ -32,6 +38,9 @@ public class MessageRequestService {
     private final TingWalletRepository tingWalletRepository;
     private final RuntimePolicyService runtimePolicyService;
     private final TingWalletService tingWalletService;
+    private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
+    private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
+    private final ChatRoomService chatRoomService;
 
     @Transactional
     public SendMessageResponseDto sendMessageRequest(Long fromUserId, Long toProfileId, String message, MessageSource source) {
@@ -107,5 +116,51 @@ public class MessageRequestService {
                 .additionalProfileNum(response.getAdditionalProfileNum())
                 .build();
 
+    }
+
+    @Transactional
+    public RespondSignalResponseDto respondMessageRequest(Long responderUserId, Long messageRequestId, boolean accepted, String rejectReason) {
+        if (responderUserId == null) throw new IllegalArgumentException("응답자의 정보를 찾을 수 없습니다.");
+        if (messageRequestId == null) throw new IllegalArgumentException("messageRequestId가 비어있습니다.");
+
+        MessageRequest messageRequest = messageRequestRepository.findByIdForUpdate(messageRequestId)
+                .orElseThrow(() -> new IllegalArgumentException("메시지 요청을 찾을 수 없습니다."));
+        if (!responderUserId.equals(messageRequest.getToUserId())) {
+            throw new IllegalArgumentException("메시지 요청을 받은 사용자만 응답할 수 있습니다.");
+        }
+
+        Long chatRoomId = null;
+        if (accepted) {
+            messageRequest.accept();
+            chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
+        } else {
+            messageRequest.reject(rejectReason);
+        }
+
+        try {
+            pushService.sendToUser(messageRequest.getFromUserId(), PushMessages.messageRequestResponded(accepted, messageRequest.getId()));
+        } catch (Exception e) {
+            log.warn("메시지 요청 응답 푸시 전송 실패 messageRequestId={} accepted={}", messageRequestId, accepted, e);
+        }
+
+        return RespondSignalResponseDto.builder()
+                .accepted(accepted)
+                .chatRoomId(chatRoomId)
+                .status(messageRequest.getStatus().name())
+                .build();
+    }
+
+    private Long createChatRoom(Long requesterUserId, Long targetUserId, MessageSource source) {
+        if (source == MessageSource.PROFILE_MATCH) {
+            ProfileRecommendHistory history = profileRecommendHistoryRepository
+                    .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
+                    .orElseThrow(() -> new IllegalStateException("프로필 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
+            return chatRoomService.createProfileChatRoom(history);
+        }
+
+        LoveViewRecommendHistory history = loveViewRecommendHistoryRepository
+                .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
+                .orElseThrow(() -> new IllegalStateException("연애관 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
+        return chatRoomService.createLoveViewChatRoom(history);
     }
 }

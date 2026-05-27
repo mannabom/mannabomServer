@@ -2,17 +2,22 @@ package mannabom_server.manabom.domain.user.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 
 /**
  * 프로필 이미지 엔터티
  */
 @Entity
-@Table(name = "profile_image")
+@Table(
+        name = "profile_image",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_profile_image_profile_id_image_index",
+                        columnNames = {"profile_id", "image_index"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProfileImage extends BaseTimeEntity {
@@ -36,6 +41,7 @@ public class ProfileImage extends BaseTimeEntity {
     @Column(name = "original_name")
     private String originalName;                // 사용자 업로드 원본명
 
+    @Setter
     @Column(name = "image_index", nullable = false)
     private Integer imageIndex;                 // 표시 순서
 

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 public class RespondMessageRequestDto {
     @NotNull(message = "messageRequestId가 비어있습니다.")
     private Long messageRequestId;
-    @NotNull
+    @NotNull(message = "수락/거절 여부가 비어있습니다.")
     private Boolean accepted;
 
     private String rejectReason;

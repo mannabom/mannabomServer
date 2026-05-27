@@ -40,6 +40,10 @@ dependencies {
 	implementation 'software.amazon.awssdk:auth:2.20.26'
 	implementation 'software.amazon.awssdk:regions:2.20.26'
 
+	// 파일 업로드 처리: GCP Cloud Storage
+	implementation platform('com.google.cloud:libraries-bom:26.80.0')
+	implementation 'com.google.cloud:google-cloud-storage'
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -76,4 +80,11 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty 'gcsUploadTest', findProperty('gcsUploadTest') ?: System.getProperty('gcsUploadTest', 'false')
+	systemProperty 'gcsUploadTest.bucket', findProperty('gcsUploadTest.bucket') ?: System.getProperty('gcsUploadTest.bucket', 'mannabom-prod-storage')
+	systemProperty 'gcsUploadTest.baseUrl', findProperty('gcsUploadTest.baseUrl') ?: System.getProperty('gcsUploadTest.baseUrl', 'https://storage.googleapis.com/mannabom-prod-storage/')
+	systemProperty 'fcmConfigTest', findProperty('fcmConfigTest') ?: System.getProperty('fcmConfigTest', 'false')
+	systemProperty 'fcmDryRunTest', findProperty('fcmDryRunTest') ?: System.getProperty('fcmDryRunTest', 'false')
+	systemProperty 'fcm.serviceAccountPath', findProperty('fcm.serviceAccountPath') ?: System.getProperty('fcm.serviceAccountPath', '')
+	systemProperty 'fcm.testToken', findProperty('fcm.testToken') ?: System.getProperty('fcm.testToken', '')
 }

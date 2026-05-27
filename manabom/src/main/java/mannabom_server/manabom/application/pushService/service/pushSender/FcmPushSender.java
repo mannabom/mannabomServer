@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.pushService.dto.response.PushBatchResult;
 import mannabom_server.manabom.domain.pushMessage.PushMessage;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@ConditionalOnProperty(name = "fcm.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class FcmPushSender implements PushSender {
@@ -81,4 +83,3 @@ public class FcmPushSender implements PushSender {
         }
     }
 }
-

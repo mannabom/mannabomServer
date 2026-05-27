@@ -1,13 +1,13 @@
-name: Deploy to Amazon ECR & EC2
+name: Deploy to GCP Compute Engine
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
-# 깃액션에게 소스코드를 읽을 수 있는 권한을 부여하는것
-#이게 없으면 checkout source code에서 실패함
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy:
@@ -18,84 +18,101 @@ jobs:
       run:
         working-directory: ./manabom
 
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCP_ZONE: ${{ secrets.GCP_ZONE }}
+      ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v3   # 깃허브 저장소의 코드를 가상 컴퓨터로 내려받습니다.
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3  # 자바 17 버전을 설치합니다.
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'      # 사용할 자바 버전
-          distribution: 'temurin' # 필수! (temurin, zulu, corretto, microsoft 등)
+          java-version: "17"
+          distribution: temurin
           cache: gradle
+
       - name: Build with Gradle
-        run: | #이 파일은 실행해도 되는 파일이라고 선언 + 테스트는 건너뛰고(-x test) 빌드 해서 .jar파일 만들기 
-          chmod +x gradlew 
+        run: |
+          chmod +x gradlew
           ./gradlew build -x test --no-daemon
 
       - name: Generate Image Tag
-        id: image-tag
         run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
         with:
-          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
-          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
-          aws-region: ${{secrets.AWS_DEFAULT_REGION}}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
 
-      - name: Build, Tag, and Push Image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
-          ECR_REPOSITORY: mannabom/app-develop
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $GCP_REGION-docker.pkg.dev --quiet
+
+      - name: Build and Push Image
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{env.IMAGE_TAG}} \
-                        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{env.IMAGE_TAG}}
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          IMAGE_URI="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/mannabom-server"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Copy Docker Compose file to Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{secrets.SERVER_HOST}}     #ip주소
-          username: ${{secrets.SERVER_USER}} #계정 아이디 ubuntu
-          key: ${{secrets.SERVER_KEY}}    #.pem파일 내용
-          port: 22
-          # source: 내 컴퓨터(GitHub Actions)에 있는 파일 위치  .을 빼야 manabom까지 복사가 안됨
-          # target: 서버(EC2)에 저장할 위치   파일이름도 빼야함 파일 이름의 디렉토리가 생김
-          source: "manabom/docker-compose.yml"
-          target: "/home/ubuntu/"
+          docker build -t "$IMAGE_URI:${IMAGE_TAG}" -t "$IMAGE_URI:latest" .
+          docker push "$IMAGE_URI:${IMAGE_TAG}"
+          docker push "$IMAGE_URI:latest"
 
+      - name: Prepare VM Deploy Directory
+        run: |
+          gcloud compute ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }} \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --quiet \
+            --command='mkdir -p ~/manabom'
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{secrets.SERVER_HOST}}
-          username: ${{secrets.SERVER_USER}}
-          key: ${{secrets.SERVER_KEY}}
-          port: 22
-          script: |
-            set -e
-              
-            export AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}}
-            export AWS_SECRET_ACCESS_KEY=${{secrets.AWS_SECRET_ACCESS_KEY}}
-            export AWS_DEFAULT_REGION=${{secrets.AWS_DEFAULT_REGION}}
-              
-            aws ecr get-login-password | docker login --username AWS --password-stdin ${{steps.login-ecr.outputs.registry}}
-              
-            mkdir -p /home/ubuntu/manabom
-            cd /home/ubuntu/manabom
-              
-            echo "${{secrets.ENV_FILE_BASE64}}" | base64 -d > .env
-            echo "ECR_REGISTRY_URI=${{steps.login-ecr.outputs.registry}}/mannabom/app-develop" >> .env
-            echo "IMAGE_TAG=${{env.IMAGE_TAG}}" >> .env
-              
-            docker compose pull
-            docker compose up -d --remove-orphans
-              
-            docker image prune -f
+      - name: Copy Docker Compose file to VM
+        run: |
+          gcloud compute scp docker-compose.prod.yml \
+            ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }}:/home/${{ secrets.GCP_VM_USER }}/manabom/docker-compose.prod.yml \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --quiet
+
+      - name: Deploy to VM
+        env:
+          ENV_FILE_BASE64: ${{ secrets.ENV_FILE_BASE64 }}
+        run: |
+          trap 'rm -f .env' EXIT
+
+          IMAGE_URI="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/mannabom-server"
+          IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
+
+          test -n "$IMAGE_URI"
+          test -n "$IMAGE_TAG"
+
+          printf "%s" "$ENV_FILE_BASE64" | base64 -d > .env
+          sed -i '/^IMAGE_URI=/d;/^IMAGE_TAG=/d' .env
+
+          gcloud compute scp .env \
+            ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }}:/home/${{ secrets.GCP_VM_USER }}/manabom/.env \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --quiet
+
+          gcloud compute ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }} \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --quiet \
+            --command="
+              set -e
+
+              mkdir -p ~/manabom
+              cd ~/manabom
+
+              export IMAGE_URI='$IMAGE_URI'
+              export IMAGE_TAG='$IMAGE_TAG'
+
+              gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+              docker-compose -f docker-compose.prod.yml pull
+              docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+              docker image prune -f
+            "

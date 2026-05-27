@@ -2,11 +2,18 @@ spring:
   application:
     name: mannabom-server
 
-  # AWS RDS PostgreSQL 설정
+  # 기존 AWS RDS PostgreSQL 설정
+  # datasource:
+  #   url: jdbc:postgresql://${AWS_RDS_ENDPOINT}:${AWS_RDS_PORT:5432}/${AWS_RDS_DATABASE}
+  #   username: ${AWS_RDS_USERNAME}
+  #   password: ${AWS_RDS_PASSWORD}
+  #   driver-class-name: org.postgresql.Driver
+
+  # GCP VM Docker PostgreSQL 설정
   datasource:
-    url: jdbc:postgresql://${AWS_RDS_ENDPOINT}:${AWS_RDS_PORT:5432}/${AWS_RDS_DATABASE}
-    username: ${AWS_RDS_USERNAME}
-    password: ${AWS_RDS_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   # JPA/Hibernate 설정
@@ -21,12 +28,12 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  # EC2 Redis 설정 (우선 AWS 전환X)
+  # GCP VM Docker Redis 설정
   data:
     redis:
-      host: ${REDIS_HOST}    # EC2 Private IP 또는 localhost (같은 서버인 경우)
+      host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}  # Redis에 비밀번호 설정한 경우
+      password: ${REDIS_PASSWORD:}
 
   # 파일 업로드 설정
   servlet:
@@ -34,7 +41,7 @@ spring:
       max-file-size: 10MB
       max-request-size: 30MB
 
-  # 이메일 설정 (우선 AWS 전환X)
+  # 이메일 설정
   mail:
     host: smtp.gmail.com
     port: 587
@@ -64,14 +71,23 @@ app:
       default-birth-year: 2000
       default-gender: "MALE"
 
-  # AWS S3 설정
-  aws:
-    region: ${AWS_REGION:ap-northeast-2}  # 서울 리전
-    s3:
-      bucket-name: ${AWS_S3_BUCKET_NAME}
-      access-key: ${AWS_ACCESS_KEY_ID}
-      secret-key: ${AWS_SECRET_ACCESS_KEY}
-      base-url: https://${AWS_S3_BUCKET_NAME}.s3.${AWS_REGION:ap-northeast-2}.amazonaws.com/
+  storage:
+    provider: ${STORAGE_PROVIDER:gcp}
+
+  # 기존 AWS S3 설정
+  # aws:
+  #   region: ${AWS_REGION:ap-northeast-2}
+  #   s3:
+  #     bucket-name: ${AWS_S3_BUCKET_NAME}
+  #     access-key: ${AWS_ACCESS_KEY_ID}
+  #     secret-key: ${AWS_SECRET_ACCESS_KEY}
+  #     base-url: https://${AWS_S3_BUCKET_NAME}.s3.${AWS_REGION:ap-northeast-2}.amazonaws.com/
+
+  # GCP Cloud Storage 설정
+  gcp:
+    storage:
+      bucket-name: ${GCP_STORAGE_BUCKET_NAME}
+      base-url: ${GCP_STORAGE_BASE_URL:https://storage.googleapis.com/${GCP_STORAGE_BUCKET_NAME}/}
 
   # 이메일 인증 설정
   email:
@@ -83,6 +99,9 @@ logging:
     com.mannabom: INFO          # 배포용은 INFO 레벨
     org.springframework.security: WARN
     org.springframework.web: WARN
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.type.descriptor.sql: OFF
   file:
     name: /var/log/mannabom/app.log  # 로그 파일 저장
 

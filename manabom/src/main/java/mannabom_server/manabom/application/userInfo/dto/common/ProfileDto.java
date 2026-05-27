@@ -1,15 +1,9 @@
-package mannabom_server.manabom.application.userInfo.dto;
+package mannabom_server.manabom.application.userInfo.dto.common;
 
-import com.fasterxml.jackson.annotation.JsonAnyGetter;
-import com.fasterxml.jackson.annotation.JsonUnwrapped;
-import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import mannabom_server.manabom.application.meeting.dto.common.RegionDto;
-import mannabom_server.manabom.domain.region.entity.Region;
-import mannabom_server.manabom.domain.university.entity.University;
 import mannabom_server.manabom.domain.user.entity.Profile;
-import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.BodyType;
 import mannabom_server.manabom.domain.user.enums.DrinkingHabit;
 import mannabom_server.manabom.domain.user.enums.Gender;

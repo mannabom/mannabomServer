@@ -7,7 +7,7 @@ import mannabom_server.manabom.application.signal.dto.response.SignalFromMeProfi
 import mannabom_server.manabom.application.signal.dto.response.SignalFromMeResponseDto;
 import mannabom_server.manabom.application.signal.dto.response.SignalToMeProfileDto;
 import mannabom_server.manabom.application.signal.dto.response.SignalToMeResponseDto;
-import mannabom_server.manabom.application.signup.service.S3FileUploadService;
+import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
@@ -44,7 +44,7 @@ public class SignalService {
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final ProfileImageRepository profileImageRepository;
-    private final S3FileUploadService s3FileUploadService;
+    private final FileStoragePort fileStoragePort;
 
     private static final int HIGH_SCORE_THRESHOLD = 4;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -295,10 +295,10 @@ public class SignalService {
         if (image == null) return null;
         String imageUrl = image.getUrl();
         if (imageUrl == null || imageUrl.isBlank()) return null;
-        String key = s3FileUploadService.extractS3KeyFromUrl(imageUrl);
+        String key = fileStoragePort.extractKeyFromUrl(imageUrl);
         if (key == null || key.isBlank()) return null;
 
-        return s3FileUploadService.presignedGetUrl(key, Duration.ofMinutes(10));
+        return fileStoragePort.presignedGetUrl(key, Duration.ofMinutes(10));
     }
 
     private LocalDateTime toKstLocalDateTime(Instant instant) {

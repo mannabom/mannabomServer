@@ -44,6 +44,7 @@ public class PhotoRequestService {
     public LoveViewPhotoStatus getPhotoRequestStatus(Long roomId, Long userId) {
         ChatRoom room = findRoomById(roomId);
         validateLoveViewChatRoom(room);
+        validateActiveMember(roomId, userId);
         Long loveViewId = room.getLoveView().getId();
 
         Optional<LoveViewPhotoRequest> latestOpt = photoRequestRepository.findTopByHistoryIdOrderByIdDesc(loveViewId);
@@ -73,6 +74,7 @@ public class PhotoRequestService {
         User sender = findUserById(userId);
         ChatRoom room = findRoomById(roomId);
         validateLoveViewChatRoom(room);
+        validateActiveMember(roomId, userId);
         LoveViewRecommendHistory loveView = room.getLoveView();
         Long loveViewId = loveView.getId();
 
@@ -102,6 +104,7 @@ public class PhotoRequestService {
     public void acceptPhotoRequest(Long roomId, Long userId) {
         ChatRoom room = findRoomById(roomId);
         validateLoveViewChatRoom(room);
+        validateActiveMember(roomId, userId);
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.accept();
@@ -116,6 +119,8 @@ public class PhotoRequestService {
     public void rejectPhotoRequest(Long roomId, Long userId) {
         ChatRoom room = findRoomById(roomId);
         validateLoveViewChatRoom(room);
+        validateActiveMember(roomId, userId);
+
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.reject();
@@ -170,5 +175,10 @@ public class PhotoRequestService {
 
             notificationService.sendNotification(targetUserId,sseEventName,title, msg,Map.of("roomId",roomId));
         }
+    }
+    private void validateActiveMember(Long roomId, Long userId) {
+        chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(
+                roomId, userId, ChatMemberStatus.ACTIVATE
+        ).orElseThrow(() -> new IllegalStateException("해당 채팅방의 활성 멤버만 접근할 수 있습니다."));
     }
 }

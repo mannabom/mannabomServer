@@ -54,6 +54,8 @@ public class ChatService {
     public void sendMessage(ChatSendRequest request, Long userId) {
         ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
+        ChatMember sender = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(request.getRoomId(), userId, ChatMemberStatus.ACTIVATE)
+                .orElseThrow(()-> new IllegalArgumentException("참여중인 채팅방이 아닙니다."));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저 입니다."));
         Profile profile = profileRepository.findByUser(user)
@@ -71,8 +73,7 @@ public class ChatService {
 
         int initialUnreadCount = chatMemberRepository.countChatMemberByRoomIdAndStatus(chatRoom.getId(), ChatMemberStatus.ACTIVATE) - 1;
         stringRedisTemplate.opsForValue().set("unread:count:" + message.getId(), String.valueOf(initialUnreadCount));
-        chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(chatRoom.getId(), userId,ChatMemberStatus.ACTIVATE)
-                .ifPresent(member -> member.updateLastReadMessageId(message.getId()));
+        sender.updateLastReadMessageId(message.getId());
 
         ChatMessageEvent event = ChatMessageEvent.builder()
                 .roomId(request.getRoomId())

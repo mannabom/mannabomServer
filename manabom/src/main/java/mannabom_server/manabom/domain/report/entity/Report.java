@@ -38,6 +38,7 @@ public class Report {
     private String additionalDetail;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private ReportStatus status = ReportStatus.RECEIVED;
 
 

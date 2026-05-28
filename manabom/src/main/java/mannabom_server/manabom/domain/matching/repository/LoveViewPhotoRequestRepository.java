@@ -10,5 +10,4 @@ public interface LoveViewPhotoRequestRepository extends JpaRepository<LoveViewPh
 
     Optional<LoveViewPhotoRequest> findTopByHistoryIdOrderByIdDesc(Long historyId);
 
-    Long history(LoveViewRecommendHistory history);
 }

@@ -10,6 +10,7 @@ public enum AdminAuditActionType {
     ADMIN_PASSWORD_RESET,
     USER_STATUS_UPDATE,
     WALLET_ADJUST,
+    MEMBERSHIP_ACTIVATE,
     POLICY_UPDATE,
     PUSH_SEND
 }

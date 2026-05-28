@@ -10,7 +10,8 @@ const state = {
     searchType: "ALL",
     accountStatus: "ALL",
     auditPage: 0,
-    auditSize: 30
+    auditSize: 30,
+    isActivatingMembership: false
 };
 
 const policyKeys = [
@@ -312,7 +313,7 @@ function renderUserDetail(user) {
             ${kv("인증", user.verified ? "완료" : "미완료")}
             ${kv("멤버십", user.membership ? "활성" : "비활성")}
             ${kv("멤버십 만료", formatDate(user.wallet?.membershipActiveUntil))}
-            ${kv("계정 상태", statusBadge(user.accountStatus))}
+            ${kvHtml("계정 상태", statusBadge(user.accountStatus))}
             ${kv("상태 사유", user.statusReason || "-")}
         </section>
         <section>
@@ -338,6 +339,11 @@ function renderUserDetail(user) {
             <p class="section-title">지갑</p>
             ${kv("팅", user.wallet?.ting ?? "-")}
             ${kv("이벤트 팅", user.wallet?.eventTing ?? "-")}
+        </section>
+        <section class="action-box">
+            <p class="section-title">멤버십 활성화</p>
+            ${reasonControl("membershipReason", "멤버십 활성화 사유", ["결제 확인", "결제 보정", "이벤트 지급", "기타"])}
+            <button id="membershipActivateButton" class="secondary">멤버십 활성화</button>
         </section>
         <section>
             <p class="section-title">사진</p>
@@ -373,8 +379,10 @@ function renderUserDetail(user) {
     $("statusSelect").value = user.accountStatus || "ACTIVE";
     $("statusSaveButton").addEventListener("click", saveUserStatus);
     $("walletSaveButton").addEventListener("click", saveWallet);
+    $("membershipActivateButton").addEventListener("click", activateMembership);
     bindReasonControl("statusReason", user.statusReason || "");
     bindReasonControl("walletReason", "");
+    bindReasonControl("membershipReason", "");
     loadUserHistory(user.userId);
 }
 
@@ -413,6 +421,39 @@ async function saveWallet() {
     $("walletReasonOther").classList.add("hidden");
     await loadUserDetail(state.selectedUserId);
     showUserActionResult("지갑 조정이 반영되었습니다.");
+}
+
+async function activateMembership() {
+    if (!state.selectedUserId) return;
+    if (state.isActivatingMembership) return;
+
+    const reason = getReasonValue("membershipReason");
+    if (!reason) {
+        showUserActionResult("멤버십 활성화 사유를 입력해 주세요.", true);
+        return;
+    }
+
+    state.isActivatingMembership = true;
+    $("membershipActivateButton").disabled = true;
+    try {
+        await request(`/api/admin/users/${state.selectedUserId}/wallet/membership`, {
+            method: "POST",
+            body: {
+                reason
+            }
+        });
+        $("membershipReasonSelect").value = "결제 확인";
+        $("membershipReasonOther").value = "";
+        $("membershipReasonOther").classList.add("hidden");
+        await loadUserDetail(state.selectedUserId);
+        await loadUsers();
+        showUserActionResult("멤버십이 활성화되었습니다.");
+    } catch (error) {
+        showUserActionResult(`멤버십 활성화 실패: ${error.message}`, true);
+    } finally {
+        state.isActivatingMembership = false;
+        $("membershipActivateButton").disabled = false;
+    }
 }
 
 function showUserActionResult(message, error = false) {
@@ -799,7 +840,11 @@ async function request(url, options = {}) {
 }
 
 function kv(label, value) {
-    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${value === undefined || value === null ? "-" : value}</span></div>`;
+    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${value === undefined || value === null ? "-" : escapeHtml(value)}</span></div>`;
+}
+
+function kvHtml(label, valueHtml) {
+    return `<div class="kv"><span>${escapeHtml(label)}</span><span>${valueHtml === undefined || valueHtml === null ? "-" : valueHtml}</span></div>`;
 }
 
 function statusBadge(status) {
@@ -830,6 +875,7 @@ function auditActionLabel(actionType) {
         ADMIN_PASSWORD_RESET: "비밀번호 재설정",
         USER_STATUS_UPDATE: "회원 상태 변경",
         WALLET_ADJUST: "팅 지갑 조정",
+        MEMBERSHIP_ACTIVATE: "멤버십 활성화",
         POLICY_UPDATE: "운영 정책 변경",
         PUSH_SEND: "푸시 발송"
     };

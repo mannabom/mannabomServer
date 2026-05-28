@@ -96,29 +96,4 @@ public class UserInfoController {
         return ResponseEntity.ok(userInfoService.deleteUserPhoto(userId, request.getPhotoId()));
     }
 
-    /**
-     * 임시용, 출시 전 삭제해야함, 확인 필요, 삭제 예정, 지우기, 삭제삭제삭제
-     */
-    @GetMapping("/api/user/active_membership")
-    public ResponseEntity<Void> activeMembership(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam("targetProfileId") Long targetProfileId
-    ){
-        userInfoService.activeMembership(targetProfileId);
-        return ResponseEntity.status(200).build();
-    }
-
-    /**
-     * 임시용, 출시 전 삭제해야함, 확인 필요, 삭제 예정, 지우기, 삭제삭제삭제
-     */
-    @GetMapping("/api/user/add_ting")
-    public ResponseEntity<Void> addTing(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam("amount") int amount,
-            @RequestParam("targetProfileId") Long targetProfileId
-    ){
-        userInfoService.addTing(amount, targetProfileId);
-
-        return ResponseEntity.status(200).build();
-    }
 }

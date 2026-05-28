@@ -356,7 +356,7 @@ public class MeetingService {
         return true;
     }
 
-
+    @Transactional
     public void handleMemberLeave(Long meetingId, Long userId){
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅아이디입니다."));

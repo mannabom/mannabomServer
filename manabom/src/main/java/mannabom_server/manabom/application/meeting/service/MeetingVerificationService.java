@@ -24,6 +24,7 @@ import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -44,7 +45,7 @@ public class MeetingVerificationService {
     private static final double LIMIT_DISTANCE = 200.0;
     private static final int POS_TTL_MINS = 30;
 
-
+    @Transactional
     public String verifyMeeting(Long chatRoomId, Long userId, double latitude, double longitude){
         ChatRoom room = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(()-> new IllegalArgumentException("존재 하지 않는 채팅방 입니다."));

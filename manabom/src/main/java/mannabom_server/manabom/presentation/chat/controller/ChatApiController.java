@@ -51,14 +51,14 @@ public class ChatApiController {
     }
 
     @GetMapping("/sync/chat/{roomId}")
-    public ResponseEntity<ApiResponse<ChatSyncResponse>> getLatestChatMessagesList(@PathVariable Long roomId, @AuthenticationPrincipal Long userId, @RequestBody ChatMessageRequest request){
-        ChatSyncResponse response = chatService.getLatestChatMessageListSync(roomId, userId, request.getLastReadMessageId());
+    public ResponseEntity<ApiResponse<ChatSyncResponse>> getLatestChatMessagesList(@PathVariable Long roomId, @AuthenticationPrincipal Long userId,@RequestParam(required = false) Long lastReadMessageId){
+        ChatSyncResponse response = chatService.getLatestChatMessageListSync(roomId, userId, lastReadMessageId);
         return ResponseEntity.ok(ApiResponse.success(response,"최신 채팅 메시지 리스트 동기화 완료했습니다."));
     }
 
     @GetMapping("/history/chat/{roomId}")
-    public ResponseEntity<ApiResponse<ChatHistoryResponse>> getChatMessagesListHistory(@PathVariable Long roomId, @AuthenticationPrincipal Long userId, @RequestBody ChatMessageRequest request){
-        ChatHistoryResponse response = chatService.getChatHistory(roomId, userId, request.getLastReadMessageId());
+    public ResponseEntity<ApiResponse<ChatHistoryResponse>> getChatMessagesListHistory(@PathVariable Long roomId, @AuthenticationPrincipal Long userId, @RequestParam Long lastReadMessageId){
+        ChatHistoryResponse response = chatService.getChatHistory(roomId, userId, lastReadMessageId);
         return ResponseEntity.ok(ApiResponse.success(response,"과거 채팅 메시지 조회 완료했습니다."));
     }
 

@@ -50,7 +50,7 @@ public class ChatApiController {
         return ResponseEntity.ok(ApiResponse.success(response, "채팅방 리스트 동기화 완료했습니다."));
     }
 
-    @GetMapping("/sync/chat/{roomId}/")
+    @GetMapping("/sync/chat/{roomId}")
     public ResponseEntity<ApiResponse<ChatSyncResponse>> getLatestChatMessagesList(@PathVariable Long roomId, @AuthenticationPrincipal Long userId, @RequestBody ChatMessageRequest request){
         ChatSyncResponse response = chatService.getLatestChatMessageListSync(roomId, userId, request.getLastReadMessageId());
         return ResponseEntity.ok(ApiResponse.success(response,"최신 채팅 메시지 리스트 동기화 완료했습니다."));

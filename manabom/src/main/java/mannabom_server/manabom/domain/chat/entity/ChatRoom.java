@@ -1,6 +1,7 @@
 package mannabom_server.manabom.domain.chat.entity;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,6 +14,10 @@ import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "chat_rooms")
@@ -20,6 +25,8 @@ import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
+@SQLDelete(sql = "UPDATE chat_rooms SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class ChatRoom extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY
@@ -33,6 +40,7 @@ public class ChatRoom extends BaseTimeEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "meeting_id")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Meeting meeting;
 
     @OneToOne(fetch = FetchType.LAZY)
@@ -46,6 +54,10 @@ public class ChatRoom extends BaseTimeEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "love_view_recommend_history_id")
     private LoveViewRecommendHistory loveView;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
 
     public static ChatRoom createMeetingChatRoom(Meeting meeting){
         return ChatRoom.builder()
@@ -102,5 +114,11 @@ public class ChatRoom extends BaseTimeEntity {
 
         }
     }
+    public void deactivate(){
+        this.chatStatus = ChatStatus.DISABLED;
+    }
 
+    public void delete(){
+        this.deletedAt = Instant.now();
+    }
 }

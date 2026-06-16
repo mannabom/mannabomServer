@@ -356,6 +356,36 @@ public class MeetingService {
         return true;
     }
 
+    @Transactional
+    public void handleMemberLeave(Long meetingId, Long userId){
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅아이디입니다."));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+        Profile profile = profileRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalArgumentException("프로필 정보를 찾을 수 없습니다."));
+
+        validateMeetingStatus(meeting);
+        boolean isLeader = meetingMemberService.isLeader(meetingId, userId);
+
+        meeting.deleteMember(profile.computeAge());
+        meetingMemberService.deactivateStatus(meetingId,userId);
+
+        List<MeetingMember> activeMembers = meetingMemberService.getActiveMembers(meetingId);
+        if(activeMembers.isEmpty()){
+            meeting.delete();
+            return;
+        }
+        if(isLeader){
+            meetingMemberService.appointNextLeader(meetingId);
+        }
+    }
+    private void validateMeetingStatus(Meeting meeting){
+        MeetingStatus status = meeting.getMeetingStatus();
+        if(status== MeetingStatus.MATCHING_PENDING || status==MeetingStatus.MATCHING_WAITING){
+            throw new IllegalStateException("매칭이 진행중이므로 나갈 수 없습니다.");
+        }
+    }
 
 
 

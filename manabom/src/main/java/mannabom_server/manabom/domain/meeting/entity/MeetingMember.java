@@ -61,4 +61,11 @@ public class MeetingMember {
                 .build();
     }
 
+    public void deactivate(){
+        this.status = ChatUserStatus.DEACTIVATED;
+    }
+    public void appointLeader(){
+        this.meetingRole = MeetingRole.LEADER;
+    }
+
 }

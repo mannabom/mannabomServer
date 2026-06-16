@@ -3,21 +3,28 @@ package mannabom_server.manabom.application.chat.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.dto.event.ChatRoomLeaveEvent;
 import mannabom_server.manabom.application.meeting.dto.response.MatchedChatRoomInfo;
+import mannabom_server.manabom.application.meeting.service.MeetingMatchingService;
 import mannabom_server.manabom.application.meeting.service.MeetingMemberService;
+import mannabom_server.manabom.application.meeting.service.MeetingService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
+import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberQueryRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
+import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
-import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,16 +35,15 @@ import java.util.List;
 @Slf4j
 @Transactional
 public class ChatRoomService {
-    //해당 유저가 해당 방에 있는지
-    //방 입장
-    //방 나가기
-    //방 생성
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final ChatMemberQueryRepository chatMemberQueryRepository;
-    private final MeetingMemberService meetingMemberService;
     private final UserRepository userRepository;
-    private final MeetingRepository meetingRepository;
+    private final ChatMessageRepository chatMessageRepository;
+
+
+    private final MeetingMemberService meetingMemberService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Long createMeetingChatRoom(Meeting meeting,User user){
@@ -65,6 +71,7 @@ public class ChatRoomService {
             newChatMembers.add(ChatMember.create(chatRoom,m.getUser()));
 
         chatMemberRepository.saveAll(newChatMembers);
+        sendSystemWelcomeMessage(chatRoom);
 
         List<MatchedChatRoomInfo.Participant> participants = chatMemberQueryRepository.findParticipantsByRoomId(chatRoom.getId());
         return MatchedChatRoomInfo.of(chatRoom.getId(),participants);
@@ -79,6 +86,7 @@ public class ChatRoomService {
         chatRoomRepository.save(chatRoom);
 
         setOneToOneChatMember(chatRoom, profileHistory.getRequesterUserId(),profileHistory.getTargetUserId());
+        sendSystemWelcomeMessage(chatRoom);
 
         return chatRoom.getId();
     }
@@ -91,8 +99,18 @@ public class ChatRoomService {
         chatRoomRepository.save(chatRoom);
 
         setOneToOneChatMember(chatRoom, loveViewHistory.getRequesterUserId(),loveViewHistory.getTargetUserId());
+        sendSystemWelcomeMessage(chatRoom);
 
         return chatRoom.getId();
+    }
+    private void sendSystemWelcomeMessage(ChatRoom room ){
+        ChatMessage welcomeMessage = ChatMessage.builder()
+                .room(room)
+                .type(ChatMessageType.SYSTEM)
+                .content("🎉 매칭이 성사되었습니다! 서로 인사를 나눠보세요.")
+                .user(null)
+                .build();
+        chatMessageRepository.save(welcomeMessage);
     }
 
     private void setOneToOneChatMember(ChatRoom chatRoom, Long user1Id, Long user2Id){
@@ -123,26 +141,32 @@ public class ChatRoomService {
         return room.getId();
     }
 
-    public void leaveChatRoom(Long roomId){
+    public void leaveChatRoom(Long roomId, Long userId){
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 채팅방아이디 입니다."));
+        ChatMember chatMember = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(roomId, userId, ChatMemberStatus.ACTIVATE)
+                .orElseThrow(()-> new IllegalArgumentException("방에 참여중인 유저가 아닙니다."));
 
-//        switch (room.getType()){
-//            case MEETING_GROUP -> {
-//                Meeting meeting = meetingRepository.findById(room.getId())
-//                        .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 미팅아이디 입니다."));
-//                meeting.leaveMeeting();
-//            }
-//            case MEETING_MATCH -> {
-//
-//            }
-//            case LOVEVIEW_MATCH -> {
-//
-//            }
-//            case PROFILE_MATCH -> {
-//
-//            }
-//        }
+        chatMember.deactivate();
+        Long referenceId=null;
+        switch (room.getType()){
+            case MEETING_GROUP -> {
+                referenceId = room.getMeeting().getId();
+                List<MeetingMember> activeMembers = meetingMemberService.getActiveMembers(referenceId);
+                if (activeMembers.size() == 1 && activeMembers.get(0).getUser().getUserId().equals(userId)) {
+                    room.delete();
+                }
+            }
+            case MEETING_MATCH -> {
+                referenceId = room.getMatch().getId();
+            }
+            case LOVEVIEW_MATCH,PROFILE_MATCH -> {
+                room.deactivate();
+            }
+        }
+        if(referenceId!=null)
+            eventPublisher.publishEvent(new ChatRoomLeaveEvent(userId, room.getType(), referenceId));
+        log.info("채팅방 퇴장 처리 완료: userId={}, roomId={}", userId, roomId);
     }
 
 }

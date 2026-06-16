@@ -41,4 +41,12 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember,Lon
                     "and mm.status = :status "
     )
     Optional<Long> findUserIdByMeetingIdAndRole(@Param(value = "meetingId")Long meetingId, @Param(value = "role") MeetingRole role, @Param(value = "status") ChatUserStatus status);
+
+    @Query(
+            "select mm from MeetingMember mm "
+                    +"where mm.meeting.id = :meetingId "+
+                    "and mm.user.userId = :userId "+
+                    "and mm.status = :status "
+    )
+    Optional<MeetingMember> findByMeeting_IdAndUser_UserIdAndStatus(@Param(value = "meetingId")Long meetingId, @Param(value = "userId")Long userId, @Param(value = "status") ChatUserStatus status);
 }

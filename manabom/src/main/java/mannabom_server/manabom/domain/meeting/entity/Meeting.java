@@ -1,6 +1,7 @@
 package mannabom_server.manabom.domain.meeting.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
@@ -9,7 +10,7 @@ import mannabom_server.manabom.domain.region.entity.Region;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.enums.GenderConverter;
-import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.*;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +24,8 @@ import java.time.temporal.ChronoUnit;
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @DynamicUpdate
+@SQLDelete(sql = "UPDATE meeting SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class Meeting extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -64,6 +67,8 @@ public class Meeting extends BaseTimeEntity {
     private Integer remainingRejectCount = 3;
     @Builder.Default
     private double avgAge=0.0;
+
+    private Instant deletedAt;
 
     public static Meeting create(
             User createdBy,
@@ -113,10 +118,10 @@ public class Meeting extends BaseTimeEntity {
             currentMembers--;
             avgAge = tmp/currentMembers;
             updateOccupancyScore();
-            return;
+        } else {
+            this.currentMembers = 0;
+            this.avgAge = 0.0;
         }
-
-        //미팅 삭제 로직
     }
 
 
@@ -193,5 +198,9 @@ public class Meeting extends BaseTimeEntity {
             throw new IllegalStateException("매칭 성공: 현재 상태에서는 매칭 완료할 수 없습니다. status=" + this.meetingStatus);
         }
         this.meetingStatus= MeetingStatus.MATCHED;
+    }
+
+    public void delete(){
+        this.deletedAt = Instant.now();
     }
 }

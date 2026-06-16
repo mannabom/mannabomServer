@@ -9,6 +9,8 @@ import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MatchingStatusConverter;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecision;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecisionConverter;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -26,9 +28,11 @@ public class MeetingMatch {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "meeting1_id", nullable = false)
     private Meeting meeting1;
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "meeting2_id", nullable = false)
     private Meeting meeting2;
 
@@ -122,4 +126,6 @@ public class MeetingMatch {
         }
         return MeetingDecision.AUTO_ACCEPTED;
     }
+
+
 }

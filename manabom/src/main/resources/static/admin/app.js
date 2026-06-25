@@ -9,6 +9,12 @@ const state = {
     keyword: "",
     searchType: "ALL",
     accountStatus: "ALL",
+    reportPage: 0,
+    reportSize: 20,
+    reportKeyword: "",
+    reportStatus: "",
+    reportType: "",
+    selectedReportId: null,
     auditPage: 0,
     auditSize: 30,
     isActivatingMembership: false
@@ -39,9 +45,9 @@ const policyKeys = [
 
 const roleOptions = [
     { value: "SUPER_ADMIN", name: "총괄 관리자", description: "관리자 계정, 정책, 회원, 지갑, 문의 전체 관리" },
-    { value: "OPERATOR", name: "운영 관리자", description: "회원 상태, 푸시, 문의 처리" },
-    { value: "SUPPORT", name: "고객지원", description: "회원 조회와 문의 답변" },
-    { value: "MODERATOR", name: "심사 관리자", description: "회원/프로필 검토 중심" },
+    { value: "OPERATOR", name: "운영 관리자", description: "회원 상태, 푸시, 문의/신고 처리" },
+    { value: "SUPPORT", name: "고객지원", description: "회원 조회와 문의/신고 답변" },
+    { value: "MODERATOR", name: "심사 관리자", description: "회원/프로필/신고 검토 중심" },
     { value: "FINANCE", name: "재무 관리자", description: "팅 지갑 조회와 조정" }
 ];
 
@@ -114,6 +120,30 @@ function bindEvents() {
     $("adminForm").addEventListener("submit", saveAdminAccount);
     $("newAdminButton").addEventListener("click", resetAdminForm);
     $("deleteAdminButton").addEventListener("click", deleteAdminAccount);
+    $("reportSearchButton").addEventListener("click", applyReportFilters);
+    $("reportKeyword").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            applyReportFilters();
+        }
+    });
+    $("reportStatusFilter").addEventListener("change", applyReportFilters);
+    $("reportTypeFilter").addEventListener("change", applyReportFilters);
+    $("reportPageSize").addEventListener("change", () => {
+        state.reportSize = numberOrZero($("reportPageSize").value) || 20;
+        state.reportPage = 0;
+        loadReports();
+    });
+    $("clearReportFilterButton").addEventListener("click", clearReportFilters);
+    $("prevReportPageButton").addEventListener("click", () => {
+        if (state.reportPage > 0) {
+            state.reportPage -= 1;
+            loadReports();
+        }
+    });
+    $("nextReportPageButton").addEventListener("click", () => {
+        state.reportPage += 1;
+        loadReports();
+    });
     $("inquiryStatusFilter").addEventListener("change", loadInquiries);
     $("auditPageSize").addEventListener("change", () => {
         state.auditSize = numberOrZero($("auditPageSize").value) || 30;
@@ -212,6 +242,7 @@ function switchView(viewId) {
         usersView: "회원 관리",
         policiesView: "운영 정책",
         pushView: "푸시 알림",
+        reportsView: "신고/CS 처리",
         inquiriesView: "문의",
         auditsView: "감사 로그",
         adminsView: "관리자 계정"
@@ -223,6 +254,11 @@ function switchView(viewId) {
 function refreshCurrentView() {
     if (!$("auditsView").classList.contains("hidden")) {
         loadAudits();
+    } else if (!$("reportsView").classList.contains("hidden")) {
+        loadReports();
+        if (state.selectedReportId) {
+            loadReportDetail(state.selectedReportId);
+        }
     } else if (!$("inquiriesView").classList.contains("hidden")) {
         loadInquiries();
     } else if (!$("adminsView").classList.contains("hidden")) {
@@ -315,6 +351,7 @@ function renderUserDetail(user) {
             ${kv("멤버십 만료", formatDate(user.wallet?.membershipActiveUntil))}
             ${kvHtml("계정 상태", statusBadge(user.accountStatus))}
             ${kv("상태 사유", user.statusReason || "-")}
+            ${kv("정지 만료", formatDate(user.statusSuspendedUntil))}
         </section>
         <section>
             <div class="panel-head compact-head">
@@ -363,6 +400,10 @@ function renderUserDetail(user) {
                 <option value="SUSPENDED">SUSPENDED</option>
                 <option value="WITHDRAWN">WITHDRAWN</option>
             </select>
+            <label id="suspendedUntilLabel">
+                <span>정지 만료 시각</span>
+                <input id="suspendedUntilInput" type="datetime-local">
+            </label>
             ${reasonControl("statusReason", "상태 변경 사유", ["운영 정책 위반", "신고 누적", "본인 요청", "기타"])}
             <button id="statusSaveButton" class="secondary">상태 저장</button>
         </section>
@@ -377,6 +418,9 @@ function renderUserDetail(user) {
         </section>
     `;
     $("statusSelect").value = user.accountStatus || "ACTIVE";
+    $("suspendedUntilInput").value = toDateTimeLocalValue(user.statusSuspendedUntil);
+    $("statusSelect").addEventListener("change", syncSuspendedUntilInput);
+    syncSuspendedUntilInput();
     $("statusSaveButton").addEventListener("click", saveUserStatus);
     $("walletSaveButton").addEventListener("click", saveWallet);
     $("membershipActivateButton").addEventListener("click", activateMembership);
@@ -393,6 +437,7 @@ async function saveUserStatus() {
             method: "PATCH",
             body: {
                 status: $("statusSelect").value,
+                suspendedUntil: $("statusSelect").value === "SUSPENDED" ? localDateTimeOrNull($("suspendedUntilInput").value) : null,
                 reason: getReasonValue("statusReason")
             }
         });
@@ -630,6 +675,178 @@ async function saveAdminAccount(event) {
     }
 }
 
+async function loadReports() {
+    const query = new URLSearchParams({
+        page: String(state.reportPage),
+        size: String(state.reportSize)
+    });
+    if (state.reportStatus) query.set("status", state.reportStatus);
+    if (state.reportType) query.set("type", state.reportType);
+    if (state.reportKeyword) query.set("keyword", state.reportKeyword);
+    const data = await request(`/api/admin/reports?${query.toString()}`);
+    renderReports(data);
+}
+
+function applyReportFilters() {
+    state.reportKeyword = $("reportKeyword").value.trim();
+    state.reportStatus = $("reportStatusFilter").value;
+    state.reportType = $("reportTypeFilter").value;
+    state.reportPage = 0;
+    loadReports();
+}
+
+function clearReportFilters() {
+    $("reportKeyword").value = "";
+    $("reportStatusFilter").value = "";
+    $("reportTypeFilter").value = "";
+    $("reportPageSize").value = "20";
+    state.reportKeyword = "";
+    state.reportStatus = "";
+    state.reportType = "";
+    state.reportPage = 0;
+    state.reportSize = 20;
+    loadReports();
+}
+
+function renderReports(data) {
+    $("reportCount").textContent = `${data.totalCount.toLocaleString()}건`;
+    $("reportPageInfo").textContent =
+        `${data.page + 1} / ${Math.max(data.totalPages || 1, 1)} 페이지`;
+    $("prevReportPageButton").disabled = data.page <= 0;
+    $("nextReportPageButton").disabled = (data.page + 1) * data.size >= data.totalCount;
+    $("reportList").innerHTML = data.reports.map((report) => `
+        <button type="button" class="list-item ${String(report.reportId) === String(state.selectedReportId) ? "active" : ""}" data-report-id="${escapeHtml(report.reportId)}">
+            <strong>${escapeHtml(reportTypeLabel(report.type))} · ${escapeHtml(reportReasonLabel(report.reason))}</strong>
+            <span>${statusBadge(report.status)} 신고자 ${escapeHtml(userDisplay(report.reporterId, report.reporterNickName, report.reporterName))}</span>
+            <span>대상 ${escapeHtml(userDisplay(report.targetId, report.targetNickName, report.targetName))} · ${escapeHtml(formatDate(report.createdAt))}</span>
+        </button>
+    `).join("") || `<div class="detail-empty">신고가 없습니다.</div>`;
+    document.querySelectorAll("[data-report-id]").forEach((button) => {
+        button.addEventListener("click", () => loadReportDetail(button.dataset.reportId));
+    });
+}
+
+async function loadReportDetail(reportId) {
+    state.selectedReportId = reportId;
+    $("reportActionResult").textContent = "";
+    $("reportActionResult").classList.remove("error-text");
+    const report = await request(`/api/admin/reports/${reportId}`);
+    $("selectedReportLabel").textContent = `신고 ${report.reportId}`;
+    renderReportDetail(report);
+}
+
+function renderReportDetail(report) {
+    $("reportDetail").className = "detail-body";
+    $("reportDetail").innerHTML = `
+        <section>
+            <p class="section-title">신고 정보</p>
+            ${kv("유형", reportTypeLabel(report.type))}
+            ${kv("사유", reportReasonLabel(report.reason))}
+            ${kvHtml("상태", statusBadge(report.status))}
+            ${kv("접수일", formatDate(report.createdAt))}
+            ${kv("처리일", formatDate(report.processedAt))}
+            ${kv("신고 상세", report.additionalDetail || "-")}
+            ${kv("관리자 메모", report.adminComment || "-")}
+        </section>
+        <section>
+            <p class="section-title">신고자</p>
+            ${userSnapshotHtml(report.reporter)}
+        </section>
+        <section>
+            <p class="section-title">신고 대상</p>
+            ${userSnapshotHtml(report.target)}
+        </section>
+        <section>
+            <p class="section-title">참고 지표</p>
+            ${referenceContextHtml(report.referenceContext || {})}
+        </section>
+        <section class="action-box">
+            <p class="section-title">신고 처리</p>
+            <label>
+                <span>신고 상태</span>
+                <select id="reportProcessStatus">
+                    <option value="RECEIVED">접수됨</option>
+                    <option value="UNDER_REVIEW">검토 중</option>
+                    <option value="RESOLVED">처리 완료</option>
+                    <option value="REJECTED">반려</option>
+                </select>
+            </label>
+            <label>
+                <span>관리자 메모</span>
+                <textarea id="reportAdminComment">${escapeHtml(report.adminComment || "")}</textarea>
+            </label>
+            <div class="inline-grid">
+                <label>
+                    <span>대상 계정 조치</span>
+                    <select id="reportTargetStatus">
+                        <option value="">변경 없음</option>
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="SUSPENDED">SUSPENDED</option>
+                        <option value="WITHDRAWN">WITHDRAWN</option>
+                    </select>
+                </label>
+                <label id="reportTargetSuspendedUntilLabel">
+                    <span>정지 만료 시각</span>
+                    <input id="reportTargetSuspendedUntil" type="datetime-local">
+                </label>
+            </div>
+            <label>
+                <span>계정 조치 사유</span>
+                <input id="reportTargetAccountReason" type="text" placeholder="예: 신고 처리에 따른 7일 정지">
+            </label>
+            <div class="inline-grid">
+                <label>
+                    <span>팅 지급</span>
+                    <input id="reportTingGrant" type="number" min="0" placeholder="0">
+                </label>
+                <label>
+                    <span>이벤트 팅 지급</span>
+                    <input id="reportEventTingGrant" type="number" min="0" placeholder="0">
+                </label>
+            </div>
+            <label>
+                <span>팅 지급 사유</span>
+                <input id="reportWalletReason" type="text" placeholder="예: 결제/CS 보상 지급">
+            </label>
+            <button id="processReportButton" class="primary">처리 저장</button>
+        </section>
+    `;
+    $("reportProcessStatus").value = report.status || "RECEIVED";
+    $("reportTargetStatus").addEventListener("change", syncReportTargetSuspendedUntilInput);
+    syncReportTargetSuspendedUntilInput();
+    $("processReportButton").addEventListener("click", () => processReport(report.reportId));
+}
+
+async function processReport(reportId) {
+    const tingGrant = numberOrZero($("reportTingGrant").value);
+    const eventTingGrant = numberOrZero($("reportEventTingGrant").value);
+    const targetStatus = $("reportTargetStatus").value || null;
+    try {
+        await request(`/api/admin/reports/${reportId}`, {
+            method: "PATCH",
+            body: {
+                status: $("reportProcessStatus").value,
+                adminComment: $("reportAdminComment").value.trim(),
+                targetAccountStatus: targetStatus,
+                targetSuspendedUntil: targetStatus === "SUSPENDED"
+                    ? localDateTimeOrNull($("reportTargetSuspendedUntil").value)
+                    : null,
+                targetAccountReason: $("reportTargetAccountReason").value.trim(),
+                tingGrant,
+                eventTingGrant,
+                walletReason: $("reportWalletReason").value.trim()
+            }
+        });
+        await loadReports();
+        await loadReportDetail(reportId);
+        $("reportActionResult").classList.remove("error-text");
+        $("reportActionResult").textContent = "신고 처리가 저장되었습니다.";
+    } catch (error) {
+        $("reportActionResult").textContent = `신고 처리 실패: ${error.message}`;
+        $("reportActionResult").classList.add("error-text");
+    }
+}
+
 async function loadInquiries() {
     const status = $("inquiryStatusFilter").value;
     const query = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -759,6 +976,103 @@ function selectedRoles() {
     return [...document.querySelectorAll(".role-card.selected")].map((button) => button.dataset.role);
 }
 
+function userSnapshotHtml(user) {
+    if (!user) return `<div class="detail-empty">정보가 없습니다.</div>`;
+    return `
+        ${kv("User ID", user.userId)}
+        ${kv("Profile ID", user.profileId || "-")}
+        ${kv("이름", user.userName || "-")}
+        ${kv("닉네임", user.nickName || "-")}
+        ${kv("카카오 ID", user.kakaoId || "-")}
+        ${kv("전화번호", user.phoneNum || "-")}
+        ${kv("성별", genderLabel(user.gender))}
+        ${kv("생년월일", user.birthDate || "-")}
+        ${kv("학교", user.universityName || "-")}
+        ${kv("지역", [user.regionSidoName, user.regionSigunguName].filter(Boolean).join(" ") || "-")}
+        ${kv("인증", user.verified ? "완료" : "미완료")}
+        ${kvHtml("계정 상태", statusBadge(user.accountStatus))}
+        ${kv("상태 사유", user.statusReason || "-")}
+        ${kv("정지 만료", formatDate(user.statusSuspendedUntil))}
+        ${kv("팅", user.ting ?? "-")}
+        ${kv("이벤트 팅", user.eventTing ?? "-")}
+        ${kv("멤버십 만료", formatDate(user.membershipActiveUntil))}
+    `;
+}
+
+function referenceContextHtml(context) {
+    const reported = context.reportedContext || {};
+    return `
+        <div class="context-section">
+            <p class="section-title">신고된 대상</p>
+            ${kv("유형", reportTypeLabel(reported.type))}
+            ${kv("Context ID", reported.contextId || "-")}
+            ${reported.profileOwnerUserId ? kv("프로필 소유자", userDisplay(reported.profileOwnerUserId, reported.profileOwnerNickName, "")) : ""}
+        </div>
+        ${chatMessagesHtml(reported.chatMessages || [])}
+        ${recentReportsHtml("대상자 최근 신고", context.targetRecentReports || [], "target")}
+        ${recentReportsHtml("신고자 최근 접수 이력", context.reporterRecentReports || [], "reporter")}
+        <div class="context-section">
+            <p class="section-title">결제/재화 참고</p>
+            <pre class="context-box">${escapeHtml(context.paymentHistory || "-")}</pre>
+        </div>
+    `;
+}
+
+function chatMessagesHtml(messages) {
+    if (!messages.length) {
+        return `
+            <div class="context-section">
+                <p class="section-title">채팅 내역</p>
+                <div class="detail-empty">표시할 채팅 메시지가 없습니다.</div>
+            </div>
+        `;
+    }
+    return `
+        <div class="context-section">
+            <p class="section-title">채팅 내역 최신 50개</p>
+            <div class="history-list">
+                ${messages.map((message) => `
+                    <div class="history-item">
+                        <strong>${escapeHtml(userDisplay(message.senderUserId, message.senderNickName, ""))}</strong>
+                        <span>${escapeHtml(formatDate(message.createdAt))} · ${escapeHtml(message.type || "-")}</span>
+                        <small>${escapeHtml(message.content || "")}</small>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function recentReportsHtml(title, reports, mode) {
+    if (!reports.length) {
+        return `
+            <div class="context-section">
+                <p class="section-title">${escapeHtml(title)}</p>
+                <div class="detail-empty">최근 이력이 없습니다.</div>
+            </div>
+        `;
+    }
+    return `
+        <div class="context-section">
+            <p class="section-title">${escapeHtml(title)}</p>
+            <div class="history-list">
+                ${reports.map((report) => {
+                    const userText = mode === "target"
+                        ? `신고자 ${userDisplay(report.reporterUserId, report.reporterNickName, "")}`
+                        : `대상 ${userDisplay(report.targetUserId, report.targetNickName, "")}`;
+                    return `
+                        <div class="history-item">
+                            <strong>#${escapeHtml(report.reportId)} ${escapeHtml(reportTypeLabel(report.type))} · ${escapeHtml(reportReasonLabel(report.reason))}</strong>
+                            <span>${escapeHtml(userText)} · ${escapeHtml(formatDate(report.createdAt))}</span>
+                            <small>${escapeHtml(report.status || "-")}</small>
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        </div>
+    `;
+}
+
 function flattenPolicy(policy) {
     return policyKeys.map((key) => ({ key, value: getNested(policy, key) ?? 0 }));
 }
@@ -798,6 +1112,14 @@ function getReasonValue(id) {
         return $(`${id}Other`).value.trim();
     }
     return selected;
+}
+
+function syncSuspendedUntilInput() {
+    $("suspendedUntilLabel").classList.toggle("hidden", $("statusSelect").value !== "SUSPENDED");
+}
+
+function syncReportTargetSuspendedUntilInput() {
+    $("reportTargetSuspendedUntilLabel").classList.toggle("hidden", $("reportTargetStatus").value !== "SUSPENDED");
 }
 
 function reasonInline(prefix, options) {
@@ -860,6 +1182,33 @@ function genderLabel(gender) {
     return labels[gender] || gender || "-";
 }
 
+function userDisplay(userId, nickName, userName) {
+    const name = nickName || userName || "-";
+    return `${name}(userId ${userId || "-"})`;
+}
+
+function reportTypeLabel(type) {
+    const labels = {
+        CHAT: "채팅",
+        PROFILE: "프로필"
+    };
+    return labels[type] || type || "-";
+}
+
+function reportReasonLabel(reason) {
+    const labels = {
+        INAPPROPRIATE_PROFILE: "부적절한 프로필",
+        ABUSIVE_LANGUAGE: "욕설 및 비하 발언",
+        SPAM: "스팸/홍보",
+        GHOSTING: "잠수",
+        NO_SHOW: "노쇼",
+        VIOLENT_LANGUAGE: "폭언 및 위협",
+        UNCOOPERATIVE: "비협조적인 태도",
+        ETC: "기타"
+    };
+    return labels[reason] || reason || "-";
+}
+
 function adminActorLabel(log) {
     return `${log.adminName || "관리자"}(${log.adminLoginId || log.adminId || "-"})`;
 }
@@ -877,7 +1226,8 @@ function auditActionLabel(actionType) {
         WALLET_ADJUST: "팅 지갑 조정",
         MEMBERSHIP_ACTIVATE: "멤버십 활성화",
         POLICY_UPDATE: "운영 정책 변경",
-        PUSH_SEND: "푸시 발송"
+        PUSH_SEND: "푸시 발송",
+        REPORT_PROCESS: "신고 처리"
     };
     return labels[actionType] || actionType || "-";
 }
@@ -888,7 +1238,8 @@ function auditTargetLabel(targetType) {
         USER: "회원",
         TING_WALLET: "팅 지갑",
         POLICY: "운영 정책",
-        PUSH: "푸시"
+        PUSH: "푸시",
+        REPORT: "신고"
     };
     return labels[targetType] || targetType || "-";
 }
@@ -908,6 +1259,15 @@ function numberOrZero(value) {
 function numberOrNull(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && value !== "" ? parsed : null;
+}
+
+function localDateTimeOrNull(value) {
+    return value ? value : null;
+}
+
+function toDateTimeLocalValue(value) {
+    if (!value) return "";
+    return String(value).slice(0, 16);
 }
 
 function formatDate(value) {

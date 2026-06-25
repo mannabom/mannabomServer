@@ -432,12 +432,18 @@ function renderUserDetail(user) {
 
 async function saveUserStatus() {
     if (!state.selectedUserId) return;
+    const status = $("statusSelect").value;
+    const suspendedUntil = status === "SUSPENDED" ? localDateTimeOrNull($("suspendedUntilInput").value) : null;
+    if (status === "SUSPENDED" && !suspendedUntil) {
+        showUserActionResult("정지 만료 시각을 입력하세요.", true);
+        return;
+    }
     try {
         await request(`/api/admin/users/${state.selectedUserId}/status`, {
             method: "PATCH",
             body: {
-                status: $("statusSelect").value,
-                suspendedUntil: $("statusSelect").value === "SUSPENDED" ? localDateTimeOrNull($("suspendedUntilInput").value) : null,
+                status,
+                suspendedUntil,
                 reason: getReasonValue("statusReason")
             }
         });
@@ -821,6 +827,14 @@ async function processReport(reportId) {
     const tingGrant = numberOrZero($("reportTingGrant").value);
     const eventTingGrant = numberOrZero($("reportEventTingGrant").value);
     const targetStatus = $("reportTargetStatus").value || null;
+    const targetSuspendedUntil = targetStatus === "SUSPENDED"
+        ? localDateTimeOrNull($("reportTargetSuspendedUntil").value)
+        : null;
+    if (targetStatus === "SUSPENDED" && !targetSuspendedUntil) {
+        $("reportActionResult").textContent = "정지 만료 시각을 입력하세요.";
+        $("reportActionResult").classList.add("error-text");
+        return;
+    }
     try {
         await request(`/api/admin/reports/${reportId}`, {
             method: "PATCH",
@@ -828,9 +842,7 @@ async function processReport(reportId) {
                 status: $("reportProcessStatus").value,
                 adminComment: $("reportAdminComment").value.trim(),
                 targetAccountStatus: targetStatus,
-                targetSuspendedUntil: targetStatus === "SUSPENDED"
-                    ? localDateTimeOrNull($("reportTargetSuspendedUntil").value)
-                    : null,
+                targetSuspendedUntil,
                 targetAccountReason: $("reportTargetAccountReason").value.trim(),
                 tingGrant,
                 eventTingGrant,

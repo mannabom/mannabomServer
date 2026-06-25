@@ -79,7 +79,8 @@ public class AdminUserService {
                     end,
                     restriction.status,
                     restriction.suspendedUntil,
-                    u.createdAt
+                    u.createdAt,
+                    :now
                 )
                 from User u
                 left join Profile p on p.user = u
@@ -90,6 +91,7 @@ public class AdminUserService {
                 """ + where + " order by u.userId desc";
 
         TypedQuery<AdminUserSummaryResponse> query = entityManager.createQuery(selectJpql, AdminUserSummaryResponse.class);
+        query.setParameter("now", LocalDateTime.now());
         applySearchParams(query, keyword, field, statusFilter);
         List<AdminUserSummaryResponse> users = query
                 .setFirstResult(safePage * safeSize)
@@ -156,11 +158,12 @@ public class AdminUserService {
                         .updatedByAdminId(admin.adminId())
                         .build());
         validateSuspension(request.getStatus(), request.getSuspendedUntil());
-        String before = accountStatusLabel(restriction);
+        LocalDateTime auditNow = LocalDateTime.now();
+        String before = accountStatusLabel(restriction, auditNow);
         restriction.update(request.getStatus(), request.getReason(), request.getSuspendedUntil(), admin.adminId());
         userAccountRestrictionRepository.save(restriction);
 
-        String after = accountStatusLabel(restriction);
+        String after = accountStatusLabel(restriction, auditNow);
         adminAuditService.log(admin.adminId(), AdminAuditActionType.USER_STATUS_UPDATE,
                 AdminAuditTargetType.USER, userId, before, after, request.getReason(), ipAddress);
         return getUser(admin, userId);
@@ -285,22 +288,23 @@ public class AdminUserService {
     }
 
     private void validateSuspension(UserAccountStatus status, LocalDateTime suspendedUntil) {
-        if (status != UserAccountStatus.SUSPENDED || suspendedUntil == null) {
+        if (status != UserAccountStatus.SUSPENDED) {
             return;
         }
-        if (!suspendedUntil.isAfter(LocalDateTime.now())) {
+        if (suspendedUntil == null || !suspendedUntil.isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("정지 만료 시각은 현재 시각 이후여야 합니다.");
         }
     }
 
-    private String accountStatusLabel(UserAccountRestriction restriction) {
+    private String accountStatusLabel(UserAccountRestriction restriction, LocalDateTime now) {
         if (restriction == null) {
             return UserAccountStatus.ACTIVE.name();
         }
-        if (restriction.getSuspendedUntil() == null) {
-            return restriction.getStatus().name();
+        UserAccountStatus effectiveStatus = restriction.effectiveStatus(now);
+        if (effectiveStatus == UserAccountStatus.SUSPENDED && restriction.getSuspendedUntil() != null) {
+            return effectiveStatus.name() + " until " + restriction.getSuspendedUntil();
         }
-        return restriction.getStatus().name() + " until " + restriction.getSuspendedUntil();
+        return effectiveStatus.name();
     }
 
     private AdminUserDetailResponse.Photo toPhoto(ProfileImage image) {

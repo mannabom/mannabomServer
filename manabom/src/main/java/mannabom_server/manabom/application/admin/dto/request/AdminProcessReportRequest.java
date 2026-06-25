@@ -30,4 +30,8 @@ public class AdminProcessReportRequest {
     private Integer eventTingGrant = 0;
 
     private String walletReason;
+
+    public boolean isTargetSuspensionRequested() {
+        return targetAccountStatus == UserAccountStatus.SUSPENDED;
+    }
 }

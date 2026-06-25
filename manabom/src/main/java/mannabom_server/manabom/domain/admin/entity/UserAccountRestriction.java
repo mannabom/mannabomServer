@@ -64,6 +64,13 @@ public class UserAccountRestriction extends BaseTimeEntity {
     }
 
     public UserAccountStatus effectiveStatus(LocalDateTime now) {
+        return effectiveStatus(status, suspendedUntil, now);
+    }
+
+    public static UserAccountStatus effectiveStatus(UserAccountStatus status, LocalDateTime suspendedUntil, LocalDateTime now) {
+        if (status == null) {
+            return UserAccountStatus.ACTIVE;
+        }
         if (status == UserAccountStatus.SUSPENDED
                 && suspendedUntil != null
                 && !suspendedUntil.isAfter(now)) {

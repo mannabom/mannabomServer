@@ -22,7 +22,6 @@ import mannabom_server.manabom.domain.report.repository.ReportRepository;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
-import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +39,6 @@ public class AdminReportService {
 
     private final EntityManager entityManager;
     private final ReportRepository reportRepository;
-    private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final TingWalletRepository tingWalletRepository;
     private final UserAccountRestrictionRepository userAccountRestrictionRepository;
@@ -143,21 +141,20 @@ public class AdminReportService {
         if (targetStatus == null) {
             return;
         }
-        validateSuspension(targetStatus, request.getTargetSuspendedUntil());
+        validateSuspension(request);
         Long targetUserId = report.getTarget().getUserId();
-        userRepository.findById(targetUserId)
-                .orElseThrow(() -> new IllegalArgumentException("신고 대상 사용자를 찾을 수 없습니다."));
         UserAccountRestriction restriction = userAccountRestrictionRepository.findById(targetUserId)
                 .orElseGet(() -> UserAccountRestriction.builder()
                         .userId(targetUserId)
                         .status(UserAccountStatus.ACTIVE)
                         .updatedByAdminId(admin.adminId())
                         .build());
-        String before = accountStatusLabel(restriction);
+        LocalDateTime auditNow = LocalDateTime.now();
+        String before = accountStatusLabel(restriction, auditNow);
         restriction.update(targetStatus, request.getTargetAccountReason(), request.getTargetSuspendedUntil(), admin.adminId());
         userAccountRestrictionRepository.save(restriction);
         adminAuditService.log(admin.adminId(), AdminAuditActionType.USER_STATUS_UPDATE,
-                AdminAuditTargetType.USER, targetUserId, before, accountStatusLabel(restriction),
+                AdminAuditTargetType.USER, targetUserId, before, accountStatusLabel(restriction, auditNow),
                 request.getTargetAccountReason(), ipAddress);
     }
 
@@ -254,7 +251,9 @@ public class AdminReportService {
         }
         if (report.getType() == ReportType.PROFILE) {
             context.put("profileOwnerUserId", report.getTarget().getUserId());
-            context.put("profileOwnerNickName", userSnapshot(report.getTarget()).getNickName());
+            context.put("profileOwnerNickName", profileRepository.findByUser(report.getTarget())
+                    .map(Profile::getNickName)
+                    .orElse(null));
         }
         return context;
     }
@@ -372,20 +371,22 @@ public class AdminReportService {
         }
     }
 
-    private void validateSuspension(UserAccountStatus status, LocalDateTime suspendedUntil) {
-        if (status != UserAccountStatus.SUSPENDED || suspendedUntil == null) {
+    private void validateSuspension(AdminProcessReportRequest request) {
+        if (!request.isTargetSuspensionRequested()) {
             return;
         }
-        if (!suspendedUntil.isAfter(LocalDateTime.now())) {
+        LocalDateTime suspendedUntil = request.getTargetSuspendedUntil();
+        if (suspendedUntil == null || !suspendedUntil.isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("정지 만료 시각은 현재 시각 이후여야 합니다.");
         }
     }
 
-    private String accountStatusLabel(UserAccountRestriction restriction) {
-        if (restriction.getSuspendedUntil() == null) {
-            return restriction.getStatus().name();
+    private String accountStatusLabel(UserAccountRestriction restriction, LocalDateTime now) {
+        UserAccountStatus effectiveStatus = restriction.effectiveStatus(now);
+        if (effectiveStatus == UserAccountStatus.SUSPENDED && restriction.getSuspendedUntil() != null) {
+            return effectiveStatus.name() + " until " + restriction.getSuspendedUntil();
         }
-        return restriction.getStatus().name() + " until " + restriction.getSuspendedUntil();
+        return effectiveStatus.name();
     }
 
     private String walletLabel(TingWallet wallet) {
@@ -400,7 +401,7 @@ public class AdminReportService {
     }
 
     private void requireReportProcessable(AdminPrincipal admin) {
-        if (admin.hasAnyRole(AdminRole.SUPER_ADMIN, AdminRole.OPERATOR, AdminRole.SUPPORT, AdminRole.MODERATOR)) {
+        if (admin.hasAnyRole(AdminRole.SUPER_ADMIN, AdminRole.OPERATOR)) {
             return;
         }
         throw new IllegalStateException("신고 처리 권한이 없습니다.");

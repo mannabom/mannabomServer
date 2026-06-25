@@ -12,5 +12,6 @@ public enum AdminAuditActionType {
     WALLET_ADJUST,
     MEMBERSHIP_ACTIVATE,
     POLICY_UPDATE,
-    PUSH_SEND
+    PUSH_SEND,
+    REPORT_PROCESS
 }

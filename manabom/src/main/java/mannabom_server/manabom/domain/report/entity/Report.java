@@ -12,6 +12,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "reports")
 @EntityListeners(AuditingEntityListener.class)
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
 @AllArgsConstructor

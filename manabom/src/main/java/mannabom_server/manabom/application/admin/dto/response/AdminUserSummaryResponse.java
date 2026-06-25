@@ -5,6 +5,7 @@ import mannabom_server.manabom.domain.admin.enums.UserAccountStatus;
 import mannabom_server.manabom.domain.user.enums.Gender;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 public class AdminUserSummaryResponse {
@@ -20,6 +21,7 @@ public class AdminUserSummaryResponse {
     private Boolean verified;
     private Boolean membership;
     private UserAccountStatus accountStatus;
+    private LocalDateTime statusSuspendedUntil;
     private Instant createdAt;
 
     public AdminUserSummaryResponse(Long userId,
@@ -34,6 +36,7 @@ public class AdminUserSummaryResponse {
                                     Boolean verified,
                                     Boolean membership,
                                     UserAccountStatus accountStatus,
+                                    LocalDateTime statusSuspendedUntil,
                                     Instant createdAt) {
         this.userId = userId;
         this.profileId = profileId;
@@ -46,7 +49,20 @@ public class AdminUserSummaryResponse {
         this.regionSigunguName = regionSigunguName;
         this.verified = verified;
         this.membership = membership;
-        this.accountStatus = accountStatus == null ? UserAccountStatus.ACTIVE : accountStatus;
+        this.accountStatus = effectiveStatus(accountStatus, statusSuspendedUntil);
+        this.statusSuspendedUntil = statusSuspendedUntil;
         this.createdAt = createdAt;
+    }
+
+    private UserAccountStatus effectiveStatus(UserAccountStatus status, LocalDateTime suspendedUntil) {
+        if (status == null) {
+            return UserAccountStatus.ACTIVE;
+        }
+        if (status == UserAccountStatus.SUSPENDED
+                && suspendedUntil != null
+                && !suspendedUntil.isAfter(LocalDateTime.now())) {
+            return UserAccountStatus.ACTIVE;
+        }
+        return status;
     }
 }

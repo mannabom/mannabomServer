@@ -20,6 +20,7 @@ public class AdminUserDetailResponse {
     private final Boolean membership;
     private final UserAccountStatus accountStatus;
     private final String statusReason;
+    private final LocalDateTime statusSuspendedUntil;
     private final Instant createdAt;
     private final Profile profile;
     private final Wallet wallet;

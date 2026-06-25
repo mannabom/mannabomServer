@@ -6,7 +6,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import mannabom_server.manabom.domain.admin.enums.UserAccountStatus;
 import mannabom_server.manabom.domain.admin.repository.UserAccountRestrictionRepository;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -36,7 +35,7 @@ public class UserAccountAccessGuardFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Long userId) {
             boolean blocked = userAccountRestrictionRepository.findById(userId)
-                    .map(restriction -> restriction.getStatus() != UserAccountStatus.ACTIVE)
+                    .map(restriction -> restriction.isAccessBlocked(LocalDateTime.now()))
                     .orElse(false);
             if (blocked) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);

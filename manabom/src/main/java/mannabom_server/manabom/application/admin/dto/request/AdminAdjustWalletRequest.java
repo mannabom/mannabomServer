@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class AdminAdjustWalletRequest {
-    private final Integer tingDelta = 0;
-    private final Integer eventTingDelta = 0;
+    private Integer tingDelta = 0;
+    private Integer eventTingDelta = 0;
 
     @NotBlank(message = "reason은 필수입니다.")
     private String reason;

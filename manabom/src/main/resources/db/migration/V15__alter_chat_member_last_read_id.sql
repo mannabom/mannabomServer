@@ -1,0 +1,1 @@
+ALTER TABLE chat_members ALTER COLUMN last_read_message_id TYPE bigint;

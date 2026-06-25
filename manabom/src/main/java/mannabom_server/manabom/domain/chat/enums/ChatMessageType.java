@@ -7,12 +7,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ChatMessageType {
     TEXT((short)0), //텍스트
-    IMAGE((short)1);  //이미지
+    IMAGE((short)1),  //이미지
+    SYSTEM((short)2);
 
     private final short code;
 
     public static ChatMessageType from(short code){
         for(var v: values()) if(v.code== code) return v;
         throw new IllegalArgumentException("Invalid ChatMessageType: "+code);
+    }
+
+    public String getDisplayMessage(String content){
+        return switch(this){
+            case IMAGE -> "📷 사진을 보냈습니다.";
+            case TEXT,SYSTEM-> content;
+
+        };
     }
 }

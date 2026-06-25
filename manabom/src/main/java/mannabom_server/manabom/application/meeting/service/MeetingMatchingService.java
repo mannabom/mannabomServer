@@ -50,6 +50,7 @@ public class MeetingMatchingService {
     private final MeetingMemberReadService meetingMemberReadService;
     private final ChatRoomService chatRoomService;
     private final MeetingMemberService meetingMemberService;
+    private final MeetingService meetingService;
 
     private final MeetingMatchingTimeoutScheduler meetingMatchingTimeoutScheduler;
 
@@ -364,4 +365,32 @@ public class MeetingMatchingService {
     private boolean isMetro(MeetingMatchingEvent event){
         return METRO_CODES.contains(event.getSidoCode());
     }
+
+    public void handleMatchMemberLeave(Long matchId, Long userId){
+        MeetingMatch match = meetingMatchRepository.findById(matchId)
+                .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅 매칭 아이디입니다."));
+
+        MeetingMember mm = meetingMemberService.isActivate(userId)
+                .orElseThrow(()-> new IllegalArgumentException("유저가 참여하고 있는 매칭방이 없습니다."));
+
+        Meeting myMeeting;
+        Meeting opponent;
+        Long userMeetingId = mm.getMeeting().getId();
+        if(match.getMeeting1().getId().equals(userMeetingId)){
+            myMeeting = match.getMeeting1();
+            opponent = match.getMeeting2();
+        }
+        else if (match.getMeeting2().getId().equals(userMeetingId)){
+            myMeeting = match.getMeeting2();
+            opponent = match.getMeeting1();
+        } else {
+            throw new IllegalArgumentException("해당 매칭에 속한 유저가 아닙니다.");
+        }
+
+        meetingService.handleMemberLeave(myMeeting.getId(), userId);
+        if((myMeeting.getCurrentMembers()+ opponent.getCurrentMembers())*2< myMeeting.getMaxMembers()+ opponent.getMaxMembers()){
+            // 다 환불
+        }
+    }
+
 }

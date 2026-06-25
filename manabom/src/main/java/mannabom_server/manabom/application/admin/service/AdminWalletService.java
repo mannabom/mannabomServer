@@ -1,6 +1,7 @@
 package mannabom_server.manabom.application.admin.service;
 
 import lombok.RequiredArgsConstructor;
+import mannabom_server.manabom.application.admin.dto.request.AdminActivateMembershipRequest;
 import mannabom_server.manabom.application.admin.dto.request.AdminAdjustWalletRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminWalletResponse;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditActionType;
@@ -10,8 +11,12 @@ import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
+import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
+import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ public class AdminWalletService {
     private final UserRepository userRepository;
     private final TingWalletRepository tingWalletRepository;
     private final AdminAuditService adminAuditService;
+    private final RuntimePolicyService runtimePolicyService;
 
     @Transactional(readOnly = true)
     public AdminWalletResponse getWallet(AdminPrincipal admin, Long userId) {
@@ -57,6 +63,36 @@ public class AdminWalletService {
         return toResponse(wallet);
     }
 
+    @Transactional
+    public AdminWalletResponse activateMembership(AdminPrincipal admin,
+                                                  Long userId,
+                                                  AdminActivateMembershipRequest request,
+                                                  String ipAddress) {
+        requireAnyRole(admin, AdminRole.SUPER_ADMIN, AdminRole.FINANCE);
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        TingWallet wallet = tingWalletRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> tingWalletRepository.save(new TingWallet(userId)));
+        LocalDateTime now = LocalDateTime.now();
+        String before = "membershipActiveUntil=" + wallet.getMembershipActiveUntil();
+
+        RuntimePolicySnapshot.Benefit.Membership membershipPolicy =
+                runtimePolicyService.snapshot().getBenefit().getMembership();
+        wallet.activateMembership(
+                now,
+                membershipPolicy.getCycleExtraProfiles(),
+                membershipPolicy.getCycleFreeMessages(),
+                membershipPolicy.getCycleFreeLikes()
+        );
+
+        String after = "membershipCycleStartAt=" + wallet.getMembershipCycleStartAt()
+                + ", membershipActiveUntil=" + wallet.getMembershipActiveUntil();
+        adminAuditService.log(admin.adminId(), AdminAuditActionType.MEMBERSHIP_ACTIVATE,
+                AdminAuditTargetType.TING_WALLET, userId, before, after, request.getReason(), ipAddress);
+        return toResponse(wallet);
+    }
+
     private void applyTingDelta(TingWallet wallet, int delta) {
         if (delta > 0) {
             wallet.addTing(delta);
@@ -74,10 +110,14 @@ public class AdminWalletService {
     }
 
     private AdminWalletResponse toResponse(TingWallet wallet) {
+        LocalDateTime now = LocalDateTime.now();
         return AdminWalletResponse.builder()
                 .userId(wallet.getUserId())
                 .ting(wallet.getTing())
                 .eventTing(wallet.getEventTing())
+                .membershipActive(wallet.isMembershipActive(now))
+                .membershipCycleStartAt(wallet.getMembershipCycleStartAt())
+                .membershipActiveUntil(wallet.getMembershipActiveUntil())
                 .build();
     }
 

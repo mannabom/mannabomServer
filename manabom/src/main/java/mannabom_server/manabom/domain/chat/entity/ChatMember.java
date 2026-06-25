@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
 import mannabom_server.manabom.domain.user.entity.User;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -32,12 +33,25 @@ public class ChatMember {
     @CreationTimestamp
     private Instant joinedAt;
 
-    private Integer lastReadMessageId;
+    private Long lastReadMessageId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private ChatMemberStatus status;
 
     public static ChatMember create(ChatRoom room, User user){
         return ChatMember.builder()
                 .room(room)
                 .user(user)
+                .status(ChatMemberStatus.ACTIVATE)
                 .build();
+    }
+
+    public void deactivate(){
+        this.status = ChatMemberStatus.DEACTIVATED;
+    }
+
+    public void updateLastReadMessageId(Long messageId){
+        this.lastReadMessageId = messageId;
     }
 }

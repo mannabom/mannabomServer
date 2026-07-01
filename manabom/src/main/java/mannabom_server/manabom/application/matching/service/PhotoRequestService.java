@@ -75,6 +75,12 @@ public class PhotoRequestService {
         ChatRoom room = findRoomById(roomId);
         validateLoveViewChatRoom(room);
         validateActiveMember(roomId, userId);
+
+        LoveViewPhotoStatus currentStatus = getPhotoRequestStatus(roomId, userId);
+        if (currentStatus != LoveViewPhotoStatus.READY) {
+            throw new IllegalStateException("아직 프로필 사진을 요청할 수 있는 상태가 아닙니다.");
+        }
+
         LoveViewRecommendHistory loveView = room.getLoveView();
         Long loveViewId = loveView.getId();
 

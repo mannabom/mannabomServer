@@ -26,7 +26,10 @@ public class Notification {
     private String message;
     private boolean isRead;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 50)
     private SseEventName type;
+
     @Column(columnDefinition = "TEXT") // 혹은 @Lob. 내용이 길어질 수 있으므로 TEXT 권장
     private String data;
 

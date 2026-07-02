@@ -1,10 +1,12 @@
 package mannabom_server.manabom.application.admin.dto.response;
 
 import lombok.Getter;
+import mannabom_server.manabom.domain.admin.entity.UserAccountRestriction;
 import mannabom_server.manabom.domain.admin.enums.UserAccountStatus;
 import mannabom_server.manabom.domain.user.enums.Gender;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 public class AdminUserSummaryResponse {
@@ -20,6 +22,7 @@ public class AdminUserSummaryResponse {
     private Boolean verified;
     private Boolean membership;
     private UserAccountStatus accountStatus;
+    private LocalDateTime statusSuspendedUntil;
     private Instant createdAt;
 
     public AdminUserSummaryResponse(Long userId,
@@ -34,7 +37,9 @@ public class AdminUserSummaryResponse {
                                     Boolean verified,
                                     Boolean membership,
                                     UserAccountStatus accountStatus,
-                                    Instant createdAt) {
+                                    LocalDateTime statusSuspendedUntil,
+                                    Instant createdAt,
+                                    LocalDateTime now) {
         this.userId = userId;
         this.profileId = profileId;
         this.kakaoId = kakaoId;
@@ -46,7 +51,8 @@ public class AdminUserSummaryResponse {
         this.regionSigunguName = regionSigunguName;
         this.verified = verified;
         this.membership = membership;
-        this.accountStatus = accountStatus == null ? UserAccountStatus.ACTIVE : accountStatus;
+        this.accountStatus = UserAccountRestriction.effectiveStatus(accountStatus, statusSuspendedUntil, now);
+        this.statusSuspendedUntil = statusSuspendedUntil;
         this.createdAt = createdAt;
     }
 }

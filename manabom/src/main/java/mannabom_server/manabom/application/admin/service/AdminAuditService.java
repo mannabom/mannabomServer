@@ -14,7 +14,6 @@ import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -29,7 +28,7 @@ public class AdminAuditService {
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAccountRepository adminAccountRepository;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void log(Long adminId,
                     AdminAuditActionType actionType,
                     AdminAuditTargetType targetType,

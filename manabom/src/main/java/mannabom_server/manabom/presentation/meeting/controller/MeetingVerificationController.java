@@ -1,5 +1,6 @@
 package mannabom_server.manabom.presentation.meeting.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.common.dto.ApiResponse;
 import mannabom_server.manabom.application.meeting.service.MeetingVerificationService;
@@ -21,7 +22,7 @@ public class MeetingVerificationController {
     public ResponseEntity<ApiResponse<MeetingVerificationResponse>> verifyMeeting(
             @PathVariable Long chatRoomId,
             @AuthenticationPrincipal Long userId,
-            @RequestBody MeetingVerificationRequest request
+            @Valid @RequestBody MeetingVerificationRequest request
     ) {
         String message = meetingVerificationService.verifyMeeting(
                 chatRoomId,

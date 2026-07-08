@@ -8,6 +8,8 @@ import mannabom_server.manabom.infrastructure.redis.meetingmatching.RedisMatchAt
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.List;
 
@@ -19,7 +21,7 @@ public class MatchingEventListener {
     private final RedisMatchAtomicOps atomic;
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMatchRequest(MeetingMatchingEvent event){
         Long myId = event.getMeetingId();
         if(!atomic.tryLock(event.getMeetingId())) {

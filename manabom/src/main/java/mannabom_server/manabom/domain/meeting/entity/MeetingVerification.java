@@ -6,8 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
-import mannabom_server.manabom.domain.user.entity.User;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Entity
@@ -25,6 +25,10 @@ public class MeetingVerification {
 
     private boolean isVerified = false;
 
+    private Instant startedAt;
+
+    private Instant expiresAt;
+
     private Instant verifiedAt;
 
     @Builder
@@ -32,6 +36,24 @@ public class MeetingVerification {
         this.room = room;
     }
 
+    public void startIfNeeded(Instant now, Duration validDuration){
+        if(this.startedAt == null){
+            this.startedAt = now;
+            this.expiresAt = now.plus(validDuration);
+        }
+    }
+
+    public boolean isExpired(Instant now){
+        return this.expiresAt != null && !now.isBefore(this.expiresAt);
+    }
+
+    public Duration remainingTime(Instant now){
+        if(this.expiresAt == null){
+            return Duration.ZERO;
+        }
+        Duration remaining = Duration.between(now, this.expiresAt);
+        return remaining.isNegative() ? Duration.ZERO : remaining;
+    }
 
     public void verify(){
         this.isVerified = true;

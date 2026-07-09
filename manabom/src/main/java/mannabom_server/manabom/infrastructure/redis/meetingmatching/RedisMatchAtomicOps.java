@@ -16,7 +16,7 @@ public class RedisMatchAtomicOps {
     private final StringRedisTemplate redis;
     private final RedissonClient redissonClient;
 
-    private static final long LOCK_TTL_SECONDS = 3;
+
 
     // 동시성 문제 해결 -> 여러 큐를 순회하면서 특정 미팅팀 제거
     private static final DefaultRedisScript<Long> REMOVE_SCRIPT = new DefaultRedisScript<>(
@@ -29,7 +29,7 @@ public class RedisMatchAtomicOps {
     public boolean tryLock(Long meetingId) {
         RLock lock = redissonClient.getLock(lockKey(meetingId));
         try {
-            return lock.tryLock(0, LOCK_TTL_SECONDS, TimeUnit.SECONDS);
+            return lock.tryLock(0, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;

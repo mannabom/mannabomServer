@@ -11,10 +11,12 @@ import mannabom_server.manabom.domain.meeting.entity.MeetingParticipant;
 import mannabom_server.manabom.domain.meeting.entity.MeetingVerification;
 import mannabom_server.manabom.domain.meeting.repository.MeetingParticipantRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingVerificationRepository;
+import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.global.util.LocationUtils;
 import org.redisson.api.RedissonClient;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -52,8 +54,7 @@ public class MeetingVerificationService {
                 .orElseThrow(()-> new IllegalArgumentException("존재 하지 않는 채팅방 입니다."));
         getActiveChatMember(chatRoomId, userId);
 
-        MeetingVerification verification = meetingVerificationRepository.findByRoomId(chatRoomId)
-                .orElseGet(()-> meetingVerificationRepository.save(MeetingVerification.builder().room(room).build()));
+        MeetingVerification verification = getOrCreateVerification(room);
         Instant now = Instant.now();
 
         verification.startIfNeeded(now, VERIFICATION_TTL);
@@ -65,6 +66,19 @@ public class MeetingVerificationService {
             return "합류 성공! 보상이 지급됩니다.";
         }
         return processGeneral(chatRoomId, userId, latitude, longitude, verification);
+    }
+
+    private Optional<ChatMember> findActiveChatMember(Long chatRoomId, Long userId){
+        return chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(
+                chatRoomId,
+                userId,
+                ChatMemberStatus.ACTIVATE
+        );
+    }
+
+    private Optional<Gender> findGender(ChatMember member){
+        return profileRepository.findByUser(member.getUser())
+                .map(Profile::getGender);
     }
 
     @Transactional(readOnly = true)
@@ -123,6 +137,21 @@ public class MeetingVerificationService {
                 myLocation
         );
     }
+
+    private MeetingVerification getOrCreateVerification(ChatRoom room){
+        return meetingVerificationRepository.findByRoomId(room.getId())
+                .orElseGet(() -> {
+                    try {
+                        return meetingVerificationRepository.saveAndFlush(
+                                MeetingVerification.builder().room(room).build()
+                        );
+                    } catch (DataIntegrityViolationException e) {
+                        return meetingVerificationRepository.findByRoomId(room.getId())
+                                .orElseThrow(() -> e);
+                    }
+                });
+    }
+
     private ChatMember getActiveChatMember(Long chatRoomId, Long userId){
         return chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(
                 chatRoomId,
@@ -255,14 +284,17 @@ public class MeetingVerificationService {
                 .map(LocationSubmission::userId)
                 .toList();
         List<ChatMember> members = userIds.stream()
-                .map(id -> getActiveChatMember(chatRoomId, id))
+                .flatMap(id -> findActiveChatMember(chatRoomId, id).stream())
                 .toList();
-        boolean hasMale = members.stream().anyMatch(
-                m-> profileRepository.findByUser(m.getUser()).get().getGender()== Gender.MALE
-        );
-        boolean hasFemale = members.stream().anyMatch(
-                m-> profileRepository.findByUser(m.getUser()).get().getGender()== Gender.FEMALE
-        );
+
+        boolean hasMale = members.stream()
+                .flatMap(member -> findGender(member).stream())
+                .anyMatch(gender -> gender == Gender.MALE);
+
+        boolean hasFemale = members.stream()
+                .flatMap(member -> findGender(member).stream())
+                .anyMatch(gender -> gender == Gender.FEMALE);
+
         double latitude = submissions.stream()
                 .mapToDouble(LocationSubmission::latitude)
                 .average()

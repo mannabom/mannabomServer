@@ -50,7 +50,7 @@ public class MeetingVerificationService {
 
     @Transactional
     public String verifyMeeting(Long chatRoomId, Long userId, double latitude, double longitude){
-        ChatRoom room = chatRoomRepository.findById(chatRoomId)
+        ChatRoom room = chatRoomRepository.findByIdForUpdate(chatRoomId)
                 .orElseThrow(()-> new IllegalArgumentException("존재 하지 않는 채팅방 입니다."));
         getActiveChatMember(chatRoomId, userId);
 
@@ -185,7 +185,6 @@ public class MeetingVerificationService {
     }
 
     private String processGeneral(Long chatRoomId, Long userId, double latitude, double longitude, MeetingVerification verification ){
-        String posKey = String.format(POS_KEY, chatRoomId, userId);
         String gatherKey = String.format(GATHER_KEY, chatRoomId);
         Duration positionTtl = verification.remainingTime(Instant.now());
         if(positionTtl.isZero() || positionTtl.isNegative()){

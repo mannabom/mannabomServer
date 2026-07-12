@@ -1,0 +1,3 @@
+ALTER TABLE meeting_verification
+    ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;

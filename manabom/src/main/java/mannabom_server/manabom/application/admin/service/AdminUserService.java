@@ -78,7 +78,9 @@ public class AdminUserService {
                         else false
                     end,
                     restriction.status,
-                    u.createdAt
+                    restriction.suspendedUntil,
+                    u.createdAt,
+                    :now
                 )
                 from User u
                 left join Profile p on p.user = u
@@ -89,6 +91,7 @@ public class AdminUserService {
                 """ + where + " order by u.userId desc";
 
         TypedQuery<AdminUserSummaryResponse> query = entityManager.createQuery(selectJpql, AdminUserSummaryResponse.class);
+        query.setParameter("now", LocalDateTime.now());
         applySearchParams(query, keyword, field, statusFilter);
         List<AdminUserSummaryResponse> users = query
                 .setFirstResult(safePage * safeSize)
@@ -122,6 +125,7 @@ public class AdminUserService {
         Profile profile = profileRepository.findByUser(user).orElse(null);
         TingWallet wallet = tingWalletRepository.findByUserId(userId).orElse(null);
         UserAccountRestriction restriction = userAccountRestrictionRepository.findById(userId).orElse(null);
+        LocalDateTime now = LocalDateTime.now();
 
         return AdminUserDetailResponse.builder()
                 .userId(user.getUserId())
@@ -129,8 +133,9 @@ public class AdminUserService {
                 .userName(user.getUserName())
                 .verified(user.getIsVerified())
                 .membership(wallet != null && wallet.isMembershipActive(LocalDateTime.now()))
-                .accountStatus(restriction == null ? UserAccountStatus.ACTIVE : restriction.getStatus())
+                .accountStatus(effectiveStatus(restriction, now))
                 .statusReason(restriction == null ? null : restriction.getReason())
+                .statusSuspendedUntil(restriction == null ? null : restriction.getSuspendedUntil())
                 .createdAt(user.getCreatedAt())
                 .profile(toProfile(profile))
                 .wallet(toWallet(wallet))
@@ -152,12 +157,15 @@ public class AdminUserService {
                         .status(UserAccountStatus.ACTIVE)
                         .updatedByAdminId(admin.adminId())
                         .build());
-        String before = restriction.getStatus().name();
-        restriction.update(request.getStatus(), request.getReason(), admin.adminId());
+        validateSuspension(request.getStatus(), request.getSuspendedUntil());
+        LocalDateTime auditNow = LocalDateTime.now();
+        String before = accountStatusLabel(restriction, auditNow);
+        restriction.update(request.getStatus(), request.getReason(), request.getSuspendedUntil(), admin.adminId());
         userAccountRestrictionRepository.save(restriction);
 
+        String after = accountStatusLabel(restriction, auditNow);
         adminAuditService.log(admin.adminId(), AdminAuditActionType.USER_STATUS_UPDATE,
-                AdminAuditTargetType.USER, userId, before, request.getStatus().name(), request.getReason(), ipAddress);
+                AdminAuditTargetType.USER, userId, before, after, request.getReason(), ipAddress);
         return getUser(admin, userId);
     }
 
@@ -194,17 +202,25 @@ public class AdminUserService {
 
     private String statusCondition(StatusFilter statusFilter) {
         return switch (statusFilter) {
-            case ACTIVE -> "(restriction is null or restriction.status = :status)";
-            case SUSPENDED, WITHDRAWN -> "restriction.status = :status";
+            case ACTIVE -> """
+                    (restriction is null
+                       or restriction.status = :status
+                       or (restriction.status = :suspendedStatus
+                           and restriction.suspendedUntil is not null
+                           and restriction.suspendedUntil <= current_timestamp))
+                    """;
+            case SUSPENDED -> """
+                    restriction.status = :status
+                       and (restriction.suspendedUntil is null or restriction.suspendedUntil > current_timestamp)
+                    """;
+            case WITHDRAWN -> "restriction.status = :status";
             case ALL -> "";
         };
     }
 
     private void applySearchParams(TypedQuery<?> query, String keyword, SearchField field, StatusFilter statusFilter) {
         if (!StringUtils.hasText(keyword)) {
-            if (statusFilter != StatusFilter.ALL) {
-                query.setParameter("status", UserAccountStatus.valueOf(statusFilter.name()));
-            }
+            applyStatusParams(query, statusFilter);
             return;
         }
         if (field == SearchField.ALL || field == SearchField.USER_ID || field == SearchField.PROFILE_ID) {
@@ -213,8 +229,16 @@ public class AdminUserService {
         if (field == SearchField.ALL || field == SearchField.KAKAO_ID || field == SearchField.NICKNAME || field == SearchField.USER_NAME) {
             query.setParameter("likeKeyword", "%" + keyword.toLowerCase() + "%");
         }
-        if (statusFilter != StatusFilter.ALL) {
-            query.setParameter("status", UserAccountStatus.valueOf(statusFilter.name()));
+        applyStatusParams(query, statusFilter);
+    }
+
+    private void applyStatusParams(TypedQuery<?> query, StatusFilter statusFilter) {
+        if (statusFilter == StatusFilter.ALL) {
+            return;
+        }
+        query.setParameter("status", UserAccountStatus.valueOf(statusFilter.name()));
+        if (statusFilter == StatusFilter.ACTIVE) {
+            query.setParameter("suspendedStatus", UserAccountStatus.SUSPENDED);
         }
     }
 
@@ -254,6 +278,33 @@ public class AdminUserService {
         return profileImageRepository.findByProfileOrderByImageIndex(profile).stream()
                 .map(this::toPhoto)
                 .toList();
+    }
+
+    private UserAccountStatus effectiveStatus(UserAccountRestriction restriction, LocalDateTime now) {
+        if (restriction == null) {
+            return UserAccountStatus.ACTIVE;
+        }
+        return restriction.effectiveStatus(now);
+    }
+
+    private void validateSuspension(UserAccountStatus status, LocalDateTime suspendedUntil) {
+        if (status != UserAccountStatus.SUSPENDED) {
+            return;
+        }
+        if (suspendedUntil == null || !suspendedUntil.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("정지 만료 시각은 현재 시각 이후여야 합니다.");
+        }
+    }
+
+    private String accountStatusLabel(UserAccountRestriction restriction, LocalDateTime now) {
+        if (restriction == null) {
+            return UserAccountStatus.ACTIVE.name();
+        }
+        UserAccountStatus effectiveStatus = restriction.effectiveStatus(now);
+        if (effectiveStatus == UserAccountStatus.SUSPENDED && restriction.getSuspendedUntil() != null) {
+            return effectiveStatus.name() + " until " + restriction.getSuspendedUntil();
+        }
+        return effectiveStatus.name();
     }
 
     private AdminUserDetailResponse.Photo toPhoto(ProfileImage image) {

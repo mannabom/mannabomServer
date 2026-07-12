@@ -259,6 +259,10 @@ textarea:focus {
     margin-bottom: 10px;
 }
 
+.report-filter-grid {
+    grid-template-columns: minmax(150px, 190px) minmax(150px, 190px) minmax(120px, 150px) auto;
+}
+
 .content-grid {
     display: grid;
     grid-template-columns: minmax(420px, 1fr) minmax(360px, 520px);
@@ -382,6 +386,16 @@ tr[data-user-id]:hover {
     padding: 16px;
 }
 
+#reportDetail > section {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+}
+
+#reportDetail > section:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
 .kv {
     display: grid;
     grid-template-columns: 118px minmax(0, 1fr);
@@ -398,6 +412,24 @@ tr[data-user-id]:hover {
     margin: 0 0 8px;
     font-size: 14px;
     color: var(--muted);
+}
+
+#reportDetail .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 900;
+}
+
+#reportDetail .section-title::before {
+    content: "";
+    width: 4px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--accent);
 }
 
 .action-box {
@@ -530,7 +562,14 @@ tr[data-user-id]:hover {
 }
 
 .list-item {
+    display: grid;
+    gap: 6px;
     border-radius: 0;
+}
+
+.list-item.active,
+.list-item:hover {
+    background: #f4faf9;
 }
 
 .context-box {
@@ -541,6 +580,21 @@ tr[data-user-id]:hover {
     background: #f8fafb;
     padding: 12px;
     white-space: pre-wrap;
+}
+
+.context-section {
+    display: grid;
+    gap: 8px;
+}
+
+#reportDetail .context-section {
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+}
+
+#reportDetail .context-section:first-child {
+    border-top: 0;
+    padding-top: 0;
 }
 
 .reason-inline {

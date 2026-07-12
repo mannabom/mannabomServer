@@ -30,6 +30,11 @@ public class PhotoRequestController {
 
         return ResponseEntity.ok(ApiResponse.success(new LoveViewPhotoStatusResponse(chatRoomId, status, systemMessage), "프로필 사진 요청 상태 조회에 성공했습니다."));
     }
+    @PostMapping("/request/{chatRoomId}")
+    public ResponseEntity<ApiResponse<Void>> createPhotoRequest(@PathVariable Long chatRoomId, @AuthenticationPrincipal Long userId){
+        photoRequestService.createPhotoRequest(chatRoomId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "프로필 사진 공개를 요청했습니다."));
+    }
 
     @PatchMapping("/accept/{chatRoomId}")
     public ResponseEntity<ApiResponse<Void>> acceptPhotoRequest(@PathVariable Long chatRoomId, @AuthenticationPrincipal Long userId){
@@ -39,7 +44,7 @@ public class PhotoRequestController {
     @PatchMapping("/reject/{chatRoomId}")
     public ResponseEntity<ApiResponse<Void>> rejectPhotoRequest(@PathVariable Long chatRoomId, @AuthenticationPrincipal Long userId){
         photoRequestService.rejectPhotoRequest(chatRoomId, userId);
-        return ResponseEntity.ok(ApiResponse.success(null, "프로필 사진 거절을 수락하였습니다."));
+        return ResponseEntity.ok(ApiResponse.success(null, "프로필 사진 요청을 거절하였습니다."));
     }
 
 

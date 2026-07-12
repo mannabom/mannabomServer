@@ -9,6 +9,7 @@ import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MatchingStatusConverter;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecision;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecisionConverter;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import org.springframework.data.annotation.CreatedDate;
@@ -43,7 +44,7 @@ public class MeetingMatch {
 
     @Convert(converter = MatchingStatusConverter.class)
     private MatchingStatus matchingStatus;
-    @CreatedDate
+    @CreationTimestamp
     @Column(nullable = false)
     private Instant createdAt;
 

@@ -145,13 +145,12 @@ public class MeetingMatchingService {
         if(finalMatchCandidate.size()>= limit) return;
         if(redisCandidates==null || redisCandidates.isEmpty()) return;
 
-        List<Long> parsedList = redisCandidates.stream()
+        List<Long> parsedList = new ArrayList<>(redisCandidates.stream()
                 .map(Long::parseLong)
-                .filter(id-> !id.equals(meetingId))
-                .filter(id-> !myHistory.contains(id))
-                .filter(id-> !finalMatchCandidate.contains(id))
-                .toList();
-
+                .filter(id -> !id.equals(meetingId))
+                .filter(id -> !myHistory.contains(id))
+                .filter(id -> !finalMatchCandidate.contains(id))
+                .toList());
 
         Collections.shuffle(parsedList);
 

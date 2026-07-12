@@ -70,7 +70,7 @@ public class RedisMatchQueue {
     }
 
     public void removeActiveKey(String queueKey){
-        redis.opsForZSet().remove(ACTIVE_KEY,queueKey);
+        redis.opsForSet().remove(ACTIVE_KEY,queueKey);
     }
 
     public String timeKey(String sidoCode, int memberCount, String gender){
@@ -146,7 +146,7 @@ public class RedisMatchQueue {
         return redis.opsForZSet().range(
                 timeKey(sidoCode,membercount,gender),
                 0,
-                limit
+                limit -1
         );
     }
 

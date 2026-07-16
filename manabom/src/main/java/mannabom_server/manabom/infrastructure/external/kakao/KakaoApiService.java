@@ -1,100 +1,111 @@
 package mannabom_server.manabom.infrastructure.external.kakao;
 
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoApiException;
+import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoAuthenticationException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.Map;
 
 /**
- * 카카오 OAuth API 연동 서비스
- *
- * 주요 기능:
- * 1. 인증 코드 → access token 발급
- * 2. access token → 사용자 정보 조회
- *
- * 카카오 API 문서: https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api
+ * 카카오 액세스 토큰 검증 및 사용자 정보 조회 서비스.
  */
 @Service
 @Slf4j
 public class KakaoApiService {
 
-    // 카카오 OAuth 토큰 발급 엔드포인트
-    private static final String KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token";
-    // 카카오 사용자 정보 조회 엔드포인트
+    private static final String KAKAO_TOKEN_INFO_URL = "https://kapi.kakao.com/v1/user/access_token_info";
     private static final String KAKAO_USER_INFO_URL = "https://kapi.kakao.com/v2/user/me";
-
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {};
 
     private final WebClient webClient;
-    private final String clientId;
+    private final long appId;
 
-    public KakaoApiService(
-            @Value("${app.kakao.client-id}") String clientId
-    ) {
-        this.clientId = clientId;
+    public KakaoApiService(@Value("${app.kakao.app-id}") long appId) {
+        this.appId = appId;
         this.webClient = WebClient.builder().build();
-
         log.info("카카오 API 서비스 초기화 완료");
     }
 
     /**
-     * 카카오 OAuth 토큰 발급
-     * 인증 코드를 받아서 access token 발급
-     */
-    public Map<String, Object> getKakaoToken(String authorizationCode, String redirectUri) {
-        log.info("카카오 토큰 발급 요청 시작 - redirectUri: {}", redirectUri);
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("grant_type", "authorization_code");     // OAuth 2.0 grant type
-        params.add("client_id", clientId);                  // 카카오 앱 키
-        params.add("redirect_uri", redirectUri);            // 등록된 리다이렉트 URI
-        params.add("code", authorizationCode);              // 프론트엔드에서 받은 인증 코드
-
-        try {
-            // 카카오 서버에 POST 요청 전송
-            Map<String, Object> response = webClient.post()
-                    .uri(KAKAO_TOKEN_URL)
-                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                    .body(BodyInserters.fromFormData(params))   // form-urlencoded 형태로 전송
-                    .retrieve()
-                    .bodyToMono(Map.class)                      // JSON 응답을 Map으로 변환
-                    .block();                                   // 동기적으로 결과 대기
-
-            log.info("카카오 토큰 발급 성공");
-            return response;
-        } catch (Exception e) {
-            log.error("카카오 토큰 발급 실패", e);
-            throw new RuntimeException("카카오 토큰 발급에 실패했습니다.", e);
-        }
-    }
-
-    /**
-     * 카카오 사용자 정보 조회
-     * access token 사용해서 사용자 정보 가져오기
+     * 토큰이 만나봄 카카오 앱에서 발급됐는지 검증한 뒤 사용자 정보를 조회한다.
      */
     public Map<String, Object> getKakaoUserInfo(String accessToken) {
-        log.info("카카오 사용자 정보 조회 요청");
+        validateAccessToken(accessToken);
 
         try {
             Map<String, Object> response = webClient.get()
                     .uri(KAKAO_USER_INFO_URL)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .bodyToMono(MAP_RESPONSE_TYPE)
                     .block();
 
-            log.info("카카오 사용자 정보 조회 성공");
-            return response;
+            if (response == null) {
+                throw new KakaoApiException("카카오 사용자 정보 응답이 비어 있습니다.");
+            }
 
+            return response;
+        } catch (KakaoAuthenticationException | KakaoApiException e) {
+            throw e;
+        } catch (WebClientResponseException e) {
+            throw mapKakaoApiException("사용자 정보 조회", e);
         } catch (Exception e) {
             log.error("카카오 사용자 정보 조회 실패", e);
-            throw new RuntimeException("카카오 사용자 정보 조회에 실패했습니다.", e);
+            throw new KakaoApiException("카카오 사용자 정보를 조회할 수 없습니다.", e);
         }
+    }
+
+    private void validateAccessToken(String accessToken) {
+        try {
+            Map<String, Object> tokenInfo = webClient.get()
+                    .uri(KAKAO_TOKEN_INFO_URL)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(MAP_RESPONSE_TYPE)
+                    .block();
+
+            validateTokenInfo(tokenInfo);
+        } catch (KakaoAuthenticationException | KakaoApiException e) {
+            throw e;
+        } catch (WebClientResponseException e) {
+            throw mapKakaoApiException("액세스 토큰 검증", e);
+        } catch (Exception e) {
+            log.error("카카오 액세스 토큰 검증 실패", e);
+            throw new KakaoApiException("카카오 액세스 토큰을 검증할 수 없습니다.", e);
+        }
+    }
+
+    void validateTokenInfo(Map<String, Object> tokenInfo) {
+        if (tokenInfo == null) {
+            throw new KakaoApiException("카카오 액세스 토큰 정보 응답이 비어 있습니다.");
+        }
+
+        Object issuedAppIdValue = tokenInfo.get("app_id");
+        if (!(issuedAppIdValue instanceof Number issuedAppId)) {
+            throw new KakaoAuthenticationException("카카오 앱 정보를 확인할 수 없는 토큰입니다.");
+        }
+
+        if (issuedAppId.longValue() != appId) {
+            log.warn("다른 카카오 앱에서 발급된 액세스 토큰이 거부되었습니다. issuedAppId={}",
+                    issuedAppId.longValue());
+            throw new KakaoAuthenticationException("허용되지 않은 카카오 앱에서 발급된 토큰입니다.");
+        }
+    }
+
+    private RuntimeException mapKakaoApiException(String operation, WebClientResponseException e) {
+        if (e.getStatusCode().value() == 401) {
+            log.warn("카카오 {} 실패: 유효하지 않거나 만료된 토큰", operation);
+            return new KakaoAuthenticationException("유효하지 않거나 만료된 카카오 토큰입니다.", e);
+        }
+
+        log.error("카카오 {} 실패 - status={}", operation, e.getStatusCode().value(), e);
+        return new KakaoApiException("카카오 서비스 요청에 실패했습니다.", e);
     }
 }

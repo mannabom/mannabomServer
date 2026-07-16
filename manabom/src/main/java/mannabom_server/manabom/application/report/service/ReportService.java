@@ -2,6 +2,8 @@ package mannabom_server.manabom.application.report.service;
 
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.report.dto.request.CreateReportRequest;
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
+import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.report.entity.Report;
 import mannabom_server.manabom.domain.report.entity.ReportType;
 import mannabom_server.manabom.domain.report.repository.ReportRepository;
@@ -15,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatMemberRepository chatMemberRepository;
 
     @Transactional
     public void createReport(Long userId, CreateReportRequest request, ReportType type) {
@@ -25,6 +29,10 @@ public class ReportService {
         User target = userRepository.findById(request.getTargetId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 타겟 유저 입니다."));
 
+        if (type == ReportType.CHAT) {
+            validateChatReport(userId, request.getTargetId(), request.getContextId());
+        }
+
         Report report = Report.createReport(
                 user,
                 target,
@@ -34,6 +42,21 @@ public class ReportService {
                 request.getAdditionalDetail()
         );
         reportRepository.save(report);
+    }
+
+    private void validateChatReport(Long reporterId, Long targetId, Long roomId) {
+        if (roomId == null) {
+            throw new IllegalArgumentException("채팅 신고에는 채팅방 ID가 필요합니다.");
+        }
+        if (!chatRoomRepository.existsById(roomId)) {
+            throw new IllegalArgumentException("존재하지 않는 채팅방입니다.");
+        }
+        if (!chatMemberRepository.existsByRoomIdAndUser_UserId(roomId, reporterId)) {
+            throw new IllegalArgumentException("신고자가 해당 채팅방의 참여자가 아닙니다.");
+        }
+        if (!chatMemberRepository.existsByRoomIdAndUser_UserId(roomId, targetId)) {
+            throw new IllegalArgumentException("신고 대상자가 해당 채팅방의 참여자가 아닙니다.");
+        }
     }
 
     //특정 유저 신고 내역 조회

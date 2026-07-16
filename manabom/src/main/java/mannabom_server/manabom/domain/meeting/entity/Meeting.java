@@ -203,4 +203,14 @@ public class Meeting extends BaseTimeEntity {
     public void delete(){
         this.deletedAt = Instant.now();
     }
+
+    public void cancelByAgreement() {
+        if (meetingStatus == MeetingStatus.CANCELLED) {
+            throw new IllegalStateException("이미 취소된 미팅입니다.");
+        }
+
+        this.meetingStatus = MeetingStatus.CANCELLED;
+        this.matchingStartAt = null;
+        delete();
+    }
 }

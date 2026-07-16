@@ -3,6 +3,8 @@ package mannabom_server.manabom.infrastructure.security.websocket;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.lang.Nullable;
@@ -12,6 +14,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -26,6 +29,7 @@ import java.util.regex.Pattern;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
+    private final ChatMemberRepository chatMemberRepository;
 
     private static final Pattern ROOM_DESTINATION_PATTERN = Pattern.compile("^/topic/rooms/(\\d+).*");
     private static final String USER_LOCATION_PREFIX = "user:location:";
@@ -62,15 +66,22 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         //방 입장(웹소켓 구독)은 해당 방에 존재하는지
         if (StompCommand.SUBSCRIBE.equals(command)) {
             Principal principal = acc.getUser();
-            if (principal != null) {
-                String userId = principal.getName();
-                String dest = acc.getDestination();
-                Long roomId = parseRoomId(dest);
-
-                redisTemplate.opsForValue().set(USER_LOCATION_PREFIX + userId, String.valueOf(roomId));
-                log.debug("웹소켓 구독: 유저 {} 가 방 {} 에 입장하여 Redis에 위치를 기록했습니다.", userId, roomId);
+            if (principal == null) {
+                throw new AccessDeniedException("인증되지 않은 WebSocket 사용자입니다.");
             }
 
+            Long userId = Long.parseLong(principal.getName());
+            String dest = acc.getDestination();
+            Long roomId = parseRoomId(dest);
+
+            if (!chatMemberRepository.existsByRoomIdAndUser_UserIdAndStatus(
+                    roomId, userId, ChatMemberStatus.ACTIVATE)) {
+                log.warn("웹소켓 구독 거부: 유저 {} 는 채팅방 {} 의 참여자가 아닙니다.", userId, roomId);
+                throw new AccessDeniedException("채팅방 구독 권한이 없습니다.");
+            }
+
+            redisTemplate.opsForValue().set(USER_LOCATION_PREFIX + userId, String.valueOf(roomId));
+            log.debug("웹소켓 구독: 유저 {} 가 방 {} 에 입장하여 Redis에 위치를 기록했습니다.", userId, roomId);
         }
 
         if (StompCommand.DISCONNECT.equals(command)) {
@@ -108,4 +119,3 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     }
 }
-

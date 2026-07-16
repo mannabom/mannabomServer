@@ -15,14 +15,15 @@ public class ChatRoomListResponse {
      private String roomName;
      private String lastMessage;
      private Instant lastmessageAt;
-     private int unreadCount;
+     private boolean hasUnreadMessages;
 
-    public static ChatRoomListResponse of(ChatRoom room,String roomName, ChatMessage lastMsg, int unreadCount){
+    public static ChatRoomListResponse of(ChatRoom room,String roomName, ChatMessage lastMsg, boolean hasUnreadMessages){
         return ChatRoomListResponse.builder()
                 .roomId(room.getId())
                 .roomName(roomName)
                 .lastMessage(lastMsg!=null ? lastMsg.getType().getDisplayMessage(lastMsg.getContent()): null )
-                .unreadCount(unreadCount)
+                .lastmessageAt(lastMsg != null ? lastMsg.getCreatedAt() : null)
+                .hasUnreadMessages(hasUnreadMessages)
                 .build();
     }
 

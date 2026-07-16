@@ -14,7 +14,6 @@ public class ChatMessageEvent {
     private Long senderUserId;
     private String messageType;
     private String content;
-    private int unreadCount;
 
     private Long messageId;
     private String clientMessageId;

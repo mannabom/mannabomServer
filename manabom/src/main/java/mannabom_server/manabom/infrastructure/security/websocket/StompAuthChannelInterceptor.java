@@ -84,6 +84,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             log.debug("웹소켓 구독: 유저 {} 가 방 {} 에 입장하여 Redis에 위치를 기록했습니다.", userId, roomId);
         }
 
+        if (StompCommand.UNSUBSCRIBE.equals(command)) {
+            Principal principal = acc.getUser();
+            if (principal != null) {
+                String userId = principal.getName();
+                redisTemplate.delete(USER_LOCATION_PREFIX + userId);
+                log.debug("웹소켓 구독 해제: 유저 {} 의 Redis 위치 정보를 삭제했습니다.", userId);
+            }
+        }
+
         if (StompCommand.DISCONNECT.equals(command)) {
             Principal principal = acc.getUser();
             if (principal != null) {

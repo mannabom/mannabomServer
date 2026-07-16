@@ -9,6 +9,7 @@ import mannabom_server.manabom.domain.user.enums.Gender;
 @Builder
 public class ChatMemberInfo {
     private Long userId;
+    private Long profileId;
     private String nickname;
     private String profileImageUrl;
     private Gender gender;
@@ -16,6 +17,7 @@ public class ChatMemberInfo {
     public static ChatMemberInfo of(Profile profile, String displayImageUrl){
         return ChatMemberInfo.builder()
                 .userId(profile.getUser().getUserId())
+                .profileId(profile.getProfileId())
                 .nickname(profile.getNickName())
                 .profileImageUrl(displayImageUrl)
                 .gender(profile.getGender())

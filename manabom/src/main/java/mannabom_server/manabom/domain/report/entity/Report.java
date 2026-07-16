@@ -3,15 +3,13 @@ package mannabom_server.manabom.domain.report.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import mannabom_server.manabom.domain.user.entity.User;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 
 
 @Entity
 @Table(name = "reports")
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -48,7 +46,7 @@ public class Report {
 
     private Instant processedAt;
 
-    @CreatedDate
+    @CreationTimestamp
     @Column(updatable = false, nullable = false)
     private Instant createdAt;
 

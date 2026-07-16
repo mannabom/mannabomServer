@@ -15,14 +15,12 @@ public class ChatMessageResponse {
     private Instant createdAt;
 
     private Long senderId;
-    private int unreadCount;
 
-    public static ChatMessageResponse of(ChatMessage msg, int unreadCount){
+    public static ChatMessageResponse of(ChatMessage msg){
         return ChatMessageResponse.builder()
                 .messageId(msg.getId())
                 .createdAt(msg.getCreatedAt())
                 .messageType(msg.getType().name())
-                .unreadCount(unreadCount)
                 .senderId(msg.getUser().getUserId())
                 .content(msg.getContent())
                 .build();

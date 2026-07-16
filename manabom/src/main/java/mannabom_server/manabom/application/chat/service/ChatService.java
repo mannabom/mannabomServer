@@ -71,8 +71,6 @@ public class ChatService {
                 .build();
         chatMessageRepository.save(message);
 
-        int initialUnreadCount = chatMemberRepository.countChatMemberByRoomIdAndStatus(chatRoom.getId(), ChatMemberStatus.ACTIVATE) - 1;
-        stringRedisTemplate.opsForValue().set("unread:count:" + message.getId(), String.valueOf(initialUnreadCount));
         sender.updateLastReadMessageId(message.getId());
 
         ChatMessageEvent event = ChatMessageEvent.builder()
@@ -83,7 +81,6 @@ public class ChatService {
                 .messageId(message.getId())
                 .clientMessageId(request.getClientMessageId())
                 .messageType(request.getMessageType().name())
-                .unreadCount(initialUnreadCount)
                 .build();
         simpMessagingTemplate.convertAndSend("/topic/rooms/" + request.getRoomId(), event);
 
@@ -123,15 +120,22 @@ public class ChatService {
     public ChatInitialSyncResponse getInitialSync(Long userId) {
         List<ChatMember> myRooms = chatMemberRepository.findAllByUser_UserIdAndStatus(userId, ChatMemberStatus.ACTIVATE);
 
-        int count = 0;
+        boolean hasUnreadMessages = false;
         boolean hasNewRoom = false;
         for (ChatMember m : myRooms) {
-            if (m.getLastReadMessageId() == null)
+            if (m.getLastReadMessageId() == null) {
                 hasNewRoom = true;
-            Long lastReadId = m.getLastReadMessageId() != null ? m.getLastReadMessageId() : 0L;
-            count += chatMessageRepository.countUnreadMessages(m.getRoom().getId(), lastReadId);
+            }
+
+            long lastReadMessageId = m.getLastReadMessageId() == null
+                    ? 0L
+                    : m.getLastReadMessageId();
+            if (!hasUnreadMessages && chatMessageRepository.existsByRoomIdAndIdGreaterThan(
+                    m.getRoom().getId(), lastReadMessageId)) {
+                hasUnreadMessages = true;
+            }
         }
-        return new ChatInitialSyncResponse(count, hasNewRoom);
+        return new ChatInitialSyncResponse(hasUnreadMessages, hasNewRoom);
     }
 
     /**
@@ -146,9 +150,13 @@ public class ChatService {
             ChatRoom room = m.getRoom();
             String roomName = generateRoomName(room, userId);
             ChatMessage lastMsg = chatMessageRepository.findTopByRoomIdOrderByIdDesc(room.getId()).orElse(null);
-            int unreadCount = chatMessageRepository.countUnreadMessages(room.getId(), m.getLastReadMessageId() == null ? 0L : m.getLastReadMessageId());
+            long lastReadMessageId = m.getLastReadMessageId() == null ? 0L : m.getLastReadMessageId();
+            boolean hasUnreadMessages = chatMessageRepository.existsByRoomIdAndIdGreaterThan(
+                    room.getId(),
+                    lastReadMessageId
+            );
 
-            return ChatRoomListResponse.of(room, roomName, lastMsg, unreadCount);
+            return ChatRoomListResponse.of(room, roomName, lastMsg, hasUnreadMessages);
         }).toList();
     }
 
@@ -183,24 +191,31 @@ public class ChatService {
      * 가장 최신 메시지 응답
      *
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public ChatSyncResponse getLatestChatMessageListSync(Long roomId, Long userId,Long lastMessageId) {
         ChatMember chatMember = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(roomId, userId, ChatMemberStatus.ACTIVATE)
                 .orElseThrow(()-> new IllegalArgumentException("해당 채팅방에 참여하고 있지 않습니다."));
 
+        chatMemberService.markRoomAsSeen(chatMember);
+
        List<ChatMemberInfo> memberInfos = getActiveMemberInfos(roomId);
 
-        Pageable limit = PageRequest.of(0, 100);
-        List<ChatMessage> messages = chatMessageRepository.findLatestMessages(roomId,limit);
+        long cursor = lastMessageId != null
+                ? lastMessageId
+                : (chatMember.getLastReadMessageId() == null ? 0L : chatMember.getLastReadMessageId());
+        List<ChatMessage> messages = chatMessageRepository.findChatMessagesAfter(
+                roomId,
+                cursor,
+                PageRequest.of(0, 101)
+        );
+        boolean hasGap = messages.size() > 100;
+        if (hasGap) {
+            messages = new ArrayList<>(messages.subList(0, 100));
+        }
 
         if(messages.isEmpty()){
             return ChatSyncResponse.builder().roomId(roomId).messages(Collections.emptyList()).members(memberInfos).hasGap(false).build();
         }
-        long oldestFetchedId = messages.get(messages.size()-1).getId();
-        boolean hasGap = (lastMessageId != 0) && (oldestFetchedId > lastMessageId + 1);
-
-        chatMemberService.updateReadStatus(roomId,userId, messages.get(0).getId());
-        Collections.reverse(messages);
         return buildChatSyncResponse(roomId, messages, memberInfos, hasGap);
     }
 
@@ -223,7 +238,7 @@ public class ChatService {
         }
 
         Collections.reverse(messages);
-        return buildChatHistoryResponse(roomId, messages, false);
+        return buildChatHistoryResponse(roomId, messages, hasNext);
 
     }
 
@@ -243,7 +258,9 @@ public class ChatService {
                 ).toList();
     }
     private ChatSyncResponse buildChatSyncResponse(Long roomId, List<ChatMessage> messages, List<ChatMemberInfo> infos, boolean hasGap){
-        List<ChatMessageResponse> responses = fetchUnreadCounts(messages);
+        List<ChatMessageResponse> responses = messages.stream()
+                .map(ChatMessageResponse::of)
+                .toList();
         return ChatSyncResponse.builder()
                 .roomId(roomId)
                 .members(infos)
@@ -252,29 +269,13 @@ public class ChatService {
                 .build();
     }
     private ChatHistoryResponse buildChatHistoryResponse(Long roomId, List<ChatMessage> messages, boolean hasNext){
-        List<ChatMessageResponse> responses = fetchUnreadCounts(messages);
+        List<ChatMessageResponse> responses = messages.stream()
+                .map(ChatMessageResponse::of)
+                .toList();
         return ChatHistoryResponse.builder()
                 .roomId(roomId)
                 .hasNext(hasNext)
                 .messages(responses)
                 .build();
     }
-    private List<ChatMessageResponse> fetchUnreadCounts(List<ChatMessage> messages){
-        List<String> keys = messages.stream().map(message-> "unread:count:" + message.getId())
-                .toList();
-
-        List<String> unreadCounts = stringRedisTemplate.opsForValue().multiGet(keys);
-
-        List<ChatMessageResponse> responses = new ArrayList<>();
-        for(int i =0; i< messages.size();i++){
-            ChatMessage message = messages.get(i);
-            String countStr = (unreadCounts!= null && unreadCounts.get(i)!=null) ? unreadCounts.get(i) : "0";
-            int count = Integer.parseInt(countStr);
-            responses.add(ChatMessageResponse.of(message,count));
-        }
-        return responses;
-    }
-
-
-
 }

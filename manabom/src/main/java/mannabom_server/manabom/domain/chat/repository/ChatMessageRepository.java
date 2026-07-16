@@ -13,18 +13,7 @@ import java.util.Optional;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
     Optional<ChatMessage> findTopByRoomIdOrderByIdDesc(Long roomId);
 
-    List<ChatMessage> findByRoomIdAndIdBetween(Long roomId, Long startId, Long endId);
-
-    @Query(
-            "SELECT COUNT(m) from ChatMessage m "+
-                    "where m.room.id = :roomId " +
-                    "and (:lastReadId is null or m.id > :lastReadId)"
-    )
-    int countUnreadMessages(@Param("roomId") Long roomId, @Param("lastReadId") Long lastReadId);
-
-
-
-    @Query("SELECT m FROM ChatMessage m JOIN FETCH m.user u JOIN Profile p on p.user.userId = u.userId WHERE m.room.id = :roomId AND m.id > :lastReadId ORDER BY m.id desc ")
+    @Query("SELECT m FROM ChatMessage m JOIN FETCH m.user u WHERE m.room.id = :roomId AND m.id > :lastReadId ORDER BY m.id ASC")
     List<ChatMessage> findChatMessagesAfter(@Param("roomId") Long roomId, @Param("lastReadId") Long lastReadId, Pageable pageable);
 
     @Query("SELECT m FROM ChatMessage m JOIN FETCH m.user u JOIN Profile p on p.user.userId = u.userId WHERE m.room.id = :roomId AND m.id < :firstMessageId ORDER BY m.id desc ")
@@ -33,8 +22,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
 
     @Query("SELECT m FROM ChatMessage m WHERE m.room.id = :roomId ORDER BY m.id DESC")
     List<ChatMessage> findLatestMessages(@Param("roomId") Long roomId, Pageable pageable);
+
+    boolean existsByIdAndRoomId(Long messageId, Long roomId);
+
+    boolean existsByRoomIdAndIdGreaterThan(Long roomId, Long messageId);
+
     int countChatMessagesByRoom_Id(Long roomId);
 
     int countChatMessagesByRoom_IdAndCreatedAtAfter(Long roomId, Instant after);
 }
-

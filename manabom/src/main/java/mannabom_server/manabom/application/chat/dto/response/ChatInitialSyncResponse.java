@@ -6,6 +6,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class ChatInitialSyncResponse {
-    private int unreadMessageCount;
+    private boolean hasUnreadMessages;
     private boolean hasNewRoom;
 }

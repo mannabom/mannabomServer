@@ -201,6 +201,7 @@ public class SignalService {
             likeDtos.add(
                     SignalFromMeProfileDto.builder()
                             .id(toProfile.getProfileId())
+                            .requestId(like.getId())
                             .type(Type.LIKE)
                             .matchType(matchType)
                             .toUserNickname(toProfile.getNickName())
@@ -236,6 +237,7 @@ public class SignalService {
             messageDtos.add(
                     SignalFromMeProfileDto.builder()
                             .id(toProfile.getProfileId())
+                            .requestId(message.getId())
                             .type(Type.MESSAGE)
                             .matchType(matchType)
                             .toUserNickname(toProfile.getNickName())

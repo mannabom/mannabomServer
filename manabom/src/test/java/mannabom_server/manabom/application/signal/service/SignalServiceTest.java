@@ -6,6 +6,8 @@ import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.application.signal.dto.enums.Type;
 import mannabom_server.manabom.application.signal.dto.response.SignalFromMeProfileDto;
 import mannabom_server.manabom.application.signal.dto.response.SignalFromMeResponseDto;
+import mannabom_server.manabom.application.signal.dto.response.SignalToMeProfileDto;
+import mannabom_server.manabom.application.signal.dto.response.SignalToMeResponseDto;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
 import mannabom_server.manabom.domain.likeRequest.repository.LikeRequestRepository;
@@ -79,7 +81,7 @@ class SignalServiceTest {
         assertThat(response.getProfiles())
                 .extracting(
                         SignalFromMeProfileDto::getType,
-                        SignalFromMeProfileDto::getId,
+                        SignalFromMeProfileDto::getTargetProfileId,
                         SignalFromMeProfileDto::getRequestId
                 )
                 .containsExactly(
@@ -89,15 +91,65 @@ class SignalServiceTest {
     }
 
     @Test
-    void omitsRequestIdFromHighScoreResponse() throws JsonProcessingException {
-        SignalFromMeProfileDto highScore = SignalFromMeProfileDto.builder()
-                .id(401L)
+    void returnsTargetProfileIdAndRequestIdForReceivedLikeAndMessage() {
+        long receiverUserId = 1L;
+        User likedUser = User.builder().userId(2L).userName("호감 보낸 상대").build();
+        User messagedUser = User.builder().userId(3L).userName("메시지 보낸 상대").build();
+        Profile likedProfile = profile(201L, likedUser, "호감보낸상대");
+        Profile messagedProfile = profile(301L, messagedUser, "메시지보낸상대");
+
+        LikeRequest likeRequest = new LikeRequest(2L, receiverUserId, LikeSource.LOVE_VIEW_MATCH);
+        ReflectionTestUtils.setField(likeRequest, "id", 103L);
+        MessageRequest messageRequest = new MessageRequest(
+                3L,
+                receiverUserId,
+                "안녕하세요",
+                MessageSource.LOVE_VIEW_MATCH
+        );
+        ReflectionTestUtils.setField(messageRequest, "id", 104L);
+
+        when(likeRequestRepository.findPendingSignalsToMeLast7Days(receiverUserId))
+                .thenReturn(List.of(likeRequest));
+        when(messageRequestRepository.findPendingSignalsToMeLast7Days(receiverUserId))
+                .thenReturn(List.of(messageRequest));
+        when(profileRatingRepository.findHighScoresToMeLast7Days(receiverUserId, 4))
+                .thenReturn(List.of());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(likedUser));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(messagedUser));
+        when(profileRepository.findByUser(likedUser)).thenReturn(Optional.of(likedProfile));
+        when(profileRepository.findByUser(messagedUser)).thenReturn(Optional.of(messagedProfile));
+
+        SignalToMeResponseDto response = signalService.getSignalsToMe(receiverUserId);
+
+        assertThat(response.getProfiles())
+                .extracting(
+                        SignalToMeProfileDto::getType,
+                        SignalToMeProfileDto::getTargetProfileId,
+                        SignalToMeProfileDto::getRequestId
+                )
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(Type.LIKE, 201L, 103L),
+                        org.assertj.core.groups.Tuple.tuple(Type.MESSAGE, 301L, 104L)
+                );
+    }
+
+    @Test
+    void omitsRequestIdFromSentAndReceivedHighScoreResponse() throws JsonProcessingException {
+        SignalFromMeProfileDto sentHighScore = SignalFromMeProfileDto.builder()
+                .targetProfileId(401L)
+                .type(Type.HIGH_SCORE)
+                .build();
+        SignalToMeProfileDto receivedHighScore = SignalToMeProfileDto.builder()
+                .targetProfileId(402L)
                 .type(Type.HIGH_SCORE)
                 .build();
 
-        String json = new ObjectMapper().writeValueAsString(highScore);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String sentJson = objectMapper.writeValueAsString(sentHighScore);
+        String receivedJson = objectMapper.writeValueAsString(receivedHighScore);
 
-        assertThat(json).doesNotContain("requestId");
+        assertThat(sentJson).doesNotContain("requestId");
+        assertThat(receivedJson).doesNotContain("requestId");
     }
 
     private Profile profile(Long profileId, User user, String nickname) {

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class SignalFromMeProfileDto {
 
-    private Long id; // 신호 유형과 관계없이 상대 profileId
+    private Long targetProfileId;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Long requestId; // LIKE/MESSAGE 요청 객체 id, HIGH_SCORE에는 미포함
     private Type type; // LIKE | MESSAGE | HIGH_SCORE

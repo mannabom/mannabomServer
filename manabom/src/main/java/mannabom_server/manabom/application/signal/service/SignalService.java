@@ -82,7 +82,8 @@ public class SignalService {
 
             likeDtos.add(
                     SignalToMeProfileDto.builder()
-                            .id(like.getId())
+                            .targetProfileId(fromProfile.getProfileId())
+                            .requestId(like.getId())
                             .matchType(matchType)
                             .type(Type.LIKE)
                             .fromUserNickname(fromProfile.getNickName())
@@ -119,7 +120,8 @@ public class SignalService {
 
             messageDtos.add(
                     SignalToMeProfileDto.builder()
-                            .id(message.getId())
+                            .targetProfileId(fromProfile.getProfileId())
+                            .requestId(message.getId())
                             .matchType(matchType)
                             .type(Type.MESSAGE)
                             .fromUserNickname(fromProfile.getNickName())
@@ -148,7 +150,7 @@ public class SignalService {
 
             highScoreDtos.add(
                     SignalToMeProfileDto.builder()
-                            .id(fromProfile.getProfileId())
+                            .targetProfileId(fromProfile.getProfileId())
                             .matchType(null)
                             .type(Type.HIGH_SCORE)
                             .fromUserNickname(fromProfile.getNickName())
@@ -200,7 +202,7 @@ public class SignalService {
 
             likeDtos.add(
                     SignalFromMeProfileDto.builder()
-                            .id(toProfile.getProfileId())
+                            .targetProfileId(toProfile.getProfileId())
                             .requestId(like.getId())
                             .type(Type.LIKE)
                             .matchType(matchType)
@@ -236,7 +238,7 @@ public class SignalService {
 
             messageDtos.add(
                     SignalFromMeProfileDto.builder()
-                            .id(toProfile.getProfileId())
+                            .targetProfileId(toProfile.getProfileId())
                             .requestId(message.getId())
                             .type(Type.MESSAGE)
                             .matchType(matchType)
@@ -264,7 +266,7 @@ public class SignalService {
 
             highScoreDtos.add(
                     SignalFromMeProfileDto.builder()
-                            .id(toProfile.getProfileId())
+                            .targetProfileId(toProfile.getProfileId())
                             .type(Type.HIGH_SCORE)
                             .matchType(null)
                             .toUserNickname(toProfile.getNickName())

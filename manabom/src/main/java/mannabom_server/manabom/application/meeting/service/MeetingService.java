@@ -47,6 +47,7 @@ public class MeetingService {
     private final MeetingMemberReadService meetingMemberReadService;
     private final ChatRoomService chatRoomService;
     private final MeetingMemberService meetingMemberService;
+    private final MeetingCancellationService meetingCancellationService;
     private final RegionService regionService;
 
     private final CursorCodec cursorCodec;
@@ -177,6 +178,7 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findByCodeWithLock(request.getRoomCode())
                 .orElseThrow(() -> new IllegalArgumentException("방 코드로 미팅방 입장: 존재 하지 않는 초대 코드입니다."));
 
+        meetingCancellationService.validateNoPendingCancellation(meeting.getId());
         validateJoinCondition(meeting, user,profile);
         meeting.addMember(profile.computeAge());
         meetingRepository.saveAndFlush(meeting); /*왜 addMember가 반영이 안되지*/
@@ -198,6 +200,7 @@ public class MeetingService {
                     .orElseThrow(() -> new IllegalArgumentException("미팅방 입장: 존재 하지 않는 id입니다. :" + meetingId));
 
 
+        meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateJoinCondition(meeting, user,profile);
         meeting.addMember(profile.computeAge());
         meetingMemberService.addMember(meeting, user);
@@ -213,8 +216,11 @@ public class MeetingService {
         /*결제 조건 확인*/
 
         /*매칭 상태*/
-        if (meeting.getMeetingStatus() != MeetingStatus.RECRUITING)
-            throw new IllegalArgumentException("정원이 다 찬 미팅방입니다.");
+        MeetingStatus status = meeting.getMeetingStatus();
+        if (status != MeetingStatus.RECRUITING
+                && status != MeetingStatus.FASTMATCHING) {
+            throw new IllegalArgumentException("현재 입장할 수 없는 미팅방입니다.");
+        }
 
 
         /*이미 참여중인지 체크*/
@@ -358,13 +364,14 @@ public class MeetingService {
 
     @Transactional
     public void handleMemberLeave(Long meetingId, Long userId){
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdWithLock(meetingId)
                 .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅아이디입니다."));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
         Profile profile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new IllegalArgumentException("프로필 정보를 찾을 수 없습니다."));
 
+        meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateMeetingStatus(meeting);
         boolean isLeader = meetingMemberService.isLeader(meetingId, userId);
 

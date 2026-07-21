@@ -55,12 +55,12 @@ public class MeetingController {
         return ResponseEntity.ok(ApiResponse.success(dto, "내 미팅 상태 조회 성공"));
     }
 
-    @PostMapping("/rooms/{meetingId}/cancellation-requests")
+    @PostMapping("/matches/{matchId}/cancellation-requests")
     public ResponseEntity<ApiResponse<MeetingCancellationResponse>> createCancellationRequest(
-            @PathVariable Long meetingId,
+            @PathVariable Long matchId,
             @AuthenticationPrincipal Long userId
     ) {
-        MeetingCancellationResponse response = meetingCancellationService.create(meetingId, userId);
+        MeetingCancellationResponse response = meetingCancellationService.create(matchId, userId);
         return ResponseEntity.ok(
                 ApiResponse.success(response, "미팅 전체 취소 요청을 시작했습니다.")
         );
@@ -82,12 +82,12 @@ public class MeetingController {
         );
     }
 
-    @GetMapping("/rooms/{meetingId}/cancellation-requests/current")
+    @GetMapping("/matches/{matchId}/cancellation-requests/current")
     public ResponseEntity<ApiResponse<MeetingCancellationResponse>> getCurrentCancellationRequest(
-            @PathVariable Long meetingId,
+            @PathVariable Long matchId,
             @AuthenticationPrincipal Long userId
     ) {
-        MeetingCancellationResponse response = meetingCancellationService.getCurrent(meetingId, userId);
+        MeetingCancellationResponse response = meetingCancellationService.getCurrent(matchId, userId);
         return ResponseEntity.ok(
                 ApiResponse.success(response, "진행 중인 미팅 전체 취소 요청을 조회했습니다.")
         );

@@ -188,9 +188,16 @@ public class MeetingService {
         meetingRepository.saveAndFlush(meeting); /*왜 addMember가 반영이 안되지*/
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
-        joinMatchingChatRoomIfFastEntry(meeting, user, isFastMatchingEntry);
+        Long matchingChatRoomId = joinMatchingChatRoomIfFastEntry(
+                meeting,
+                user,
+                isFastMatchingEntry
+        );
 
-        return buildResponseForEnter(meeting, chatRoomId);
+        return buildResponseForEnter(
+                meeting,
+                matchingChatRoomId != null ? matchingChatRoomId : chatRoomId
+        );
 
     }
 
@@ -211,9 +218,16 @@ public class MeetingService {
         meeting.addMember(profile.computeAge());
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
-        joinMatchingChatRoomIfFastEntry(meeting, user, isFastMatchingEntry);
+        Long matchingChatRoomId = joinMatchingChatRoomIfFastEntry(
+                meeting,
+                user,
+                isFastMatchingEntry
+        );
 
-        return buildResponseForEnter(meeting, chatRoomId);
+        return buildResponseForEnter(
+                meeting,
+                matchingChatRoomId != null ? matchingChatRoomId : chatRoomId
+        );
     }
 
     private Long joinMatchingChatRoomIfFastEntry(
@@ -276,9 +290,25 @@ public class MeetingService {
         } else {
             MeetingMember meetingMember = mm.get();
             Meeting meeting = meetingMember.getMeeting();
-            Long chatRoomId = chatRoomService.getChatRoomId(meeting);
+            Long chatRoomId = resolveCurrentChatRoomId(meeting);
             return buildResponseDtoForCheck(meeting, chatRoomId, meetingMember.getMeetingRole() == MeetingRole.LEADER);
         }
+    }
+
+    private Long resolveCurrentChatRoomId(Meeting meeting) {
+        if (meeting.getMeetingStatus() != MeetingStatus.MATCHED
+                && meeting.getMeetingStatus() != MeetingStatus.FASTMATCHING) {
+            return chatRoomService.getChatRoomId(meeting);
+        }
+
+        var match = meetingMatchRepository.findByMeetingIdAndStatus(
+                        meeting.getId(),
+                        MatchingStatus.SUCCEEDED
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "매칭된 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
+                ));
+        return chatRoomService.getMatchingChatRoomId(match);
     }
 
 

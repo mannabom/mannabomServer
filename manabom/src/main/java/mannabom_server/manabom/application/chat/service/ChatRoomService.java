@@ -188,6 +188,14 @@ public class ChatRoomService {
         return room.getId();
     }
 
+    public Long getMatchingChatRoomId(MeetingMatch match) {
+        return chatRoomRepository.findByMatch(match)
+                .map(ChatRoom::getId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 정보와 연결된 남녀 채팅방이 존재하지 않습니다."
+                ));
+    }
+
     public void leaveChatRoom(Long roomId, Long userId){
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 채팅방아이디 입니다."));

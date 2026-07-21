@@ -1,7 +1,6 @@
 package mannabom_server.manabom.domain.meeting.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;

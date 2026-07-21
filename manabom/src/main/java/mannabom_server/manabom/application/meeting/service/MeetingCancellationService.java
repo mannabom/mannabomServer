@@ -1,6 +1,7 @@
 package mannabom_server.manabom.application.meeting.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -31,6 +32,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MeetingCancellationService {
 
     private static final Duration CANCELLATION_DEADLINE = Duration.ofHours(24);
@@ -42,6 +44,7 @@ public class MeetingCancellationService {
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
+    private final MeetingCancellationExpirationService expirationService;
 
     @Transactional(readOnly = true)
     public void validateNoPendingCancellation(Long meetingId) {
@@ -152,16 +155,25 @@ public class MeetingCancellationService {
         return response(request);
     }
 
-    @Transactional
     public int expirePendingRequests() {
         Instant now = Instant.now();
-        List<MeetingCancellationRequest> expiredRequests = requestRepository
-                .findAllByStatusAndExpiresAtLessThanEqual(
+        List<Long> expiredRequestIds = requestRepository
+                .findExpiredRequestIds(
                         MeetingCancellationStatus.PENDING,
                         now
                 );
-        expiredRequests.forEach(request -> request.expire(now));
-        return expiredRequests.size();
+
+        int expiredCount = 0;
+        for (Long requestId : expiredRequestIds) {
+            try {
+                if (expirationService.expire(requestId, now)) {
+                    expiredCount++;
+                }
+            } catch (RuntimeException e) {
+                log.warn("미팅 취소 요청 만료 처리 실패: requestId={}", requestId, e);
+            }
+        }
+        return expiredCount;
     }
 
     private void approveCancellation(

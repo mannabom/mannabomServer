@@ -39,6 +39,16 @@ class MeetingMemberLeaveStatusTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void fastMatchingMeetingReturnsToMatchedWhenVacancyIsFilled() {
+        Meeting meeting = meeting(MeetingStatus.FASTMATCHING, 2, 3);
+
+        meeting.addMember(25);
+
+        assertThat(meeting.getCurrentMembers()).isEqualTo(3);
+        assertThat(meeting.getMeetingStatus()).isEqualTo(MeetingStatus.MATCHED);
+    }
+
     private Meeting meeting(
             MeetingStatus status,
             int currentMembers,

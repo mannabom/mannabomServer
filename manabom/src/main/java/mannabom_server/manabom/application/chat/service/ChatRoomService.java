@@ -135,6 +135,24 @@ public class ChatRoomService {
         return room.getId();
     }
 
+    @Transactional
+    public Long joinMatchingChatRoom(MeetingMatch match, User user) {
+        ChatRoom room = chatRoomRepository.findByMatch(match)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 정보와 연결된 남녀 채팅방이 존재하지 않습니다."
+                ));
+
+        if (chatMemberRepository.existsByRoomIdAndUser_UserId(
+                room.getId(),
+                user.getUserId()
+        )) {
+            throw new IllegalStateException("이미 해당 매칭 채팅방에 참여한 사용자입니다.");
+        }
+
+        chatMemberRepository.save(ChatMember.create(room, user));
+        return room.getId();
+    }
+
     public Long getChatRoomId(Meeting meeting){
         ChatRoom room = chatRoomRepository.findByMeeting(meeting)
                 .orElseThrow(()-> new IllegalArgumentException("미팅id와 연결된 채팅방: 존재하지 않은 채팅방입니다."));

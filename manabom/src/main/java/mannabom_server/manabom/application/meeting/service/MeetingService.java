@@ -13,6 +13,8 @@ import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingBucket;
 import mannabom_server.manabom.domain.meeting.enums.MeetingRole;
 import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
+import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
+import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.region.entity.Region;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
@@ -40,6 +42,7 @@ public class MeetingService {
     private static final int CODE_RETRY_LIMIT = 10;
 
     private final MeetingRepository meetingRepository;
+    private final MeetingMatchRepository meetingMatchRepository;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
 
@@ -202,9 +205,21 @@ public class MeetingService {
 
         meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateJoinCondition(meeting, user,profile);
+        boolean isFastMatchingEntry = meeting.getMeetingStatus() == MeetingStatus.FASTMATCHING;
         meeting.addMember(profile.computeAge());
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
+
+        if (isFastMatchingEntry) {
+            var match = meetingMatchRepository.findByMeetingIdAndStatus(
+                            meetingId,
+                            MatchingStatus.SUCCEEDED
+                    )
+                    .orElseThrow(() -> new IllegalStateException(
+                            "빠른 입장 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
+                    ));
+            chatRoomService.joinMatchingChatRoom(match, user);
+        }
 
         return buildResponseForEnter(meeting, chatRoomId);
     }

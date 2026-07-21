@@ -13,6 +13,8 @@ import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingBucket;
 import mannabom_server.manabom.domain.meeting.enums.MeetingRole;
 import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
+import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
+import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.region.entity.Region;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
@@ -40,6 +42,7 @@ public class MeetingService {
     private static final int CODE_RETRY_LIMIT = 10;
 
     private final MeetingRepository meetingRepository;
+    private final MeetingMatchRepository meetingMatchRepository;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
 
@@ -47,6 +50,7 @@ public class MeetingService {
     private final MeetingMemberReadService meetingMemberReadService;
     private final ChatRoomService chatRoomService;
     private final MeetingMemberService meetingMemberService;
+    private final MeetingCancellationService meetingCancellationService;
     private final RegionService regionService;
 
     private final CursorCodec cursorCodec;
@@ -177,13 +181,23 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findByCodeWithLock(request.getRoomCode())
                 .orElseThrow(() -> new IllegalArgumentException("방 코드로 미팅방 입장: 존재 하지 않는 초대 코드입니다."));
 
+        meetingCancellationService.validateNoPendingCancellation(meeting.getId());
         validateJoinCondition(meeting, user,profile);
+        boolean isFastMatchingEntry = meeting.getMeetingStatus() == MeetingStatus.FASTMATCHING;
         meeting.addMember(profile.computeAge());
         meetingRepository.saveAndFlush(meeting); /*왜 addMember가 반영이 안되지*/
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
+        Long matchingChatRoomId = joinMatchingChatRoomIfFastEntry(
+                meeting,
+                user,
+                isFastMatchingEntry
+        );
 
-        return buildResponseForEnter(meeting, chatRoomId);
+        return buildResponseForEnter(
+                meeting,
+                matchingChatRoomId != null ? matchingChatRoomId : chatRoomId
+        );
 
     }
 
@@ -198,12 +212,41 @@ public class MeetingService {
                     .orElseThrow(() -> new IllegalArgumentException("미팅방 입장: 존재 하지 않는 id입니다. :" + meetingId));
 
 
+        meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateJoinCondition(meeting, user,profile);
+        boolean isFastMatchingEntry = meeting.getMeetingStatus() == MeetingStatus.FASTMATCHING;
         meeting.addMember(profile.computeAge());
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
+        Long matchingChatRoomId = joinMatchingChatRoomIfFastEntry(
+                meeting,
+                user,
+                isFastMatchingEntry
+        );
 
-        return buildResponseForEnter(meeting, chatRoomId);
+        return buildResponseForEnter(
+                meeting,
+                matchingChatRoomId != null ? matchingChatRoomId : chatRoomId
+        );
+    }
+
+    private Long joinMatchingChatRoomIfFastEntry(
+            Meeting meeting,
+            User user,
+            boolean isFastMatchingEntry
+    ) {
+        if (!isFastMatchingEntry) {
+            return null;
+        }
+
+        var match = meetingMatchRepository.findByMeetingIdAndStatus(
+                        meeting.getId(),
+                        MatchingStatus.SUCCEEDED
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "빠른 입장 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
+                ));
+        return chatRoomService.joinMatchingChatRoom(match, user);
     }
 
 
@@ -213,8 +256,11 @@ public class MeetingService {
         /*결제 조건 확인*/
 
         /*매칭 상태*/
-        if (meeting.getMeetingStatus() != MeetingStatus.RECRUITING)
-            throw new IllegalArgumentException("정원이 다 찬 미팅방입니다.");
+        MeetingStatus status = meeting.getMeetingStatus();
+        if (status != MeetingStatus.RECRUITING
+                && status != MeetingStatus.FASTMATCHING) {
+            throw new IllegalArgumentException("현재 입장할 수 없는 미팅방입니다.");
+        }
 
 
         /*이미 참여중인지 체크*/
@@ -244,9 +290,25 @@ public class MeetingService {
         } else {
             MeetingMember meetingMember = mm.get();
             Meeting meeting = meetingMember.getMeeting();
-            Long chatRoomId = chatRoomService.getChatRoomId(meeting);
+            Long chatRoomId = resolveCurrentChatRoomId(meeting);
             return buildResponseDtoForCheck(meeting, chatRoomId, meetingMember.getMeetingRole() == MeetingRole.LEADER);
         }
+    }
+
+    private Long resolveCurrentChatRoomId(Meeting meeting) {
+        if (meeting.getMeetingStatus() != MeetingStatus.MATCHED
+                && meeting.getMeetingStatus() != MeetingStatus.FASTMATCHING) {
+            return chatRoomService.getChatRoomId(meeting);
+        }
+
+        var match = meetingMatchRepository.findByMeetingIdAndStatus(
+                        meeting.getId(),
+                        MatchingStatus.SUCCEEDED
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "매칭된 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
+                ));
+        return chatRoomService.getMatchingChatRoomId(match);
     }
 
 
@@ -358,14 +420,16 @@ public class MeetingService {
 
     @Transactional
     public void handleMemberLeave(Long meetingId, Long userId){
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdWithLock(meetingId)
                 .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅아이디입니다."));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
         Profile profile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new IllegalArgumentException("프로필 정보를 찾을 수 없습니다."));
 
+        meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateMeetingStatus(meeting);
+        MeetingStatus previousStatus = meeting.getMeetingStatus();
         boolean isLeader = meetingMemberService.isLeader(meetingId, userId);
 
         meeting.deleteMember(profile.computeAge());
@@ -376,6 +440,13 @@ public class MeetingService {
             meeting.delete();
             return;
         }
+
+        if (previousStatus == MeetingStatus.MATCHED) {
+            meeting.changeToFastMatchingAfterMemberLeave();
+        } else if (previousStatus == MeetingStatus.FULL) {
+            meeting.changeToRecruitingAfterMemberLeave();
+        }
+
         if(isLeader){
             meetingMemberService.appointNextLeader(meetingId);
         }

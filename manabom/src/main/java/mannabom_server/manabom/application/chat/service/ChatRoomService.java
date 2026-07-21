@@ -12,6 +12,7 @@ import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberQueryRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
@@ -131,15 +132,75 @@ public class ChatRoomService {
         return room.getId();
     }
 
+    @Transactional
+    public Long joinMatchingChatRoom(MeetingMatch match, User user) {
+        ChatRoom room = chatRoomRepository.findByMatch(match)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 정보와 연결된 남녀 채팅방이 존재하지 않습니다."
+                ));
+
+        if (chatMemberRepository.existsByRoomIdAndUser_UserIdAndStatus(
+                room.getId(),
+                user.getUserId(),
+                ChatMemberStatus.ACTIVATE
+        )) {
+            throw new IllegalStateException("이미 해당 매칭 채팅방에 참여한 사용자입니다.");
+        }
+
+        chatMemberRepository.save(ChatMember.create(room, user));
+        return room.getId();
+    }
+
+    @Transactional
+    public void disableMeetingGroupChatRooms(MeetingMatch match) {
+        disableMeetingGroupChatRoom(match.getMeeting1());
+        disableMeetingGroupChatRoom(match.getMeeting2());
+    }
+
+    @Transactional
+    public void deactivateMeetingGroupMember(Meeting meeting, Long userId) {
+        ChatRoom room = chatRoomRepository.findByMeeting(meeting)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "미팅과 연결된 동성 채팅방이 존재하지 않습니다."
+                ));
+
+        chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(
+                room.getId(),
+                userId,
+                ChatMemberStatus.ACTIVATE
+        ).ifPresent(ChatMember::deactivate);
+    }
+
+    private void disableMeetingGroupChatRoom(Meeting meeting) {
+        ChatRoom room = chatRoomRepository.findByMeeting(meeting)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "미팅과 연결된 동성 채팅방이 존재하지 않습니다."
+                ));
+        room.deactivate();
+    }
+
     public Long getChatRoomId(Meeting meeting){
         ChatRoom room = chatRoomRepository.findByMeeting(meeting)
                 .orElseThrow(()-> new IllegalArgumentException("미팅id와 연결된 채팅방: 존재하지 않은 채팅방입니다."));
         return room.getId();
     }
 
+    public Long getMatchingChatRoomId(MeetingMatch match) {
+        return chatRoomRepository.findByMatch(match)
+                .map(ChatRoom::getId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 정보와 연결된 남녀 채팅방이 존재하지 않습니다."
+                ));
+    }
+
     public void leaveChatRoom(Long roomId, Long userId){
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(()-> new IllegalArgumentException("채팅방 나가기: 존재하지 않는 채팅방아이디 입니다."));
+
+        if (room.getChatStatus() == ChatStatus.DISABLED) {
+            throw new IllegalStateException("비활성화된 채팅방에서는 나갈 수 없습니다.");
+        }
+
         ChatMember chatMember = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(roomId, userId, ChatMemberStatus.ACTIVATE)
                 .orElseThrow(()-> new IllegalArgumentException("방에 참여중인 유저가 아닙니다."));
 

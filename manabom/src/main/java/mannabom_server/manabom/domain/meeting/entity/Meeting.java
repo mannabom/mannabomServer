@@ -102,11 +102,14 @@ public class Meeting extends BaseTimeEntity {
 
 
     public void addMember(int userAge){
+        boolean wasFastMatching = meetingStatus == MeetingStatus.FASTMATCHING;
         double tmp = avgAge*currentMembers+userAge;
         currentMembers++;
         avgAge = tmp/currentMembers;
         if(currentMembers.equals(maxMembers)){
-            meetingStatus = MeetingStatus.FULL;
+            meetingStatus = wasFastMatching
+                    ? MeetingStatus.MATCHED
+                    : MeetingStatus.FULL;
         }
         updateOccupancyScore();
     }

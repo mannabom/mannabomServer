@@ -143,9 +143,10 @@ public class ChatRoomService {
                         "매칭 정보와 연결된 남녀 채팅방이 존재하지 않습니다."
                 ));
 
-        if (chatMemberRepository.existsByRoomIdAndUser_UserId(
+        if (chatMemberRepository.existsByRoomIdAndUser_UserIdAndStatus(
                 room.getId(),
-                user.getUserId()
+                user.getUserId(),
+                ChatMemberStatus.ACTIVATE
         )) {
             throw new IllegalStateException("이미 해당 매칭 채팅방에 참여한 사용자입니다.");
         }

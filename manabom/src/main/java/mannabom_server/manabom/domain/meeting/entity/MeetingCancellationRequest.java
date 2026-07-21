@@ -41,4 +41,48 @@ public class MeetingCancellationRequest {
 
     @Version
     private Long version;
+
+    public static MeetingCancellationRequest create(
+            Meeting meeting,
+            User initiator,
+            Instant requestedAt,
+            Instant expiresAt
+    ) {
+        MeetingCancellationRequest request = new MeetingCancellationRequest();
+        request.meeting = meeting;
+        request.initiator = initiator;
+        request.status = MeetingCancellationStatus.PENDING;
+        request.requestedAt = requestedAt;
+        request.expiresAt = expiresAt;
+        return request;
+    }
+
+    public boolean isExpiredAt(Instant now) {
+        return status == MeetingCancellationStatus.PENDING
+                && !now.isBefore(expiresAt);
+    }
+
+    public void approve(Instant completedAt) {
+        validatePending();
+        this.status = MeetingCancellationStatus.APPROVED;
+        this.completedAt = completedAt;
+    }
+
+    public void reject(Instant completedAt) {
+        validatePending();
+        this.status = MeetingCancellationStatus.REJECTED;
+        this.completedAt = completedAt;
+    }
+
+    public void expire(Instant completedAt) {
+        validatePending();
+        this.status = MeetingCancellationStatus.EXPIRED;
+        this.completedAt = completedAt;
+    }
+
+    private void validatePending() {
+        if (status != MeetingCancellationStatus.PENDING) {
+            throw new IllegalStateException("이미 종료된 미팅 취소 요청입니다.");
+        }
+    }
 }

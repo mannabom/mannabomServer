@@ -37,4 +37,41 @@ public class MeetingCancellationVote {
     private CancellationVoteDecision decision;
 
     private Instant decidedAt;
+
+    public static MeetingCancellationVote pending(
+            MeetingCancellationRequest request,
+            User user
+    ) {
+        MeetingCancellationVote vote = new MeetingCancellationVote();
+        vote.request = request;
+        vote.user = user;
+        vote.decision = CancellationVoteDecision.PENDING;
+        return vote;
+    }
+
+    public static MeetingCancellationVote agreedByInitiator(
+            MeetingCancellationRequest request,
+            User user,
+            Instant decidedAt
+    ) {
+        MeetingCancellationVote vote = pending(request, user);
+        vote.agree(decidedAt);
+        return vote;
+    }
+
+    public void decide(CancellationVoteDecision decision, Instant decidedAt) {
+        if (decision == CancellationVoteDecision.PENDING) {
+            throw new IllegalArgumentException("투표 결과는 AGREE 또는 REJECT여야 합니다.");
+        }
+        if (this.decision != CancellationVoteDecision.PENDING) {
+            throw new IllegalStateException("이미 투표를 완료했습니다.");
+        }
+        this.decision = decision;
+        this.decidedAt = decidedAt;
+    }
+
+    private void agree(Instant decidedAt) {
+        this.decision = CancellationVoteDecision.AGREE;
+        this.decidedAt = decidedAt;
+    }
 }

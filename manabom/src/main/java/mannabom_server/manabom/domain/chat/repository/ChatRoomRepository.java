@@ -14,6 +14,8 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom,Long> {
 
     Optional<ChatRoom> findByMeeting(Meeting meeting);
 
+    Optional<ChatRoom> findByMeeting_Id(Long meetingId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select cr from ChatRoom cr where cr.id = :chatRoomId")
     Optional<ChatRoom> findByIdForUpdate(@Param("chatRoomId") Long chatRoomId);

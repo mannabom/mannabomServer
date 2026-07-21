@@ -10,6 +10,7 @@ import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
@@ -52,6 +53,10 @@ public class ChatService {
     //채팅 보내기
     @Transactional
     public void sendMessage(ChatSendRequest request, Long userId) {
+        if (request.getMessageType() == ChatMessageType.SYSTEM) {
+            throw new IllegalArgumentException("시스템 메시지는 클라이언트가 전송할 수 없습니다.");
+        }
+
         ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
         ChatMember sender = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(request.getRoomId(), userId, ChatMemberStatus.ACTIVATE)

@@ -12,7 +12,6 @@ import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
-import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberQueryRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
@@ -104,13 +103,10 @@ public class ChatRoomService {
         return chatRoom.getId();
     }
     private void sendSystemWelcomeMessage(ChatRoom room ){
-        ChatMessage welcomeMessage = ChatMessage.builder()
-                .room(room)
-                .type(ChatMessageType.SYSTEM)
-                .content("🎉 매칭이 성사되었습니다! 서로 인사를 나눠보세요.")
-                .user(null)
-                .build();
-        chatMessageRepository.save(welcomeMessage);
+        chatMessageRepository.save(ChatMessage.system(
+                room,
+                "🎉 매칭이 성사되었습니다! 서로 인사를 나눠보세요."
+        ));
     }
 
     private void setOneToOneChatMember(ChatRoom chatRoom, Long user1Id, Long user2Id){

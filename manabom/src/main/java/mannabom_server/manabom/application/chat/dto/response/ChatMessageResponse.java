@@ -21,7 +21,7 @@ public class ChatMessageResponse {
                 .messageId(msg.getId())
                 .createdAt(msg.getCreatedAt())
                 .messageType(msg.getType().name())
-                .senderId(msg.getUser().getUserId())
+                .senderId(msg.getUser() != null ? msg.getUser().getUserId() : null)
                 .content(msg.getContent())
                 .build();
     }

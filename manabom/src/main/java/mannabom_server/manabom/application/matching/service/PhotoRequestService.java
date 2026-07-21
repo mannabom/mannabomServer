@@ -2,6 +2,8 @@ package mannabom_server.manabom.application.matching.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
+import mannabom_server.manabom.application.chat.message.SystemMessageContent;
 import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
@@ -19,6 +21,7 @@ import mannabom_server.manabom.domain.meeting.enums.SseEventName;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,7 @@ public class PhotoRequestService {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final NotificationService notificationService;
     private final StringRedisTemplate stringRedisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     //조회- 채팅방 입장
     public LoveViewPhotoStatus getPhotoRequestStatus(Long roomId, Long userId) {
@@ -58,13 +62,17 @@ public class PhotoRequestService {
                 return request.getSender().getUserId().equals(userId) ? LoveViewPhotoStatus.PENDING : LoveViewPhotoStatus.RECEIVED;
 
             if (request.getStatus() == PhotoRequestStatus.REJECTED) {
-                int messageCount = chatMessageRepository.countChatMessagesByRoom_IdAndCreatedAtAfter(room.getId(), request.getUpdatedAt());
+                int messageCount = chatMessageRepository
+                        .countChatMessagesByRoom_IdAndCreatedAtAfterAndUserIsNotNull(
+                                room.getId(),
+                                request.getUpdatedAt()
+                        );
                 return messageCount >= 10 ? LoveViewPhotoStatus.READY : LoveViewPhotoStatus.REJECTED;
 
             }
         }
 
-        int messageCount = chatMessageRepository.countChatMessagesByRoom_Id(room.getId());
+        int messageCount = chatMessageRepository.countChatMessagesByRoom_IdAndUserIsNotNull(room.getId());
         return messageCount >= 10 ? LoveViewPhotoStatus.READY : LoveViewPhotoStatus.WAITING;
     }
 
@@ -100,6 +108,10 @@ public class PhotoRequestService {
                 .build();
 
         photoRequestRepository.save(request);
+        eventPublisher.publishEvent(new ChatSystemMessageEvent(
+                roomId,
+                SystemMessageContent.PHOTO_REQUESTED
+        ));
         sendNotification(roomId, receiver.getUserId(), "프로필 공개 요청",
                 "상대방이 프로필을 몹시 궁금해하고 있어요!", SseEventName.PHOTO_REQUEST_RECEIVED, LoveViewPhotoStatus.RECEIVED);
 
@@ -114,6 +126,10 @@ public class PhotoRequestService {
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.accept();
+        eventPublisher.publishEvent(new ChatSystemMessageEvent(
+                roomId,
+                SystemMessageContent.PHOTO_REQUEST_ACCEPTED
+        ));
 
         User opponent = getOpponent(roomId, userId);
         sendNotification(roomId, opponent.getUserId(),
@@ -130,6 +146,10 @@ public class PhotoRequestService {
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.reject();
+        eventPublisher.publishEvent(new ChatSystemMessageEvent(
+                roomId,
+                SystemMessageContent.PHOTO_REQUEST_REJECTED
+        ));
 
         User opponent = getOpponent(roomId, userId);
         sendNotification(roomId, opponent.getUserId(),

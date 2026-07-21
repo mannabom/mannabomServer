@@ -37,5 +37,12 @@ public class ChatMessage extends BaseTimeEntity {
 
     private String content;
 
-
+    public static ChatMessage system(ChatRoom room, String content) {
+        return ChatMessage.builder()
+                .room(room)
+                .user(null)
+                .type(ChatMessageType.SYSTEM)
+                .content(content)
+                .build();
+    }
 }

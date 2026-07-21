@@ -10,6 +10,10 @@ import mannabom_server.manabom.application.meeting.dto.request.MeetingRoomsSearc
 import mannabom_server.manabom.application.meeting.dto.response.MeetingRoomCreateDataDto;
 import mannabom_server.manabom.application.meeting.dto.response.TeamMemberProfilesDto;
 import mannabom_server.manabom.application.meeting.dto.response.MyMeetingStatusDataDto;
+import jakarta.validation.Valid;
+import mannabom_server.manabom.application.meeting.dto.request.MeetingCancellationVoteRequest;
+import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
+import mannabom_server.manabom.application.meeting.service.MeetingCancellationService;
 import mannabom_server.manabom.application.meeting.service.MeetingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MeetingController {
     private final MeetingService meetingService;
+    private final MeetingCancellationService meetingCancellationService;
 
     /*미팅방 생성 api*/
     @PostMapping("/rooms/create")
@@ -48,6 +53,44 @@ public class MeetingController {
     public ResponseEntity<ApiResponse<MyMeetingStatusDataDto>> getMyMeeting(@AuthenticationPrincipal Long userId){
         MyMeetingStatusDataDto dto = meetingService.checkUserMeetingStatus(userId);
         return ResponseEntity.ok(ApiResponse.success(dto, "내 미팅 상태 조회 성공"));
+    }
+
+    @PostMapping("/rooms/{meetingId}/cancellation-requests")
+    public ResponseEntity<ApiResponse<MeetingCancellationResponse>> createCancellationRequest(
+            @PathVariable Long meetingId,
+            @AuthenticationPrincipal Long userId
+    ) {
+        MeetingCancellationResponse response = meetingCancellationService.create(meetingId, userId);
+        return ResponseEntity.ok(
+                ApiResponse.success(response, "미팅 전체 취소 요청을 시작했습니다.")
+        );
+    }
+
+    @PostMapping("/cancellation-requests/{requestId}/votes")
+    public ResponseEntity<ApiResponse<MeetingCancellationResponse>> voteCancellation(
+            @PathVariable Long requestId,
+            @Valid @RequestBody MeetingCancellationVoteRequest request,
+            @AuthenticationPrincipal Long userId
+    ) {
+        MeetingCancellationResponse response = meetingCancellationService.vote(
+                requestId,
+                userId,
+                request.getDecision()
+        );
+        return ResponseEntity.ok(
+                ApiResponse.success(response, "미팅 전체 취소 투표를 완료했습니다.")
+        );
+    }
+
+    @GetMapping("/rooms/{meetingId}/cancellation-requests/current")
+    public ResponseEntity<ApiResponse<MeetingCancellationResponse>> getCurrentCancellationRequest(
+            @PathVariable Long meetingId,
+            @AuthenticationPrincipal Long userId
+    ) {
+        MeetingCancellationResponse response = meetingCancellationService.getCurrent(meetingId, userId);
+        return ResponseEntity.ok(
+                ApiResponse.success(response, "진행 중인 미팅 전체 취소 요청을 조회했습니다.")
+        );
     }
 
     /*팀원 프로필 상세 조회*/

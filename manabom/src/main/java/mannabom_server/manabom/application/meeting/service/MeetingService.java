@@ -373,6 +373,7 @@ public class MeetingService {
 
         meetingCancellationService.validateNoPendingCancellation(meetingId);
         validateMeetingStatus(meeting);
+        MeetingStatus previousStatus = meeting.getMeetingStatus();
         boolean isLeader = meetingMemberService.isLeader(meetingId, userId);
 
         meeting.deleteMember(profile.computeAge());
@@ -383,6 +384,13 @@ public class MeetingService {
             meeting.delete();
             return;
         }
+
+        if (previousStatus == MeetingStatus.MATCHED) {
+            meeting.changeToFastMatchingAfterMemberLeave();
+        } else if (previousStatus == MeetingStatus.FULL) {
+            meeting.changeToRecruitingAfterMemberLeave();
+        }
+
         if(isLeader){
             meetingMemberService.appointNextLeader(meetingId);
         }

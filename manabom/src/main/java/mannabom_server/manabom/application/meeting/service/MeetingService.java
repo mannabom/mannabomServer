@@ -183,10 +183,12 @@ public class MeetingService {
 
         meetingCancellationService.validateNoPendingCancellation(meeting.getId());
         validateJoinCondition(meeting, user,profile);
+        boolean isFastMatchingEntry = meeting.getMeetingStatus() == MeetingStatus.FASTMATCHING;
         meeting.addMember(profile.computeAge());
         meetingRepository.saveAndFlush(meeting); /*왜 addMember가 반영이 안되지*/
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
+        joinMatchingChatRoomIfFastEntry(meeting, user, isFastMatchingEntry);
 
         return buildResponseForEnter(meeting, chatRoomId);
 
@@ -209,19 +211,28 @@ public class MeetingService {
         meeting.addMember(profile.computeAge());
         meetingMemberService.addMember(meeting, user);
         Long chatRoomId = chatRoomService.joinChatRoom(meeting, user);
-
-        if (isFastMatchingEntry) {
-            var match = meetingMatchRepository.findByMeetingIdAndStatus(
-                            meetingId,
-                            MatchingStatus.SUCCEEDED
-                    )
-                    .orElseThrow(() -> new IllegalStateException(
-                            "빠른 입장 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
-                    ));
-            chatRoomService.joinMatchingChatRoom(match, user);
-        }
+        joinMatchingChatRoomIfFastEntry(meeting, user, isFastMatchingEntry);
 
         return buildResponseForEnter(meeting, chatRoomId);
+    }
+
+    private Long joinMatchingChatRoomIfFastEntry(
+            Meeting meeting,
+            User user,
+            boolean isFastMatchingEntry
+    ) {
+        if (!isFastMatchingEntry) {
+            return null;
+        }
+
+        var match = meetingMatchRepository.findByMeetingIdAndStatus(
+                        meeting.getId(),
+                        MatchingStatus.SUCCEEDED
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "빠른 입장 미팅과 연결된 성사된 매칭을 찾을 수 없습니다."
+                ));
+        return chatRoomService.joinMatchingChatRoom(match, user);
     }
 
 

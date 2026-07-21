@@ -3,6 +3,7 @@ package mannabom_server.manabom.domain.meeting;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationVote;
+import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.enums.CancellationVoteDecision;
 import mannabom_server.manabom.domain.meeting.enums.MeetingCancellationStatus;
 import mannabom_server.manabom.domain.user.entity.User;
@@ -77,7 +78,10 @@ class MeetingCancellationDomainTest {
 
     private MeetingCancellationRequest cancellationRequest(User initiator, Instant now) {
         return MeetingCancellationRequest.create(
-                Meeting.builder().id(10L).build(),
+                MeetingMatch.builder()
+                        .meeting1(Meeting.builder().id(10L).build())
+                        .meeting2(Meeting.builder().id(11L).build())
+                        .build(),
                 initiator,
                 now,
                 now.plus(Duration.ofHours(24))

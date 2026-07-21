@@ -14,7 +14,7 @@ import java.util.List;
 @Builder
 public class MeetingCancellationResponse {
     private Long requestId;
-    private Long meetingId;
+    private Long matchId;
     private Long initiatorUserId;
     private MeetingCancellationStatus status;
     private Instant requestedAt;
@@ -38,7 +38,7 @@ public class MeetingCancellationResponse {
 
         return MeetingCancellationResponse.builder()
                 .requestId(request.getId())
-                .meetingId(request.getMeeting().getId())
+                .matchId(request.getMeetingMatch().getId())
                 .initiatorUserId(request.getInitiator().getUserId())
                 .status(request.getStatus())
                 .requestedAt(request.getRequestedAt())

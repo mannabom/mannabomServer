@@ -20,8 +20,8 @@ public class MeetingCancellationRequest {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "meeting_id", nullable = false)
-    private Meeting meeting;
+    @JoinColumn(name = "meeting_match_id")
+    private MeetingMatch meetingMatch;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "initiator_user_id", nullable = false)
@@ -43,13 +43,13 @@ public class MeetingCancellationRequest {
     private Long version;
 
     public static MeetingCancellationRequest create(
-            Meeting meeting,
+            MeetingMatch meetingMatch,
             User initiator,
             Instant requestedAt,
             Instant expiresAt
     ) {
         MeetingCancellationRequest request = new MeetingCancellationRequest();
-        request.meeting = meeting;
+        request.meetingMatch = meetingMatch;
         request.initiator = initiator;
         request.status = MeetingCancellationStatus.PENDING;
         request.requestedAt = requestedAt;

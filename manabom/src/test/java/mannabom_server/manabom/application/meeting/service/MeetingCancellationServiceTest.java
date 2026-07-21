@@ -1,12 +1,22 @@
 package mannabom_server.manabom.application.meeting.service;
 
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
+import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
+import mannabom_server.manabom.domain.meeting.entity.Meeting;
+import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
+import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationVote;
+import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
+import mannabom_server.manabom.domain.meeting.enums.CancellationVoteDecision;
+import mannabom_server.manabom.domain.meeting.enums.ChatUserStatus;
+import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingCancellationStatus;
 import mannabom_server.manabom.domain.meeting.repository.MeetingCancellationRequestRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingCancellationVoteRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository;
-import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
+import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.domain.user.entity.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,12 +26,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingCancellationServiceTest {
 
     @Mock
-    private MeetingRepository meetingRepository;
+    private MeetingMatchRepository meetingMatchRepository;
     @Mock
     private MeetingMemberRepository meetingMemberRepository;
     @Mock
@@ -32,14 +49,22 @@ class MeetingCancellationServiceTest {
     private UserRepository userRepository;
     @Mock
     private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatMemberRepository chatMemberRepository;
 
     @InjectMocks
     private MeetingCancellationService meetingCancellationService;
 
     @Test
     void blocksMembershipChangesWhileCancellationVoteIsPending() {
-        when(requestRepository.existsByMeeting_IdAndStatus(
+        MeetingMatch match = mock(MeetingMatch.class);
+        when(match.getId()).thenReturn(20L);
+        when(meetingMatchRepository.findByMeetingIdAndStatus(
                 10L,
+                MatchingStatus.SUCCEEDED
+        )).thenReturn(Optional.of(match));
+        when(requestRepository.existsByMeetingMatch_IdAndStatus(
+                20L,
                 MeetingCancellationStatus.PENDING
         )).thenReturn(true);
 
@@ -51,13 +76,94 @@ class MeetingCancellationServiceTest {
 
     @Test
     void allowsMembershipChangesWithoutPendingCancellationVote() {
-        when(requestRepository.existsByMeeting_IdAndStatus(
+        when(meetingMatchRepository.findByMeetingIdAndStatus(
                 10L,
-                MeetingCancellationStatus.PENDING
-        )).thenReturn(false);
+                MatchingStatus.SUCCEEDED
+        )).thenReturn(Optional.empty());
 
         assertThatCode(() ->
                 meetingCancellationService.validateNoPendingCancellation(10L)
         ).doesNotThrowAnyException();
+    }
+
+    @Test
+    void createsVotesForMembersOfBothMatchedTeams() {
+        Meeting meeting1 = mock(Meeting.class);
+        Meeting meeting2 = mock(Meeting.class);
+        MeetingMatch match = mock(MeetingMatch.class);
+        User initiator = user(1L);
+
+        when(match.getId()).thenReturn(20L);
+        when(match.getMeeting1()).thenReturn(meeting1);
+        when(match.getMeeting2()).thenReturn(meeting2);
+        when(match.getMatchingStatus()).thenReturn(MatchingStatus.SUCCEEDED);
+        when(meeting1.getId()).thenReturn(10L);
+        when(meeting2.getId()).thenReturn(11L);
+        when(meetingMatchRepository.findByIdWithLockAndMeeting(20L))
+                .thenReturn(Optional.of(match));
+        when(meetingMemberRepository.existsByMeeting_IdAndUser_UserIdAndStatus(
+                10L, 1L, ChatUserStatus.ACTIVE
+        )).thenReturn(true);
+        when(meetingMemberRepository.findByMeetingIdAndStatus(10L, ChatUserStatus.ACTIVE))
+                .thenReturn(List.of(member(meeting1, initiator), member(meeting1, user(2L)), member(meeting1, user(3L))));
+        when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))
+                .thenReturn(List.of(member(meeting2, user(4L)), member(meeting2, user(5L)), member(meeting2, user(6L))));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(initiator));
+        when(requestRepository.save(any(MeetingCancellationRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = meetingCancellationService.create(20L, 1L);
+
+        assertThatCode(() -> response.getVotes()).doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThat(response.getMatchId()).isEqualTo(20L);
+        org.assertj.core.api.Assertions.assertThat(response.getTotalMemberCount()).isEqualTo(6);
+        org.assertj.core.api.Assertions.assertThat(response.getAgreedMemberCount()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(response.getPendingMemberCount()).isEqualTo(5);
+    }
+
+    @Test
+    void unanimousApprovalCancelsBothMatchedTeams() {
+        Meeting meeting1 = mock(Meeting.class);
+        Meeting meeting2 = mock(Meeting.class);
+        MeetingMatch match = mock(MeetingMatch.class);
+        User voter = user(2L);
+        Instant now = Instant.now();
+        MeetingCancellationRequest request = MeetingCancellationRequest.create(
+                match,
+                user(1L),
+                now,
+                now.plusSeconds(3600)
+        );
+        MeetingCancellationVote vote = MeetingCancellationVote.pending(request, voter);
+
+        when(match.getId()).thenReturn(20L);
+        when(match.getMeeting1()).thenReturn(meeting1);
+        when(match.getMeeting2()).thenReturn(meeting2);
+        when(meeting1.getId()).thenReturn(10L);
+        when(meeting2.getId()).thenReturn(11L);
+        when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
+        when(voteRepository.findByRequest_IdAndUser_UserId(30L, 2L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findAllByRequest_IdOrderById(null)).thenReturn(List.of(vote));
+        when(meetingMemberRepository.findByMeetingIdAndStatus(10L, ChatUserStatus.ACTIVE))
+                .thenReturn(List.of());
+        when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        meetingCancellationService.vote(30L, 2L, CancellationVoteDecision.AGREE);
+
+        verify(meeting1).cancelByAgreement();
+        verify(meeting2).cancelByAgreement();
+    }
+
+    private MeetingMember member(Meeting meeting, User user) {
+        return MeetingMember.addMember(meeting, user);
+    }
+
+    private User user(Long id) {
+        return User.builder()
+                .userId(id)
+                .kakaoId("mock_" + id)
+                .userName("user" + id)
+                .build();
     }
 }

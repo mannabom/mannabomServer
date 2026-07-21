@@ -2,19 +2,23 @@ package mannabom_server.manabom.application.meeting.service;
 
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationVote;
+import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
 import mannabom_server.manabom.domain.meeting.enums.CancellationVoteDecision;
 import mannabom_server.manabom.domain.meeting.enums.ChatUserStatus;
+import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import mannabom_server.manabom.domain.meeting.enums.MeetingCancellationStatus;
-import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
 import mannabom_server.manabom.domain.meeting.repository.MeetingCancellationRequestRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingCancellationVoteRepository;
+import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository;
-import mannabom_server.manabom.domain.meeting.repository.MeetingRepository;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -30,17 +35,26 @@ public class MeetingCancellationService {
 
     private static final Duration CANCELLATION_DEADLINE = Duration.ofHours(24);
 
-    private final MeetingRepository meetingRepository;
+    private final MeetingMatchRepository meetingMatchRepository;
     private final MeetingMemberRepository meetingMemberRepository;
     private final MeetingCancellationRequestRepository requestRepository;
     private final MeetingCancellationVoteRepository voteRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatMemberRepository chatMemberRepository;
 
     @Transactional(readOnly = true)
     public void validateNoPendingCancellation(Long meetingId) {
-        if (requestRepository.existsByMeeting_IdAndStatus(
+        var match = meetingMatchRepository.findByMeetingIdAndStatus(
                 meetingId,
+                MatchingStatus.SUCCEEDED
+        );
+        if (match.isEmpty()) {
+            return;
+        }
+
+        if (requestRepository.existsByMeetingMatch_IdAndStatus(
+                match.get().getId(),
                 MeetingCancellationStatus.PENDING
         )) {
             throw new IllegalStateException(
@@ -50,24 +64,25 @@ public class MeetingCancellationService {
     }
 
     @Transactional
-    public MeetingCancellationResponse create(Long meetingId, Long userId) {
-        Meeting meeting = meetingRepository.findByIdWithLock(meetingId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅방입니다."));
-        validateActiveMember(meetingId, userId);
+    public MeetingCancellationResponse create(Long matchId, Long userId) {
+        MeetingMatch match = meetingMatchRepository.findByIdWithLockAndMeeting(matchId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅 매칭입니다."));
 
-        if (meeting.getMeetingStatus() == MeetingStatus.CANCELLED) {
-            throw new IllegalStateException("이미 취소된 미팅입니다.");
+        if (match.getMatchingStatus() != MatchingStatus.SUCCEEDED) {
+            throw new IllegalStateException("성사된 미팅만 전체 취소를 요청할 수 있습니다.");
         }
-        if (requestRepository.existsByMeeting_IdAndStatus(
-                meetingId,
+        validateActiveParticipant(match, userId);
+
+        if (requestRepository.existsByMeetingMatch_IdAndStatus(
+                matchId,
                 MeetingCancellationStatus.PENDING
         )) {
             throw new IllegalStateException("이미 진행 중인 미팅 취소 요청이 있습니다.");
         }
 
-        List<MeetingMember> members = activeMembers(meetingId);
+        List<MeetingMember> members = activeMembers(match);
         if (members.size() < 2) {
-            throw new IllegalStateException("전체 취소 투표를 진행할 팀원이 없습니다.");
+            throw new IllegalStateException("전체 취소 투표를 진행할 참여자가 부족합니다.");
         }
 
         User initiator = userRepository.findById(userId)
@@ -75,7 +90,7 @@ public class MeetingCancellationService {
         Instant now = Instant.now();
         MeetingCancellationRequest request = requestRepository.save(
                 MeetingCancellationRequest.create(
-                        meeting,
+                        match,
                         initiator,
                         now,
                         now.plus(CANCELLATION_DEADLINE)
@@ -126,10 +141,12 @@ public class MeetingCancellationService {
     }
 
     @Transactional
-    public MeetingCancellationResponse getCurrent(Long meetingId, Long userId) {
-        validateActiveMember(meetingId, userId);
+    public MeetingCancellationResponse getCurrent(Long matchId, Long userId) {
+        MeetingMatch match = meetingMatchRepository.findByIdWithMeeting(matchId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅 매칭입니다."));
+        validateActiveParticipant(match, userId);
         MeetingCancellationRequest request = requestRepository
-                .findByMeeting_IdAndStatus(meetingId, MeetingCancellationStatus.PENDING)
+                .findByMeetingMatch_IdAndStatus(matchId, MeetingCancellationStatus.PENDING)
                 .orElseThrow(() -> new IllegalArgumentException("진행 중인 미팅 취소 요청이 없습니다."));
         expireIfNecessary(request, Instant.now());
         return response(request);
@@ -152,12 +169,20 @@ public class MeetingCancellationService {
             Instant now
     ) {
         request.approve(now);
-        Meeting meeting = request.getMeeting();
+        MeetingMatch match = request.getMeetingMatch();
+        Meeting meeting1 = match.getMeeting1();
+        Meeting meeting2 = match.getMeeting2();
 
-        chatRoomRepository.findByMeeting(meeting)
-                .ifPresent(chatRoom -> chatRoom.deactivate());
-        activeMembers(meeting.getId()).forEach(MeetingMember::deactivate);
-        meeting.cancelByAgreement();
+        chatRoomRepository.findByMatch(match)
+                .ifPresent(this::deactivateChatRoomAndMembers);
+        chatRoomRepository.findByMeeting(meeting1)
+                .ifPresent(this::deactivateChatRoomAndMembers);
+        chatRoomRepository.findByMeeting(meeting2)
+                .ifPresent(this::deactivateChatRoomAndMembers);
+
+        activeMembers(match).forEach(MeetingMember::deactivate);
+        meeting1.cancelByAgreement();
+        meeting2.cancelByAgreement();
     }
 
     private void expireIfNecessary(
@@ -186,6 +211,13 @@ public class MeetingCancellationService {
         );
     }
 
+    private List<MeetingMember> activeMembers(MeetingMatch match) {
+        List<MeetingMember> members = new ArrayList<>();
+        members.addAll(activeMembers(match.getMeeting1().getId()));
+        members.addAll(activeMembers(match.getMeeting2().getId()));
+        return members;
+    }
+
     private List<MeetingMember> activeMembers(Long meetingId) {
         return meetingMemberRepository.findByMeetingIdAndStatus(
                 meetingId,
@@ -193,13 +225,27 @@ public class MeetingCancellationService {
         );
     }
 
-    private void validateActiveMember(Long meetingId, Long userId) {
-        if (!meetingMemberRepository.existsByMeeting_IdAndUser_UserIdAndStatus(
+    private void validateActiveParticipant(MeetingMatch match, Long userId) {
+        boolean belongsToMeeting1 = isActiveMember(match.getMeeting1().getId(), userId);
+        boolean belongsToMeeting2 = isActiveMember(match.getMeeting2().getId(), userId);
+        if (!belongsToMeeting1 && !belongsToMeeting2) {
+            throw new IllegalArgumentException("해당 미팅 매칭의 참여자가 아닙니다.");
+        }
+    }
+
+    private boolean isActiveMember(Long meetingId, Long userId) {
+        return meetingMemberRepository.existsByMeeting_IdAndUser_UserIdAndStatus(
                 meetingId,
                 userId,
                 ChatUserStatus.ACTIVE
-        )) {
-            throw new IllegalArgumentException("해당 미팅방의 참여자가 아닙니다.");
-        }
+        );
+    }
+
+    private void deactivateChatRoomAndMembers(ChatRoom room) {
+        room.deactivate();
+        chatMemberRepository.findAllByRoomIdAndStatus(
+                room.getId(),
+                ChatMemberStatus.ACTIVATE
+        ).forEach(chatMember -> chatMember.deactivate());
     }
 }

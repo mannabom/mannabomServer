@@ -15,10 +15,13 @@ import java.util.Optional;
 public interface MeetingCancellationRequestRepository
         extends JpaRepository<MeetingCancellationRequest, Long> {
 
-    boolean existsByMeeting_IdAndStatus(Long meetingId, MeetingCancellationStatus status);
+    boolean existsByMeetingMatch_IdAndStatus(
+            Long meetingMatchId,
+            MeetingCancellationStatus status
+    );
 
-    Optional<MeetingCancellationRequest> findByMeeting_IdAndStatus(
-            Long meetingId,
+    Optional<MeetingCancellationRequest> findByMeetingMatch_IdAndStatus(
+            Long meetingMatchId,
             MeetingCancellationStatus status
     );
 

@@ -24,11 +24,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.time.Instant;
 import java.util.List;
@@ -51,6 +53,8 @@ class MeetingCancellationServiceTest {
     private ChatRoomRepository chatRoomRepository;
     @Mock
     private ChatMemberRepository chatMemberRepository;
+    @Mock
+    private MeetingCancellationExpirationService expirationService;
 
     @InjectMocks
     private MeetingCancellationService meetingCancellationService;
@@ -153,6 +157,24 @@ class MeetingCancellationServiceTest {
 
         verify(meeting1).cancelByAgreement();
         verify(meeting2).cancelByAgreement();
+    }
+
+    @Test
+    void continuesExpiringOtherRequestsWhenOneRequestFails() {
+        when(requestRepository.findExpiredRequestIds(
+                any(MeetingCancellationStatus.class),
+                any(Instant.class)
+        )).thenReturn(List.of(30L, 31L));
+        when(expirationService.expire(eq(30L), any(Instant.class)))
+                .thenThrow(new RuntimeException("optimistic lock conflict"));
+        when(expirationService.expire(eq(31L), any(Instant.class)))
+                .thenReturn(true);
+
+        int expiredCount = meetingCancellationService.expirePendingRequests();
+
+        assertThat(expiredCount).isEqualTo(1);
+        verify(expirationService).expire(eq(30L), any(Instant.class));
+        verify(expirationService).expire(eq(31L), any(Instant.class));
     }
 
     private MeetingMember member(Meeting meeting, User user) {

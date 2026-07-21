@@ -31,8 +31,14 @@ public interface MeetingCancellationRequestRepository
             @Param("requestId") Long requestId
     );
 
-    List<MeetingCancellationRequest> findAllByStatusAndExpiresAtLessThanEqual(
-            MeetingCancellationStatus status,
-            Instant now
+    @Query("""
+            select r.id
+            from MeetingCancellationRequest r
+            where r.status = :status
+              and r.expiresAt <= :now
+            """)
+    List<Long> findExpiredRequestIds(
+            @Param("status") MeetingCancellationStatus status,
+            @Param("now") Instant now
     );
 }

@@ -37,6 +37,18 @@ public class MeetingCancellationService {
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
 
+    @Transactional(readOnly = true)
+    public void validateNoPendingCancellation(Long meetingId) {
+        if (requestRepository.existsByMeeting_IdAndStatus(
+                meetingId,
+                MeetingCancellationStatus.PENDING
+        )) {
+            throw new IllegalStateException(
+                    "미팅 전체 취소 투표가 진행 중이므로 입장하거나 나갈 수 없습니다."
+            );
+        }
+    }
+
     @Transactional
     public MeetingCancellationResponse create(Long meetingId, Long userId) {
         Meeting meeting = meetingRepository.findByIdWithLock(meetingId)

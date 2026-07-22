@@ -99,8 +99,10 @@ public class MeetingVerification {
         this.verifiedHasFemale = hasFemale;
     }
 
-    public void recordVerifiedLatecomer() {
-        this.participantCount++;
+    public void recordVerifiedLatecomer(boolean firstSubmission) {
+        if (firstSubmission) {
+            this.participantCount++;
+        }
         this.verifiedParticipantCount++;
     }
 

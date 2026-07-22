@@ -33,9 +33,23 @@ class MeetingVerificationTest {
         verification.updateParticipantCount(4);
         verification.verify(3, 37.5665, 126.9780, true, true);
 
-        verification.recordVerifiedLatecomer();
+        verification.recordVerifiedLatecomer(true);
 
         assertThat(verification.getParticipantCount()).isEqualTo(5);
+        assertThat(verification.getVerifiedParticipantCount()).isEqualTo(4);
+    }
+
+    @Test
+    void doesNotCountExistingSubmitterTwiceWhenJoiningAfterSuccess() {
+        MeetingVerification verification = MeetingVerification.builder()
+                .room(ChatRoom.builder().id(1L).build())
+                .build();
+        verification.updateParticipantCount(4);
+        verification.verify(3, 37.5665, 126.9780, true, true);
+
+        verification.recordVerifiedLatecomer(false);
+
+        assertThat(verification.getParticipantCount()).isEqualTo(4);
         assertThat(verification.getVerifiedParticipantCount()).isEqualTo(4);
     }
 }

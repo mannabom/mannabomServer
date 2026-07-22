@@ -190,6 +190,7 @@ public class MeetingVerificationService {
         if(isAlreadyVerifiedParticipant(chatRoomId, userId)){
             throw new IllegalStateException("이미 만남인증에 참여 완료되었습니다.");
         }
+        boolean firstSubmission = !stringRedisTemplate.hasKey(String.format(POS_KEY, chatRoomId, userId));
 
         String finalPos = stringRedisTemplate.opsForValue().get(String.format(FINAL_LOC_KEY,chatRoomId));
         if(finalPos == null) throw new IllegalStateException("인증 유효 기간이 지났습니다.");
@@ -206,7 +207,7 @@ public class MeetingVerificationService {
 
         //보상
         reward(chatRoomId, List.of(userId));
-        verification.recordVerifiedLatecomer();
+        verification.recordVerifiedLatecomer(firstSubmission);
         simpMessagingTemplate.convertAndSend("/topic/chat/"+ chatRoomId, "LATECOMER_OK:"+userId);
     }
 

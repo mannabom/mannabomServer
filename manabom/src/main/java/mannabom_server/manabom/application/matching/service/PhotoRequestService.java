@@ -107,7 +107,10 @@ public class PhotoRequestService {
                 SystemMessageType.PHOTO_REQUESTED,
                 userId,
                 List.of(receiver.getUserId()),
-                Map.of("status", LoveViewPhotoStatus.RECEIVED.name())
+                Map.of(
+                        "actorStatus", LoveViewPhotoStatus.PENDING.name(),
+                        "recipientStatus", LoveViewPhotoStatus.RECEIVED.name()
+                )
         ));
 
     }
@@ -127,7 +130,10 @@ public class PhotoRequestService {
                 SystemMessageType.PHOTO_REQUEST_ACCEPTED,
                 userId,
                 List.of(opponent.getUserId()),
-                Map.of("status", LoveViewPhotoStatus.ACCEPTED.name())
+                Map.of(
+                        "actorStatus", LoveViewPhotoStatus.ACCEPTED.name(),
+                        "recipientStatus", LoveViewPhotoStatus.ACCEPTED.name()
+                )
         ));
     }
 
@@ -147,7 +153,10 @@ public class PhotoRequestService {
                 SystemMessageType.PHOTO_REQUEST_REJECTED,
                 userId,
                 List.of(opponent.getUserId()),
-                Map.of("status", LoveViewPhotoStatus.REJECTED.name())
+                Map.of(
+                        "actorStatus", LoveViewPhotoStatus.REJECTED.name(),
+                        "recipientStatus", LoveViewPhotoStatus.REJECTED.name()
+                )
         ));
     }
     private LoveViewPhotoRequest findPendingRequest(Long historyId, Long userId){

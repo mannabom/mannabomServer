@@ -18,6 +18,8 @@ public class ChatMessageEvent {
     private List<Long> recipientUserIds;
     private String messageType;
     private String systemEventType;
+    private String systemTitle;
+    private String actorNickname;
     private String content;
     private Map<String, Object> data;
 

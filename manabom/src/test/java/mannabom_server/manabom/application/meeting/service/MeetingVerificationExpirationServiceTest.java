@@ -5,6 +5,7 @@ import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.meeting.entity.MeetingVerification;
 import mannabom_server.manabom.domain.meeting.repository.MeetingVerificationRepository;
+import mannabom_server.manabom.domain.user.entity.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,7 +36,12 @@ class MeetingVerificationExpirationServiceTest {
         MeetingVerification verification = MeetingVerification.builder()
                 .room(ChatRoom.builder().id(77L).build())
                 .build();
-        verification.startIfNeeded(startedAt, Duration.ofHours(9));
+        verification.startIfNeeded(
+                startedAt,
+                Duration.ofHours(9),
+                User.builder().userId(11L).kakaoId("kakao-11").userName("사용자11").build()
+        );
+        verification.updateParticipantCount(3);
         when(verificationRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(verification));
 
         assertThat(expirationService.notifyFailure(1L, expiredAt)).isTrue();
@@ -46,5 +52,7 @@ class MeetingVerificationExpirationServiceTest {
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().roomId()).isEqualTo(77L);
         assertThat(captor.getValue().type()).isEqualTo(SystemMessageType.MEETING_VERIFICATION_FAILED);
+        assertThat(captor.getValue().actorUserId()).isEqualTo(11L);
+        assertThat(captor.getValue().data()).containsEntry("participantCount", 3);
     }
 }

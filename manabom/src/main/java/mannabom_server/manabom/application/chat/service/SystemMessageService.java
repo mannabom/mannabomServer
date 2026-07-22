@@ -18,6 +18,7 @@ import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecision;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.notification.enums.NotificationType;
+import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class SystemMessageService {
     private final ChatMemberRepository chatMemberRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final MeetingMatchRepository meetingMatchRepository;
+    private final ProfileRepository profileRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final StringRedisTemplate stringRedisTemplate;
     private final NotificationService notificationService;
@@ -177,13 +179,16 @@ public class SystemMessageService {
             if (message.getActorUserId() != null) {
                 data.put("actorUserId", message.getActorUserId());
             }
+            if (message.getActorNickname() != null) {
+                data.put("actorNickname", message.getActorNickname());
+            }
 
             try {
                 notificationService.sendNotification(
                         recipientUserId,
                         NotificationType.SYSTEM_MESSAGE,
-                        recorded.type().getNotificationTitle(),
-                        recorded.type().getNotificationBody(),
+                        message.getSystemTitle(),
+                        null,
                         data
                 );
             } catch (RuntimeException e) {
@@ -205,8 +210,18 @@ public class SystemMessageService {
     }
 
     private RecordedSystemMessage save(ChatRoom room, ChatSystemMessageEvent event) {
+        String actorNickname = resolveActorNickname(event.actorUserId());
+        SystemMessageType.RenderedSystemMessage rendered = event.type().render(actorNickname, event.data());
         ChatMessage message = chatMessageRepository.saveAndFlush(
-                ChatMessage.system(room, event.type().getContent())
+                ChatMessage.system(
+                        room,
+                        rendered.body(),
+                        event.type().name(),
+                        rendered.title(),
+                        event.actorUserId(),
+                        actorNickname,
+                        event.data()
+                )
         );
         List<Long> recipients = resolveRecipients(room.getId(), event.actorUserId(), event.recipientUserIds());
 
@@ -216,14 +231,26 @@ public class SystemMessageService {
                 .actorUserId(event.actorUserId())
                 .recipientUserIds(recipients)
                 .messageType(message.getType().name())
-                .systemEventType(event.type().name())
+                .systemEventType(message.getSystemEventType())
+                .systemTitle(message.getSystemTitle())
+                .actorNickname(message.getActorNickname())
                 .content(message.getContent())
-                .data(event.data())
+                .data(message.getSystemData())
                 .messageId(message.getId())
                 .clientMessageId(null)
                 .sendAt(message.getCreatedAt())
                 .build();
         return new RecordedSystemMessage(response, event.type(), event.pushEnabled());
+    }
+
+    private String resolveActorNickname(Long actorUserId) {
+        if (actorUserId == null) {
+            return null;
+        }
+        return profileRepository.findByUser_UserId(actorUserId)
+                .map(profile -> profile.getNickName())
+                .filter(org.springframework.util.StringUtils::hasText)
+                .orElse(null);
     }
 
     private List<Long> resolveRecipients(Long roomId, Long actorUserId, List<Long> explicitRecipients) {

@@ -57,13 +57,13 @@ public class MeetingVerificationService {
     public String verifyMeeting(Long chatRoomId, Long userId, double latitude, double longitude){
         ChatRoom room = chatRoomRepository.findByIdForUpdate(chatRoomId)
                 .orElseThrow(()-> new IllegalArgumentException("존재 하지 않는 채팅방 입니다."));
-        getActiveChatMember(chatRoomId, userId);
+        ChatMember actorMember = getActiveChatMember(chatRoomId, userId);
 
         MeetingVerification verification = getOrCreateVerification(room);
         Instant now = Instant.now();
 
         boolean startedNow = verification.getStartedAt() == null;
-        verification.startIfNeeded(now, VERIFICATION_TTL);
+        verification.startIfNeeded(now, VERIFICATION_TTL, actorMember.getUser());
         if (startedNow) {
             eventPublisher.publishEvent(ChatSystemMessageEvent.of(
                     chatRoomId,
@@ -209,6 +209,8 @@ public class MeetingVerificationService {
         saveUserLocation(chatRoomId, userId, latitude, longitude, positionTtl);
         stringRedisTemplate.opsForSet().add(gatherKey,userId.toString());
         redissonClient.getSet(gatherKey).expire(positionTtl);
+        Long submittedCount = stringRedisTemplate.opsForSet().size(gatherKey);
+        verification.updateParticipantCount(submittedCount == null ? 0 : submittedCount.intValue());
 
         int totalMembers = chatMemberRepository.countChatMemberByRoomIdAndStatus(chatRoomId, ChatMemberStatus.ACTIVATE);
         int requiredCount = requiredCount(totalMembers);
@@ -234,9 +236,14 @@ public class MeetingVerificationService {
                 eventPublisher.publishEvent(ChatSystemMessageEvent.of(
                         chatRoomId,
                         SystemMessageType.MEETING_VERIFICATION_SUCCEEDED,
-                        userId,
+                        verification.getStartedBy() == null
+                                ? userId
+                                : verification.getStartedBy().getUserId(),
                         null,
-                        Map.of("verifiedAt", verification.getVerifiedAt().toString())
+                        Map.of(
+                                "verifiedAt", verification.getVerifiedAt().toString(),
+                                "participantCount", verification.getParticipantCount()
+                        )
                 ));
                 return "모든 조건 충족! 만남 인증이 완료되었습니다. ✨";
 

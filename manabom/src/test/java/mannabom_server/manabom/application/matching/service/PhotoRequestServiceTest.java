@@ -1,7 +1,6 @@
 package mannabom_server.manabom.application.matching.service;
 
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
-import mannabom_server.manabom.application.chat.message.SystemMessageContent;
 import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
@@ -136,7 +135,6 @@ class PhotoRequestServiceTest {
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().roomId()).isEqualTo(77L);
         assertThat(captor.getValue().type()).isEqualTo(expectedType);
-        assertThat(captor.getValue().type().getContent()).isEqualTo(expectedType.getContent());
         assertThat(captor.getValue().actorUserId()).isEqualTo(actorUserId);
         assertThat(captor.getValue().recipientUserIds()).containsExactly(recipientUserId);
     }

@@ -2,7 +2,6 @@ package mannabom_server.manabom.application.chat.service;
 
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
 import mannabom_server.manabom.application.chat.dto.response.ChatMessageEvent;
-import mannabom_server.manabom.application.chat.message.SystemMessageContent;
 import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
@@ -15,6 +14,8 @@ import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.enums.MeetingDecision;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
+import mannabom_server.manabom.domain.user.entity.Profile;
+import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +44,7 @@ class SystemMessageServiceTest {
     @Mock private ChatMemberRepository chatMemberRepository;
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private MeetingMatchRepository meetingMatchRepository;
+    @Mock private ProfileRepository profileRepository;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
@@ -61,6 +63,8 @@ class SystemMessageServiceTest {
     void recordsSingleTypedEventAndPushesToRecipientOutsideRoom() {
         ChatRoom room = ChatRoom.builder().id(77L).build();
         when(chatRoomRepository.findById(77L)).thenReturn(Optional.of(room));
+        when(profileRepository.findByUser_UserId(1L))
+                .thenReturn(Optional.of(Profile.builder().nickName("봄이").build()));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("user:location:2")).thenReturn("99");
 
@@ -82,6 +86,9 @@ class SystemMessageServiceTest {
         assertThat(recorded.message().getActorUserId()).isEqualTo(1L);
         assertThat(recorded.message().getRecipientUserIds()).containsExactly(2L);
         assertThat(recorded.message().getSystemEventType()).isEqualTo("PHOTO_REQUESTED");
+        assertThat(recorded.message().getSystemTitle()).isEqualTo("봄이님이 프로필 공개를 요청했어요");
+        assertThat(recorded.message().getActorNickname()).isEqualTo("봄이");
+        assertThat(recorded.message().getContent()).contains("서로의 프로필이 공개됩니다");
         verify(messagingTemplate).convertAndSend("/topic/rooms/77", recorded.message());
         verify(notificationService).sendNotification(
                 org.mockito.ArgumentMatchers.eq(2L),
@@ -110,8 +117,10 @@ class SystemMessageServiceTest {
 
         assertThat(events).extracting(event -> event.message().getRoomId())
                 .containsExactly(100L, 101L);
-        assertThat(events).allSatisfy(event ->
-                assertThat(event.message().getContent()).isEqualTo(SystemMessageContent.MATCH_FOUND));
+        assertThat(events).allSatisfy(event -> {
+            assertThat(event.message().getSystemTitle()).isEqualTo("미팅할 상대 팀을 찾았어요‼️✨");
+            assertThat(event.message().getContent()).contains("수락 가능 시간 안에");
+        });
     }
 
     @Test
@@ -131,10 +140,8 @@ class SystemMessageServiceTest {
         List<SystemMessageService.RecordedSystemMessage> events =
                 systemMessageService.recordMatchFailure(20L, 1L, false);
 
-        assertThat(events.get(0).message().getContent())
-                .isEqualTo(SystemMessageContent.MATCH_REJECTED_BY_LEADER);
-        assertThat(events.get(1).message().getContent())
-                .isEqualTo(SystemMessageContent.MATCH_REJECTED_BY_OPPONENT);
+        assertThat(events.get(0).message().getContent()).contains("팀장 사용자님이 매칭을 거절했어요");
+        assertThat(events.get(1).message().getContent()).contains("상대 팀과 연결되지 않았어요");
     }
 
     @Test
@@ -155,9 +162,8 @@ class SystemMessageServiceTest {
                 systemMessageService.recordMatchFailure(20L, null, true);
 
         assertThat(events.get(0).message().getRoomId()).isEqualTo(101L);
-        assertThat(events.get(0).message().getContent()).isEqualTo(SystemMessageContent.MATCH_TIMED_OUT);
+        assertThat(events.get(0).message().getContent()).contains("자동으로 거절됐어요");
         assertThat(events.get(1).message().getRoomId()).isEqualTo(100L);
-        assertThat(events.get(1).message().getContent())
-                .isEqualTo(SystemMessageContent.OPPONENT_MATCH_TIMED_OUT);
+        assertThat(events.get(1).message().getContent()).contains("상대 팀의 응답 시간이 지나");
     }
 }

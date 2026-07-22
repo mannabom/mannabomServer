@@ -32,9 +32,12 @@ public class MeetingVerificationExpirationService {
         eventPublisher.publishEvent(ChatSystemMessageEvent.of(
                 verification.getRoom().getId(),
                 SystemMessageType.MEETING_VERIFICATION_FAILED,
+                verification.getStartedBy() == null ? null : verification.getStartedBy().getUserId(),
                 null,
-                null,
-                Map.of("expiredAt", verification.getExpiresAt().toString())
+                Map.of(
+                        "expiredAt", verification.getExpiresAt().toString(),
+                        "participantCount", verification.getParticipantCount()
+                )
         ));
         return true;
     }

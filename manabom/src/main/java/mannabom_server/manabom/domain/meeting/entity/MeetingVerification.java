@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.user.entity.User;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,16 +34,28 @@ public class MeetingVerification {
 
     private Instant failureNotifiedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "started_by_user_id")
+    private User startedBy;
+
+    @Column(name = "participant_count", nullable = false)
+    private int participantCount;
+
     @Builder
     public MeetingVerification(ChatRoom room) {
         this.room = room;
     }
 
-    public void startIfNeeded(Instant now, Duration validDuration){
+    public void startIfNeeded(Instant now, Duration validDuration, User initiator){
         if(this.startedAt == null){
             this.startedAt = now;
             this.expiresAt = now.plus(validDuration);
+            this.startedBy = initiator;
         }
+    }
+
+    public void updateParticipantCount(int participantCount) {
+        this.participantCount = Math.max(this.participantCount, participantCount);
     }
 
     public boolean isExpired(Instant now){

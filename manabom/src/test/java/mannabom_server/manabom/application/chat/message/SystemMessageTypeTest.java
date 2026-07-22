@@ -22,12 +22,15 @@ class SystemMessageTypeTest {
         SystemMessageType.RenderedSystemMessage message =
                 SystemMessageType.MEETING_VERIFICATION_SUCCEEDED.render(
                         "민수",
-                        Map.of("participantCount", 4)
+                        Map.of(
+                                "submittedCount", 4,
+                                "verifiedParticipantCount", 3
+                        )
                 );
 
         assertThat(message.title()).isEqualTo("만남인증 성공");
         assertThat(message.body())
-                .isEqualTo("민수님이 시작한 만남인증이 완료되었어요.\n참여인원 : 4명");
+                .isEqualTo("민수님이 시작한 만남인증이 완료되었어요.\n참여인원 : 3명");
     }
 
     @Test

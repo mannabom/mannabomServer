@@ -41,6 +41,19 @@ public class MeetingVerification {
     @Column(name = "participant_count", nullable = false)
     private int participantCount;
 
+    @Column(name = "verified_participant_count", nullable = false)
+    private int verifiedParticipantCount;
+
+    private Double finalLatitude;
+
+    private Double finalLongitude;
+
+    @Column(name = "verified_has_male", nullable = false)
+    private boolean verifiedHasMale;
+
+    @Column(name = "verified_has_female", nullable = false)
+    private boolean verifiedHasFemale;
+
     @Builder
     public MeetingVerification(ChatRoom room) {
         this.room = room;
@@ -70,9 +83,29 @@ public class MeetingVerification {
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
-    public void verify(){
+    public void verify(
+            int verifiedParticipantCount,
+            double finalLatitude,
+            double finalLongitude,
+            boolean hasMale,
+            boolean hasFemale
+    ){
         this.isVerified = true;
         this.verifiedAt = Instant.now();
+        this.verifiedParticipantCount = verifiedParticipantCount;
+        this.finalLatitude = finalLatitude;
+        this.finalLongitude = finalLongitude;
+        this.verifiedHasMale = hasMale;
+        this.verifiedHasFemale = hasFemale;
+    }
+
+    public void recordVerifiedLatecomer() {
+        this.participantCount++;
+        this.verifiedParticipantCount++;
+    }
+
+    public boolean hasFinalLocation() {
+        return finalLatitude != null && finalLongitude != null;
     }
 
     public boolean needsFailureNotification(Instant now) {

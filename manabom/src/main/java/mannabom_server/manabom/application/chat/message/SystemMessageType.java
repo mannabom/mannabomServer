@@ -96,6 +96,9 @@ public enum SystemMessageType {
     public RenderedSystemMessage render(String actorNickname, Map<String, Object> data) {
         String nickname = StringUtils.hasText(actorNickname) ? actorNickname : "사용자";
         int participantCount = number(data, "participantCount");
+        int verifiedParticipantCount = data != null && data.containsKey("verifiedParticipantCount")
+                ? number(data, "verifiedParticipantCount")
+                : participantCount;
 
         return switch (this) {
             case MATCHING_STARTED -> message(
@@ -117,7 +120,7 @@ public enum SystemMessageType {
             case MEETING_VERIFICATION_SUCCEEDED -> message(
                     defaultTitle,
                     nickname + "님이 시작한 만남인증이 완료되었어요.\n"
-                            + "참여인원 : " + participantCount + "명"
+                            + "참여인원 : " + verifiedParticipantCount + "명"
             );
             case MEETING_VERIFICATION_FAILED -> message(
                     defaultTitle,

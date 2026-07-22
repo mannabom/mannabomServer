@@ -77,7 +77,7 @@ public class MeetingVerificationService {
             throw new IllegalStateException("만남인증 가능 시간이 지났습니다.");
         }
         if(verification.isVerified()){
-            processLatecomer(chatRoomId, userId, latitude, longitude);
+            processLatecomer(chatRoomId, userId, latitude, longitude, verification);
             return "합류 성공! 보상이 지급됩니다.";
         }
         return processGeneral(chatRoomId, userId, latitude, longitude, verification);
@@ -112,11 +112,15 @@ public class MeetingVerificationService {
         MeetingVerification verification = verificationOpt.get();
         boolean mySubmitted = stringRedisTemplate.hasKey(String.format(POS_KEY, chatRoomId, userId));
         FinalLocation myLocation = getUserLocation(chatRoomId, userId).orElse(null);
-        BestCluster bestCluster = findBestCluster(chatRoomId);
+        BestCluster bestCluster = verification.isVerified()
+                ? BestCluster.verifiedSnapshot(verification)
+                : findBestCluster(chatRoomId);
 
         Instant now = Instant.now();
         long remainingSeconds = Math.max(0, verification.remainingTime(now).toSeconds());
-        FinalLocation finalLocation = getFinalLocation(chatRoomId).orElse(null);
+        FinalLocation finalLocation = verification.hasFinalLocation()
+                ? new FinalLocation(verification.getFinalLatitude(), verification.getFinalLongitude())
+                : getFinalLocation(chatRoomId).orElse(null);
 
         if(verification.isVerified()){
             return MeetingVerificationStatusData.verified(
@@ -176,7 +180,13 @@ public class MeetingVerificationService {
     }
 
 
-    private void processLatecomer(Long chatRoomId, Long userId, double latitude, double longitude ){
+    private void processLatecomer(
+            Long chatRoomId,
+            Long userId,
+            double latitude,
+            double longitude,
+            MeetingVerification verification
+    ){
         if(isAlreadyVerifiedParticipant(chatRoomId, userId)){
             throw new IllegalStateException("이미 만남인증에 참여 완료되었습니다.");
         }
@@ -196,6 +206,7 @@ public class MeetingVerificationService {
 
         //보상
         reward(chatRoomId, List.of(userId));
+        verification.recordVerifiedLatecomer();
         simpMessagingTemplate.convertAndSend("/topic/chat/"+ chatRoomId, "LATECOMER_OK:"+userId);
     }
 
@@ -219,7 +230,13 @@ public class MeetingVerificationService {
 
         if(nearbyCount >= requiredCount){
             if(bestCluster.hasMale() && bestCluster.hasFemale()){
-                verification.verify();
+                verification.verify(
+                        bestCluster.count(),
+                        bestCluster.latitude(),
+                        bestCluster.longitude(),
+                        bestCluster.hasMale(),
+                        bestCluster.hasFemale()
+                );
                 reward(chatRoomId, bestCluster.userIds());
                 Duration finalLocationTtl = verification.remainingTime(Instant.now());
                 if(finalLocationTtl.isZero() || finalLocationTtl.isNegative()){
@@ -242,7 +259,9 @@ public class MeetingVerificationService {
                         null,
                         Map.of(
                                 "verifiedAt", verification.getVerifiedAt().toString(),
-                                "participantCount", verification.getParticipantCount()
+                                "participantCount", bestCluster.count(),
+                                "submittedCount", verification.getParticipantCount(),
+                                "verifiedParticipantCount", bestCluster.count()
                         )
                 ));
                 return "모든 조건 충족! 만남 인증이 완료되었습니다. ✨";
@@ -331,7 +350,7 @@ public class MeetingVerificationService {
                 .average()
                 .orElse(0.0);
 
-        return new BestCluster(userIds, latitude, longitude, hasMale, hasFemale);
+        return new BestCluster(userIds, userIds.size(), latitude, longitude, hasMale, hasFemale);
     }
 
     private List<LocationSubmission> getLocationSubmissions(Long chatRoomId){
@@ -405,7 +424,9 @@ public class MeetingVerificationService {
             boolean verified,
             FinalLocation myLocation,
             FinalLocation finalLocation,
-            FinalLocation bestClusterLocation
+            FinalLocation bestClusterLocation,
+            int submittedCount,
+            int verifiedParticipantCount
     ) {
         static MeetingVerificationStatusData notStarted(int totalMembers, int requiredCount, BestCluster bestCluster, boolean mySubmitted){
             return new MeetingVerificationStatusData(
@@ -422,7 +443,9 @@ public class MeetingVerificationService {
                     false,
                     null,
                     null,
-                    bestCluster.locationOrNull()
+                    bestCluster.locationOrNull(),
+                    0,
+                    0
             );
         }
 
@@ -449,7 +472,9 @@ public class MeetingVerificationService {
                     false,
                     myLocation,
                     null,
-                    bestCluster.locationOrNull()
+                    bestCluster.locationOrNull(),
+                    verification.getParticipantCount(),
+                    0
             );
         }
 
@@ -477,7 +502,9 @@ public class MeetingVerificationService {
                     true,
                     myLocation,
                     finalLocation,
-                    bestCluster.locationOrNull()
+                    bestCluster.locationOrNull(),
+                    verification.getParticipantCount(),
+                    verification.getVerifiedParticipantCount()
             );
         }
 
@@ -503,7 +530,9 @@ public class MeetingVerificationService {
                     false,
                     myLocation,
                     null,
-                    bestCluster.locationOrNull()
+                    bestCluster.locationOrNull(),
+                    verification.getParticipantCount(),
+                    0
             );
         }
     }
@@ -514,17 +543,31 @@ public class MeetingVerificationService {
     private record LocationSubmission(Long userId, double latitude, double longitude) {
     }
 
-    private record BestCluster(List<Long> userIds, double latitude, double longitude, boolean hasMale, boolean hasFemale) {
+    private record BestCluster(
+            List<Long> userIds,
+            int count,
+            double latitude,
+            double longitude,
+            boolean hasMale,
+            boolean hasFemale
+    ) {
         static BestCluster empty(){
-            return new BestCluster(List.of(), 0.0, 0.0, false, false);
+            return new BestCluster(List.of(), 0, 0.0, 0.0, false, false);
         }
 
-        int count(){
-            return userIds.size();
+        static BestCluster verifiedSnapshot(MeetingVerification verification) {
+            return new BestCluster(
+                    List.of(),
+                    verification.getVerifiedParticipantCount(),
+                    verification.getFinalLatitude() == null ? 0.0 : verification.getFinalLatitude(),
+                    verification.getFinalLongitude() == null ? 0.0 : verification.getFinalLongitude(),
+                    verification.isVerifiedHasMale(),
+                    verification.isVerifiedHasFemale()
+            );
         }
 
         FinalLocation locationOrNull(){
-            if(userIds.isEmpty()){
+            if(count == 0){
                 return null;
             }
             return new FinalLocation(latitude, longitude);

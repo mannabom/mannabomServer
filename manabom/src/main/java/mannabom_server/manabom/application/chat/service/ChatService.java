@@ -16,7 +16,7 @@ import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
-import mannabom_server.manabom.domain.meeting.enums.SseEventName;
+import mannabom_server.manabom.domain.notification.enums.NotificationType;
 import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.ProfileImage;
 import mannabom_server.manabom.domain.user.entity.User;
@@ -82,18 +82,31 @@ public class ChatService {
 
         sender.updateLastReadMessageId(message.getId());
 
+        List<Long> recipientUserIds = members.stream()
+                .map(member -> member.getUser().getUserId())
+                .filter(memberUserId -> !memberUserId.equals(userId))
+                .toList();
+
         ChatMessageEvent event = ChatMessageEvent.builder()
                 .roomId(request.getRoomId())
                 .sendAt(message.getCreatedAt())
                 .senderUserId(userId)
+                .actorUserId(userId)
+                .recipientUserIds(recipientUserIds)
                 .content(request.getContent())
                 .messageId(message.getId())
                 .clientMessageId(request.getClientMessageId())
                 .messageType(request.getMessageType().name())
                 .build();
-        simpMessagingTemplate.convertAndSend("/topic/rooms/" + request.getRoomId(), event);
+        boolean broadcasted = broadcast(event);
 
-        sendNotificationWithSSEOrPush(request, members, userId, profile.getNickName());
+        sendPushToMembersOutsideRoom(
+                request,
+                members,
+                userId,
+                profile.getNickName(),
+                !broadcasted
+        );
 
         log.debug("채팅 전송 완료: room={}, sender={}, msgId={}", chatRoom.getId(), userId, message.getId());
 
@@ -101,7 +114,24 @@ public class ChatService {
 
 
 
-    private void sendNotificationWithSSEOrPush(ChatSendRequest request, List<ChatMember> members, Long senderId, String senderNickname) {
+    private boolean broadcast(ChatMessageEvent event) {
+        try {
+            simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.getRoomId(), event);
+            return true;
+        } catch (RuntimeException e) {
+            log.error("채팅 WebSocket 전송 실패: roomId={}, messageId={}",
+                    event.getRoomId(), event.getMessageId(), e);
+            return false;
+        }
+    }
+
+    private void sendPushToMembersOutsideRoom(
+            ChatSendRequest request,
+            List<ChatMember> members,
+            Long senderId,
+            String senderNickname,
+            boolean forcePush
+    ) {
         String displayContent = request.getMessageType().getDisplayMessage(request.getContent());
 
         Map<String, Object> notifyData = Map.of(
@@ -114,9 +144,15 @@ public class ChatService {
             if (targetUserId.equals(senderId)) continue;
 
             String userLocation = stringRedisTemplate.opsForValue().get("user:location:" + targetUserId);
-            if (!String.valueOf(request.getRoomId()).equals(userLocation)) {
+            if (forcePush || !String.valueOf(request.getRoomId()).equals(userLocation)) {
                 log.debug("유저 {} 는 방 밖에 있음. 알림 발송!", targetUserId);
-                notificationService.sendNotification(targetUserId, SseEventName.NEW_CHAT_MESSAGE, senderNickname, displayContent, notifyData);
+                notificationService.sendNotification(
+                        targetUserId,
+                        NotificationType.NEW_CHAT_MESSAGE,
+                        senderNickname,
+                        displayContent,
+                        notifyData
+                );
             }
         }
     }

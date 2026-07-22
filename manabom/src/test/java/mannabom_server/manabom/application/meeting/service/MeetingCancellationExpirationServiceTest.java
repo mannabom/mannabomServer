@@ -1,5 +1,8 @@
 package mannabom_server.manabom.application.meeting.service;
 
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
+import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
@@ -11,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +28,9 @@ class MeetingCancellationExpirationServiceTest {
 
     @Mock
     private MeetingCancellationRequestRepository requestRepository;
+    @Mock private ChatRoomRepository chatRoomRepository;
+    @Mock private ChatMemberRepository chatMemberRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private MeetingCancellationExpirationService expirationService;
@@ -34,6 +41,8 @@ class MeetingCancellationExpirationServiceTest {
         Instant now = requestedAt.plus(Duration.ofHours(25));
         MeetingCancellationRequest request = cancellationRequest(requestedAt);
         when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
+        when(chatRoomRepository.findByMatch(request.getMeetingMatch()))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
 
         boolean expired = expirationService.expire(30L, now);
 

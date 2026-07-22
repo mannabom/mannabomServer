@@ -3,8 +3,7 @@ package mannabom_server.manabom.application.matching.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
-import mannabom_server.manabom.application.chat.message.SystemMessageContent;
-import mannabom_server.manabom.application.notification.service.NotificationService;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -17,16 +16,14 @@ import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.enums.LoveViewPhotoStatus;
 import mannabom_server.manabom.domain.matching.enums.PhotoRequestStatus;
 import mannabom_server.manabom.domain.matching.repository.LoveViewPhotoRequestRepository;
-import mannabom_server.manabom.domain.meeting.enums.SseEventName;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -39,9 +36,6 @@ public class PhotoRequestService {
     private final UserRepository userRepository;
     private final ChatMemberRepository chatMemberRepository;
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
-    private final NotificationService notificationService;
-    private final StringRedisTemplate stringRedisTemplate;
     private final ApplicationEventPublisher eventPublisher;
 
     //조회- 채팅방 입장
@@ -108,12 +102,13 @@ public class PhotoRequestService {
                 .build();
 
         photoRequestRepository.save(request);
-        eventPublisher.publishEvent(new ChatSystemMessageEvent(
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
                 roomId,
-                SystemMessageContent.PHOTO_REQUESTED
+                SystemMessageType.PHOTO_REQUESTED,
+                userId,
+                List.of(receiver.getUserId()),
+                Map.of("status", LoveViewPhotoStatus.RECEIVED.name())
         ));
-        sendNotification(roomId, receiver.getUserId(), "프로필 공개 요청",
-                "상대방이 프로필을 몹시 궁금해하고 있어요!", SseEventName.PHOTO_REQUEST_RECEIVED, LoveViewPhotoStatus.RECEIVED);
 
     }
 
@@ -126,15 +121,15 @@ public class PhotoRequestService {
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.accept();
-        eventPublisher.publishEvent(new ChatSystemMessageEvent(
-                roomId,
-                SystemMessageContent.PHOTO_REQUEST_ACCEPTED
-        ));
-
         User opponent = getOpponent(roomId, userId);
-        sendNotification(roomId, opponent.getUserId(),
-                "프로필 열람 성공!", "상대방이 요청을 수락했어요! 지금 바로 확인해 보세요.",
-                SseEventName.PHOTO_REQUEST_ACCEPTED, LoveViewPhotoStatus.ACCEPTED);    }
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                roomId,
+                SystemMessageType.PHOTO_REQUEST_ACCEPTED,
+                userId,
+                List.of(opponent.getUserId()),
+                Map.of("status", LoveViewPhotoStatus.ACCEPTED.name())
+        ));
+    }
 
     //거절
     @Transactional
@@ -146,15 +141,14 @@ public class PhotoRequestService {
 
         LoveViewPhotoRequest request = findPendingRequest(room.getLoveView().getId(), userId);
         request.reject();
-        eventPublisher.publishEvent(new ChatSystemMessageEvent(
-                roomId,
-                SystemMessageContent.PHOTO_REQUEST_REJECTED
-        ));
-
         User opponent = getOpponent(roomId, userId);
-        sendNotification(roomId, opponent.getUserId(),
-                "다음에 다시 시도해 봐요!", "상대방이 아직은 사진 공개가 조금 부끄러운가 봐요.",
-                SseEventName.PHOTO_REQUEST_REJECTED, LoveViewPhotoStatus.REJECTED);
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                roomId,
+                SystemMessageType.PHOTO_REQUEST_REJECTED,
+                userId,
+                List.of(opponent.getUserId()),
+                Map.of("status", LoveViewPhotoStatus.REJECTED.name())
+        ));
     }
     private LoveViewPhotoRequest findPendingRequest(Long historyId, Long userId){
         LoveViewPhotoRequest request = photoRequestRepository.findTopByHistoryIdOrderByIdDesc(historyId)
@@ -192,15 +186,6 @@ public class PhotoRequestService {
                 .map(ChatMember::getUser)
                 .findFirst()
                 .orElseThrow(()-> new IllegalStateException("상대방이 채팅방을 나갔습니다."));
-    }
-    private void sendNotification(Long roomId, Long targetUserId, String title, String msg, SseEventName sseEventName, LoveViewPhotoStatus status){
-        simpMessagingTemplate.convertAndSend("/topic/rooms/"+roomId, Map.of("status", status, "roomId", roomId));
-
-        String location = stringRedisTemplate.opsForValue().get("user:location:"+targetUserId);
-        if(!String.valueOf(roomId).equals(location)){
-
-            notificationService.sendNotification(targetUserId,sseEventName,title, msg,Map.of("roomId",roomId));
-        }
     }
     private void validateActiveMember(Long roomId, Long userId) {
         chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(

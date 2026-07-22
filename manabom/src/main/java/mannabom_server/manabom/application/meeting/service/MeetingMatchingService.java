@@ -10,7 +10,6 @@ import mannabom_server.manabom.application.meeting.handler.MatchingEventListener
 import mannabom_server.manabom.application.notification.dto.MatchFailureEvent;
 import mannabom_server.manabom.application.notification.dto.MatchFoundEvent;
 import mannabom_server.manabom.application.notification.dto.MatchSuccessEvent;
-import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
@@ -217,7 +216,7 @@ public class MeetingMatchingService {
         checkRejectCount(meeting2, meetingMatch);
 
         if(meetingMatch.getMatchingStatus() == MatchingStatus.SUCCEEDED){
-            handleMatchSuccess(meetingMatch,false);
+            handleMatchSuccess(meetingMatch,false, null);
         }
         else eventPublisher.publishEvent(new MatchFoundEvent(meetingMatch.getId(), meetingMatch.getDecisionDeadLine()));
     }
@@ -256,7 +255,7 @@ public class MeetingMatchingService {
         match.accept(myMeeting.getId());
         if(match.getMatchingStatus()== MatchingStatus.SUCCEEDED){
             log.info("매칭 성사! 채팅방 생성을 위한 추가 정보 로딩... matchId={}", matchId);
-            MatchedChatRoomInfo info = handleMatchSuccess(match,false);
+            MatchedChatRoomInfo info = handleMatchSuccess(match,false, userId);
             //상대방 알림
             return AcceptMatchDataDto.ofMatched(info);
         }
@@ -282,7 +281,7 @@ public class MeetingMatchingService {
 
         //둘 다 수락 - 정상 사용자라면 이럴 일 없지만
         if(match.getMatchingStatus() == MatchingStatus.SUCCEEDED){
-            handleMatchSuccess(match,false);
+            handleMatchSuccess(match,false, userId);
         }
         if(match.getMatchingStatus()==MatchingStatus.FAILED){
             handleMatchFailure(match ,userId,false);
@@ -326,7 +325,7 @@ public class MeetingMatchingService {
         }
         match.processExpiration();
         if(match.getMatchingStatus().equals(MatchingStatus.SUCCEEDED)){
-            handleMatchSuccess(match,true);
+            handleMatchSuccess(match,true, null);
 
         }
         else if(match.getMatchingStatus().equals(MatchingStatus.FAILED)) {
@@ -335,10 +334,19 @@ public class MeetingMatchingService {
 
     }
 
-    private MatchedChatRoomInfo handleMatchSuccess(MeetingMatch match, boolean isByTimeout){
-        MatchedChatRoomInfo info =  chatRoomService.createMatchingChatRoom(match);
+    private MatchedChatRoomInfo handleMatchSuccess(
+            MeetingMatch match,
+            boolean isByTimeout,
+            Long triggerUserId
+    ){
+        MatchedChatRoomInfo info =  chatRoomService.createMatchingChatRoom(match, triggerUserId);
         chatRoomService.disableMeetingGroupChatRooms(match);
-        eventPublisher.publishEvent(new MatchSuccessEvent(match.getId(),info.getRoomId(),isByTimeout));
+        eventPublisher.publishEvent(new MatchSuccessEvent(
+                match.getId(),
+                info.getRoomId(),
+                isByTimeout,
+                triggerUserId
+        ));
         return info;
     }
 

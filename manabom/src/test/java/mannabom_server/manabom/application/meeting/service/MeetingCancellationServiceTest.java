@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.meeting.service;
 
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +57,8 @@ class MeetingCancellationServiceTest {
     private ChatMemberRepository chatMemberRepository;
     @Mock
     private MeetingCancellationExpirationService expirationService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private MeetingCancellationService meetingCancellationService;
@@ -115,6 +119,8 @@ class MeetingCancellationServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(initiator));
         when(requestRepository.save(any(MeetingCancellationRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(chatRoomRepository.findByMatch(match))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
 
         var response = meetingCancellationService.create(20L, 1L);
 
@@ -152,6 +158,8 @@ class MeetingCancellationServiceTest {
                 .thenReturn(List.of());
         when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))
                 .thenReturn(List.of());
+        when(chatRoomRepository.findByMatch(match))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
 
         meetingCancellationService.vote(30L, 2L, CancellationVoteDecision.AGREE);
 

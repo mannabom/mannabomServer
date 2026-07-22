@@ -2,7 +2,7 @@ package mannabom_server.manabom.application.matching.service;
 
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
 import mannabom_server.manabom.application.chat.message.SystemMessageContent;
-import mannabom_server.manabom.application.notification.service.NotificationService;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -24,9 +24,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,10 +41,6 @@ class PhotoRequestServiceTest {
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private UserRepository userRepository;
     @Mock private ChatMemberRepository chatMemberRepository;
-    @Mock private SimpMessagingTemplate messagingTemplate;
-    @Mock private NotificationService notificationService;
-    @Mock private StringRedisTemplate redisTemplate;
-    @Mock private ValueOperations<String, String> valueOperations;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
@@ -68,8 +61,6 @@ class PhotoRequestServiceTest {
                 .loveView(history)
                 .build();
         when(chatRoomRepository.findById(77L)).thenReturn(Optional.of(room));
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(any(String.class))).thenReturn("77");
     }
 
     @Test
@@ -85,7 +76,7 @@ class PhotoRequestServiceTest {
 
         photoRequestService.createPhotoRequest(77L, 1L);
 
-        assertPublishedMessage(SystemMessageContent.PHOTO_REQUESTED);
+        assertPublishedMessage(SystemMessageType.PHOTO_REQUESTED, 1L, 2L);
     }
 
     @Test
@@ -100,7 +91,7 @@ class PhotoRequestServiceTest {
         photoRequestService.acceptPhotoRequest(77L, 2L);
 
         assertThat(request.getStatus()).isEqualTo(PhotoRequestStatus.ACCEPTED);
-        assertPublishedMessage(SystemMessageContent.PHOTO_REQUEST_ACCEPTED);
+        assertPublishedMessage(SystemMessageType.PHOTO_REQUEST_ACCEPTED, 2L, 1L);
     }
 
     @Test
@@ -115,7 +106,7 @@ class PhotoRequestServiceTest {
         photoRequestService.rejectPhotoRequest(77L, 2L);
 
         assertThat(request.getStatus()).isEqualTo(PhotoRequestStatus.REJECTED);
-        assertPublishedMessage(SystemMessageContent.PHOTO_REQUEST_REJECTED);
+        assertPublishedMessage(SystemMessageType.PHOTO_REQUEST_REJECTED, 2L, 1L);
     }
 
     private void allowActiveMember(User user) {
@@ -135,12 +126,19 @@ class PhotoRequestServiceTest {
                 .build();
     }
 
-    private void assertPublishedMessage(String expectedContent) {
+    private void assertPublishedMessage(
+            SystemMessageType expectedType,
+            Long actorUserId,
+            Long recipientUserId
+    ) {
         ArgumentCaptor<ChatSystemMessageEvent> captor =
                 ArgumentCaptor.forClass(ChatSystemMessageEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().roomId()).isEqualTo(77L);
-        assertThat(captor.getValue().content()).isEqualTo(expectedContent);
+        assertThat(captor.getValue().type()).isEqualTo(expectedType);
+        assertThat(captor.getValue().type().getContent()).isEqualTo(expectedType.getContent());
+        assertThat(captor.getValue().actorUserId()).isEqualTo(actorUserId);
+        assertThat(captor.getValue().recipientUserIds()).containsExactly(recipientUserId);
     }
 
     private static User user(Long id) {

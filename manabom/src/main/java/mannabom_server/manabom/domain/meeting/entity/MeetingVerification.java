@@ -31,6 +31,8 @@ public class MeetingVerification {
 
     private Instant verifiedAt;
 
+    private Instant failureNotifiedAt;
+
     @Builder
     public MeetingVerification(ChatRoom room) {
         this.room = room;
@@ -58,6 +60,20 @@ public class MeetingVerification {
     public void verify(){
         this.isVerified = true;
         this.verifiedAt = Instant.now();
+    }
+
+    public boolean needsFailureNotification(Instant now) {
+        return !isVerified
+                && failureNotifiedAt == null
+                && expiresAt != null
+                && !now.isBefore(expiresAt);
+    }
+
+    public void markFailureNotified(Instant now) {
+        if (!needsFailureNotification(now)) {
+            throw new IllegalStateException("만남 인증 실패 알림 대상이 아닙니다.");
+        }
+        this.failureNotifiedAt = now;
     }
 
 }

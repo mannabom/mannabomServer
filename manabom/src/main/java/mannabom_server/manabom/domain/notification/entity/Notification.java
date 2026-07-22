@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import mannabom_server.manabom.domain.meeting.enums.SseEventName;
-import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.notification.enums.NotificationType;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
@@ -28,7 +27,7 @@ public class Notification {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", length = 50)
-    private SseEventName type;
+    private NotificationType type;
 
     @Column(columnDefinition = "TEXT") // 혹은 @Lob. 내용이 길어질 수 있으므로 TEXT 권장
     private String data;

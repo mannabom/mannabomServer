@@ -2,6 +2,8 @@ package mannabom_server.manabom.application.meeting.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -17,6 +19,7 @@ import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.global.util.LocationUtils;
 import org.redisson.api.RedissonClient;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +45,7 @@ public class MeetingVerificationService {
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String POS_KEY = "meeting:pos:%d:%d";
     private static final String GATHER_KEY = "meeting:gather:%d";
@@ -57,7 +62,17 @@ public class MeetingVerificationService {
         MeetingVerification verification = getOrCreateVerification(room);
         Instant now = Instant.now();
 
+        boolean startedNow = verification.getStartedAt() == null;
         verification.startIfNeeded(now, VERIFICATION_TTL);
+        if (startedNow) {
+            eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                    chatRoomId,
+                    SystemMessageType.MEETING_VERIFICATION_STARTED,
+                    userId,
+                    null,
+                    Map.of("expiresAt", verification.getExpiresAt().toString())
+            ));
+        }
         if(verification.isExpired(now)){
             throw new IllegalStateException("만남인증 가능 시간이 지났습니다.");
         }
@@ -216,7 +231,13 @@ public class MeetingVerificationService {
                 redissonClient.getBucket(String.format(FINAL_LOC_KEY, chatRoomId)).expire(finalLocationTtl);
                 stringRedisTemplate.delete(gatherKey);
 
-                simpMessagingTemplate.convertAndSend("/topic/chat/" + chatRoomId, "VERIFIED_SUCCESS");
+                eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                        chatRoomId,
+                        SystemMessageType.MEETING_VERIFICATION_SUCCEEDED,
+                        userId,
+                        null,
+                        Map.of("verifiedAt", verification.getVerifiedAt().toString())
+                ));
                 return "모든 조건 충족! 만남 인증이 완료되었습니다. ✨";
 
             } else {

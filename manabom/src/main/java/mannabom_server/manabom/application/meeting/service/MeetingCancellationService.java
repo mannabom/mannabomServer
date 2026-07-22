@@ -2,6 +2,8 @@ package mannabom_server.manabom.application.meeting.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -23,12 +25,15 @@ import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +50,7 @@ public class MeetingCancellationService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final MeetingCancellationExpirationService expirationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public void validateNoPendingCancellation(Long meetingId) {
@@ -106,6 +112,12 @@ public class MeetingCancellationService {
                         : MeetingCancellationVote.pending(request, member.getUser()))
                 .toList();
         voteRepository.saveAll(votes);
+        publishCancellationEvent(
+                request,
+                SystemMessageType.MEETING_CANCELLATION_VOTE_STARTED,
+                userId,
+                memberUserIds(members)
+        );
 
         return MeetingCancellationResponse.of(request, votes);
     }
@@ -132,12 +144,25 @@ public class MeetingCancellationService {
         MeetingCancellationVote vote = voteRepository
                 .findByRequest_IdAndUser_UserId(requestId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 미팅의 투표 대상자가 아닙니다."));
+        List<Long> recipientUserIds = memberUserIds(activeMembers(request.getMeetingMatch()));
         vote.decide(decision, now);
 
         if (decision == CancellationVoteDecision.REJECT) {
             request.reject(now);
+            publishCancellationEvent(
+                    request,
+                    SystemMessageType.MEETING_CANCELLATION_REJECTED,
+                    userId,
+                    recipientUserIds
+            );
         } else if (allMembersAgreed(requestId)) {
             approveCancellation(request, now);
+            publishCancellationEvent(
+                    request,
+                    SystemMessageType.MEETING_CANCELLATION_APPROVED,
+                    userId,
+                    recipientUserIds
+            );
         }
 
         return response(request);
@@ -202,7 +227,14 @@ public class MeetingCancellationService {
             Instant now
     ) {
         if (request.isExpiredAt(now)) {
+            List<Long> recipients = memberUserIds(activeMembers(request.getMeetingMatch()));
             request.expire(now);
+            publishCancellationEvent(
+                    request,
+                    SystemMessageType.MEETING_CANCELLATION_EXPIRED,
+                    null,
+                    recipients
+            );
         }
     }
 
@@ -235,6 +267,38 @@ public class MeetingCancellationService {
                 meetingId,
                 ChatUserStatus.ACTIVE
         );
+    }
+
+    private List<Long> memberUserIds(List<MeetingMember> members) {
+        return members.stream()
+                .map(member -> member.getUser().getUserId())
+                .distinct()
+                .toList();
+    }
+
+    private void publishCancellationEvent(
+            MeetingCancellationRequest request,
+            SystemMessageType type,
+            Long actorUserId,
+            List<Long> recipientUserIds
+    ) {
+        Long roomId = chatRoomRepository.findByMatch(request.getMeetingMatch())
+                .map(ChatRoom::getId)
+                .orElseThrow(() -> new IllegalStateException("매칭 채팅방이 존재하지 않습니다."));
+        Map<String, Object> data = new HashMap<>();
+        if (request.getId() != null) {
+            data.put("requestId", request.getId());
+        }
+        data.put("status", request.getStatus().name());
+        data.put("expiresAt", request.getExpiresAt().toString());
+
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                roomId,
+                type,
+                actorUserId,
+                recipientUserIds,
+                data
+        ));
     }
 
     private void validateActiveParticipant(MeetingMatch match, Long userId) {

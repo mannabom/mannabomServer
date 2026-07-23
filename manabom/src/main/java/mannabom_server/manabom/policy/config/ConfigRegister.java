@@ -10,7 +10,8 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties({
         MatchPolicyProperties.class,
         BenefitPolicyProperties.class,
-        TingPolicyProperties.class
+        TingPolicyProperties.class,
+        GifticonPricingProperties.class
 })
 public class ConfigRegister {
 }

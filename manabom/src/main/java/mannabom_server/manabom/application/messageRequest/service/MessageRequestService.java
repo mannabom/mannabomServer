@@ -11,6 +11,8 @@ import mannabom_server.manabom.application.pushService.service.pushSender.PushSe
 import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
+import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
@@ -41,9 +43,16 @@ public class MessageRequestService {
     private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
+    private final GifticonProductRepository gifticonProductRepository;
 
     @Transactional
-    public SendMessageResponseDto sendMessageRequest(Long fromUserId, Long toProfileId, String message, MessageSource source) {
+    public SendMessageResponseDto sendMessageRequest(
+            Long fromUserId,
+            Long toProfileId,
+            String message,
+            MessageSource source,
+            Long gifticonProductId
+    ) {
         if(fromUserId == null) throw new IllegalArgumentException("요청자의 정보를 찾을 수 없습니다.");
         if(toProfileId == null) throw new IllegalArgumentException("toProfileId가 비어있습니다.");
 
@@ -52,6 +61,7 @@ public class MessageRequestService {
         Long toUserId = toProfile.getUser().getUserId();
 
         if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
+        GifticonProduct gifticonProduct = findOrderableGifticon(gifticonProductId);
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -95,7 +105,13 @@ public class MessageRequestService {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
 
-        MessageRequest messageRequest = new MessageRequest(fromUserId, toUserId, message, source);
+        MessageRequest messageRequest = new MessageRequest(
+                fromUserId,
+                toUserId,
+                message,
+                source,
+                gifticonProduct
+        );
         messageRequestRepository.save(messageRequest);
 
         try {
@@ -116,6 +132,19 @@ public class MessageRequestService {
                 .additionalProfileNum(response.getAdditionalProfileNum())
                 .build();
 
+    }
+
+    private GifticonProduct findOrderableGifticon(Long gifticonProductId) {
+        if (gifticonProductId == null) {
+            return null;
+        }
+
+        GifticonProduct product = gifticonProductRepository.findById(gifticonProductId)
+                .orElseThrow(() -> new IllegalArgumentException("기프티콘 상품을 찾을 수 없습니다."));
+        if (!product.isAvailableAt(LocalDateTime.now())) {
+            throw new IllegalStateException("현재 선택할 수 없는 기프티콘 상품입니다.");
+        }
+        return product;
     }
 
     @Transactional

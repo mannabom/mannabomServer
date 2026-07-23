@@ -150,4 +150,10 @@ public class GifticonProduct extends BaseTimeEntity {
         this.tingPrice = calculatedTingPrice;
         this.tingPriceManuallySet = false;
     }
+
+    public boolean isAvailableAt(LocalDateTime now) {
+        return available
+                && (startAt == null || !startAt.isAfter(now))
+                && (endAt == null || endAt.isAfter(now));
+    }
 }

@@ -15,4 +15,6 @@ public class SendMessageRequestDto {
     private MessageSource source;
 
     private String message;
+
+    private Long gifticonProductId;
 }

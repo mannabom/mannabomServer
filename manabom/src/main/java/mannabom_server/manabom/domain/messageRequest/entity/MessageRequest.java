@@ -3,6 +3,7 @@ package mannabom_server.manabom.domain.messageRequest.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 
@@ -53,11 +54,22 @@ public class MessageRequest {
     @Column(name="responded_at")
     private LocalDateTime respondedAt;
 
-    public MessageRequest(Long fromUserId, Long toUserId, String message, MessageSource source) {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gifticon_product_id")
+    private GifticonProduct gifticonProduct;
+
+    public MessageRequest(
+            Long fromUserId,
+            Long toUserId,
+            String message,
+            MessageSource source,
+            GifticonProduct gifticonProduct
+    ) {
         this.fromUserId = fromUserId;
         this.toUserId = toUserId;
         this.message = message;
         this.source = source;
+        this.gifticonProduct = gifticonProduct;
         this.status = MessageRequestStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }

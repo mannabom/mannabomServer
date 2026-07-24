@@ -36,6 +36,7 @@
         </div>
         <nav class="nav">
             <button class="nav-item active" data-view="usersView">회원</button>
+            <button class="nav-item super-only" data-view="gifticonsView">기프티콘</button>
             <button class="nav-item" data-view="policiesView">운영 정책</button>
             <button class="nav-item" data-view="pushView">푸시 알림</button>
             <button class="nav-item" data-view="reportsView">신고</button>
@@ -129,6 +130,96 @@
                     </div>
                     <div id="userDetail" class="detail-empty">회원을 선택하세요.</div>
                     <p id="userActionResult" class="feedback"></p>
+                </section>
+            </div>
+        </section>
+
+        <section id="gifticonsView" class="view hidden">
+            <div class="notice">
+                <strong>템플릿 토큰은 최초 1회만 등록하면 됩니다.</strong>
+                <span>일일 동기화에서 같은 templateTraceId의 상품은 기존 토큰을 유지하며, 새로 추가된 템플릿만 토큰을 등록하면 사용자 목록에 노출됩니다.</span>
+            </div>
+            <div class="filter-grid gifticon-filter-grid">
+                <label>
+                    <span>토큰 상태</span>
+                    <select id="gifticonTokenFilter">
+                        <option value="">전체</option>
+                        <option value="false">미등록</option>
+                        <option value="true">등록 완료</option>
+                    </select>
+                </label>
+                <label>
+                    <span>페이지 크기</span>
+                    <select id="gifticonPageSize">
+                        <option value="20">20개</option>
+                        <option value="50">50개</option>
+                        <option value="100">100개</option>
+                    </select>
+                </label>
+                <button id="clearGifticonFilterButton" class="ghost" type="button">초기화</button>
+            </div>
+            <div class="toolbar">
+                <input id="gifticonKeyword" type="search" placeholder="브랜드, 상품명, 템플릿명 검색">
+                <button id="gifticonSearchButton" class="secondary" type="button">검색</button>
+            </div>
+            <div class="content-grid gifticon-content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <div>
+                            <h3>동기화된 기프티콘</h3>
+                            <p id="gifticonListInfo" class="muted"></p>
+                        </div>
+                        <span class="muted">토큰 원문은 표시되지 않습니다.</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>상품</th>
+                                <th>브랜드</th>
+                                <th>가격</th>
+                                <th>팅</th>
+                                <th>판매</th>
+                                <th>토큰</th>
+                            </tr>
+                            </thead>
+                            <tbody id="gifticonsTable"></tbody>
+                        </table>
+                    </div>
+                    <div class="pager">
+                        <button id="prevGifticonPageButton" class="ghost" type="button">이전</button>
+                        <span id="gifticonPageInfo">1 페이지</span>
+                        <button id="nextGifticonPageButton" class="ghost" type="button">다음</button>
+                    </div>
+                </section>
+
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>템플릿 토큰 등록</h3>
+                        <span id="selectedGifticonLabel" class="muted">상품을 선택하세요.</span>
+                    </div>
+                    <div id="gifticonDetail" class="detail-empty">왼쪽 목록에서 상품을 선택하세요.</div>
+                    <form id="gifticonTokenForm" class="form-panel hidden">
+                        <input id="gifticonIdInput" type="hidden">
+                        <label>
+                            <span>카카오 템플릿 토큰</span>
+                            <input
+                                    id="gifticonTokenInput"
+                                    type="password"
+                                    autocomplete="new-password"
+                                    maxlength="512"
+                                    placeholder="토큰 원문 입력"
+                                    required
+                            >
+                        </label>
+                        <p class="security-note">토큰은 저장 즉시 AES-256-GCM으로 암호화되며 화면에 다시 표시되지 않습니다.</p>
+                        <label>
+                            <span>등록/변경 사유</span>
+                            <input id="gifticonTokenReason" type="text" maxlength="500" placeholder="예: 신규 템플릿 등록" required>
+                        </label>
+                        <button id="gifticonTokenSaveButton" type="submit" class="primary">암호화하여 저장</button>
+                        <p id="gifticonTokenResult" class="feedback"></p>
+                    </form>
                 </section>
             </div>
         </section>

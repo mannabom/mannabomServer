@@ -27,7 +27,8 @@ const state = {
     gifticonKeyword: "",
     gifticonTokenConfigured: null,
     gifticonItems: [],
-    isSavingGifticonToken: false
+    isSavingGifticonToken: false,
+    isSynchronizingGifticons: false
 };
 
 const policyKeys = [
@@ -171,6 +172,7 @@ function bindEvents() {
         loadAudits();
     });
     $("gifticonTokenForm").addEventListener("submit", saveGifticonToken);
+    $("synchronizeGifticonsButton").addEventListener("click", synchronizeGifticons);
     $("gifticonSearchButton").addEventListener("click", applyGifticonFilters);
     $("gifticonKeyword").addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
@@ -343,6 +345,37 @@ function resetGifticonPagination() {
     state.gifticonCursorHistory = [];
     state.gifticonNextCursor = null;
     state.gifticonPage = 0;
+}
+
+async function synchronizeGifticons() {
+    if (state.isSynchronizingGifticons) {
+        return;
+    }
+
+    state.isSynchronizingGifticons = true;
+    const button = $("synchronizeGifticonsButton");
+    const resultElement = $("gifticonSyncResult");
+    button.disabled = true;
+    button.textContent = "동기화 중...";
+    resultElement.textContent = "카카오 Gift Biz에서 활성 템플릿을 조회하고 있습니다.";
+    resultElement.classList.remove("error-text");
+
+    try {
+        const result = await request("/api/admin/gifticons/synchronize", {
+            method: "POST"
+        });
+        resultElement.textContent =
+            `${formatNumber(result.synchronizedCount)}개 동기화 완료 · ${formatDate(result.synchronizedAt)}`;
+        resetGifticonPagination();
+        await loadGifticons();
+    } catch (error) {
+        resultElement.textContent = `동기화 실패: ${error.message}`;
+        resultElement.classList.add("error-text");
+    } finally {
+        state.isSynchronizingGifticons = false;
+        button.disabled = false;
+        button.textContent = "카카오에서 지금 동기화";
+    }
 }
 
 async function loadGifticons() {
@@ -1499,6 +1532,7 @@ function auditActionLabel(actionType) {
         WALLET_ADJUST: "팅 지갑 조정",
         MEMBERSHIP_ACTIVATE: "멤버십 활성화",
         POLICY_UPDATE: "운영 정책 변경",
+        GIFTICON_CATALOG_SYNC: "기프티콘 상품 동기화",
         PUSH_SEND: "푸시 발송",
         REPORT_PROCESS: "신고 처리",
         GIFTICON_TEMPLATE_TOKEN_UPDATE: "기프티콘 토큰 등록/변경"

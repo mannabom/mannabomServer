@@ -297,6 +297,35 @@ textarea:focus {
     color: #486763;
 }
 
+.gifticon-sync-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.gifticon-sync-row > div {
+    display: grid;
+    gap: 4px;
+}
+
+.gifticon-sync-row button {
+    flex: 0 0 auto;
+}
+
+.gifticon-sync-result {
+    min-height: 18px;
+    margin: 2px 0 0;
+    color: var(--accent-dark);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .panel {
     min-width: 0;
     background: var(--surface);
@@ -760,6 +789,11 @@ tr[data-gifticon-id].selected {
 
     .gifticon-content-grid {
         grid-template-columns: 1fr;
+    }
+
+    .gifticon-sync-row {
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .policy-row {

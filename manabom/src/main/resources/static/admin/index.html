@@ -136,8 +136,16 @@
 
         <section id="gifticonsView" class="view hidden">
             <div class="notice">
-                <strong>템플릿 토큰은 최초 1회만 등록하면 됩니다.</strong>
-                <span>일일 동기화에서 같은 templateTraceId의 상품은 기존 토큰을 유지하며, 새로 추가된 템플릿만 토큰을 등록하면 사용자 목록에 노출됩니다.</span>
+                <div class="gifticon-sync-row">
+                    <div>
+                        <strong>템플릿 토큰은 최초 1회만 등록하면 됩니다.</strong>
+                        <span>일일 동기화에서 같은 templateTraceId의 상품은 기존 토큰을 유지하며, 새로 추가된 템플릿만 토큰을 등록하면 사용자 목록에 노출됩니다.</span>
+                    </div>
+                    <button id="synchronizeGifticonsButton" class="primary" type="button">
+                        카카오에서 지금 동기화
+                    </button>
+                </div>
+                <p id="gifticonSyncResult" class="gifticon-sync-result"></p>
             </div>
             <div class="filter-grid gifticon-filter-grid">
                 <label>

@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.admin.dto.request.AdminConfigureGifticonTokenRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductResponse;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductSliceResponse;
+import mannabom_server.manabom.application.admin.dto.response.AdminGifticonSyncResponse;
 import mannabom_server.manabom.application.admin.service.AdminGifticonService;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +42,19 @@ public class AdminGifticonController {
                         size,
                         tokenConfigured,
                         keyword
+                )
+        );
+    }
+
+    @PostMapping("/synchronize")
+    public ResponseEntity<AdminGifticonSyncResponse> synchronize(
+            @AuthenticationPrincipal AdminPrincipal admin,
+            HttpServletRequest httpRequest
+    ) {
+        return ResponseEntity.ok(
+                adminGifticonService.synchronizeCatalog(
+                        admin,
+                        clientIp(httpRequest)
                 )
         );
     }

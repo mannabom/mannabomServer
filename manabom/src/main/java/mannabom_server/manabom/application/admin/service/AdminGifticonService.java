@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.admin.dto.request.AdminConfigureGifticonTokenRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductResponse;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductSliceResponse;
+import mannabom_server.manabom.application.admin.dto.response.AdminGifticonSyncResponse;
 import mannabom_server.manabom.application.gifticon.port.GifticonTokenCipher;
+import mannabom_server.manabom.application.gifticon.service.GifticonCatalogSynchronizer;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditActionType;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditTargetType;
 import mannabom_server.manabom.domain.admin.enums.AdminRole;
@@ -27,6 +29,7 @@ public class AdminGifticonService {
     private final GifticonProductRepository gifticonProductRepository;
     private final AdminAuditService adminAuditService;
     private final GifticonTokenCipher gifticonTokenCipher;
+    private final GifticonCatalogSynchronizer gifticonCatalogSynchronizer;
 
     @Transactional(readOnly = true)
     public AdminGifticonProductSliceResponse getProducts(
@@ -59,6 +62,30 @@ public class AdminGifticonService {
                 ? current.get(current.size() - 1).getGifticonProductId()
                 : null;
         return new AdminGifticonProductSliceResponse(contents, nextCursor, hasNext);
+    }
+
+    public AdminGifticonSyncResponse synchronizeCatalog(
+            AdminPrincipal admin,
+            String ipAddress
+    ) {
+        requireSuperAdmin(admin);
+        GifticonCatalogSynchronizer.SynchronizationResult result =
+                gifticonCatalogSynchronizer.synchronize();
+
+        adminAuditService.log(
+                admin.adminId(),
+                AdminAuditActionType.GIFTICON_CATALOG_SYNC,
+                AdminAuditTargetType.GIFTICON_PRODUCT,
+                null,
+                null,
+                "synchronizedCount=" + result.synchronizedCount(),
+                "관리자 수동 동기화",
+                ipAddress
+        );
+        return new AdminGifticonSyncResponse(
+                result.synchronizedCount(),
+                result.synchronizedAt()
+        );
     }
 
     @Transactional

@@ -5,12 +5,15 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.gifticon.service.GifticonOrderService;
 import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
 import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
@@ -47,6 +50,7 @@ public class MessageRequestService {
     private final ChatRoomService chatRoomService;
     private final GifticonProductRepository gifticonProductRepository;
     private final GifticonOrderService gifticonOrderService;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     @Transactional
     public SendMessageResponseDto sendMessageRequest(
@@ -65,6 +69,10 @@ public class MessageRequestService {
 
         if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
         GifticonProduct gifticonProduct = findOrderableGifticon(gifticonProductId);
+        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("이미 요청을 보냈습니다.");
+                });
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -72,17 +80,29 @@ public class MessageRequestService {
         TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(fromUserId)
                 .orElseGet(() -> tingWalletRepository.save(new TingWallet(fromUserId)));
 
+        MessageRequest messageRequest = messageRequestRepository.save(new MessageRequest(
+                fromUserId,
+                toUserId,
+                message,
+                source,
+                gifticonProduct
+        ));
+
         if (gifticonProduct != null) {
             if (gifticonProduct.getTingPrice() <= 0) {
                 throw new IllegalStateException("기프티콘의 팅 가격이 올바르지 않습니다.");
             }
             tingWallet.spendTing(gifticonProduct.getTingPrice());
+            tingTransactionRecorder.recordPaid(
+                    tingWallet,
+                    TingTransactionType.GIFTICON_HOLD,
+                    -gifticonProduct.getTingPrice(),
+                    TingTransactionReferenceType.MESSAGE_REQUEST,
+                    String.valueOf(messageRequest.getId()),
+                    giftTransactionKey(messageRequest.getId(), "HOLD"),
+                    "메시지 요청 기프티콘 결제 보류"
+            );
         }
-
-        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
-                .ifPresent(existing -> {
-                    throw new IllegalStateException("이미 요청을 보냈습니다.");
-                });
 
         int vipMessageRemains = 0;
         int membershipMessageRemains = 0;
@@ -105,24 +125,33 @@ public class MessageRequestService {
 
         if(tingWallet.getEventTing() >= messageCost) {
             tingWallet.spendEventTing(messageCost);
+            tingTransactionRecorder.recordEvent(
+                    tingWallet,
+                    TingTransactionType.MESSAGE_REQUEST,
+                    -messageCost,
+                    TingTransactionReferenceType.MESSAGE_REQUEST,
+                    String.valueOf(messageRequest.getId()),
+                    "MESSAGE_REQUEST:" + messageRequest.getId() + ":EVENT_COST",
+                    "메시지 요청 비용"
+            );
         } else if (vipMessageRemains > 0){
             tingWallet.consumeVipFreeMessage(today);
         } else if (membershipMessageRemains > 0) {
             tingWallet.consumeMembershipFreeMessage(now);
         } else if (tingWallet.getTing() >= messageCost) {
             tingWallet.spendTing(messageCost);
+            tingTransactionRecorder.recordPaid(
+                    tingWallet,
+                    TingTransactionType.MESSAGE_REQUEST,
+                    -messageCost,
+                    TingTransactionReferenceType.MESSAGE_REQUEST,
+                    String.valueOf(messageRequest.getId()),
+                    "MESSAGE_REQUEST:" + messageRequest.getId() + ":PAID_COST",
+                    "메시지 요청 비용"
+            );
         } else {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
-
-        MessageRequest messageRequest = new MessageRequest(
-                fromUserId,
-                toUserId,
-                message,
-                source,
-                gifticonProduct
-        );
-        messageRequestRepository.save(messageRequest);
 
         try {
             pushService.sendToUser(toUserId, PushMessages.messageRequestReceived(fromUserId, message));
@@ -178,6 +207,18 @@ public class MessageRequestService {
             messageRequest.captureGiftPayment();
             chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
             if (messageRequest.getGifticonProduct() != null) {
+                TingWallet senderWallet = tingWalletRepository
+                        .findByUserIdForUpdate(messageRequest.getFromUserId())
+                        .orElseThrow(() -> new IllegalStateException("발신자의 팅 지갑을 찾을 수 없습니다."));
+                tingTransactionRecorder.recordPaid(
+                        senderWallet,
+                        TingTransactionType.GIFTICON_CAPTURE,
+                        0,
+                        TingTransactionReferenceType.MESSAGE_REQUEST,
+                        String.valueOf(messageRequest.getId()),
+                        giftTransactionKey(messageRequest.getId(), "CAPTURE"),
+                        "메시지 요청 수락으로 기프티콘 결제 확정"
+                );
                 gifticonOrderStatus = gifticonOrderService.prepareOrder(messageRequest);
             }
         } else {
@@ -206,7 +247,21 @@ public class MessageRequestService {
         TingWallet senderWallet = tingWalletRepository
                 .findByUserIdForUpdate(messageRequest.getFromUserId())
                 .orElseThrow(() -> new IllegalStateException("발신자의 팅 지갑을 찾을 수 없습니다."));
-        senderWallet.addTing(messageRequest.releaseGiftPayment());
+        int releasedTing = messageRequest.releaseGiftPayment();
+        senderWallet.addTing(releasedTing);
+        tingTransactionRecorder.recordPaid(
+                senderWallet,
+                TingTransactionType.GIFTICON_RELEASE,
+                releasedTing,
+                TingTransactionReferenceType.MESSAGE_REQUEST,
+                String.valueOf(messageRequest.getId()),
+                giftTransactionKey(messageRequest.getId(), "RELEASE"),
+                "메시지 요청 거절로 기프티콘 결제 보류 해제"
+        );
+    }
+
+    private String giftTransactionKey(Long messageRequestId, String action) {
+        return "MESSAGE_REQUEST:" + messageRequestId + ":GIFTICON_" + action;
     }
 
     private Long createChatRoom(Long requesterUserId, Long targetUserId, MessageSource source) {

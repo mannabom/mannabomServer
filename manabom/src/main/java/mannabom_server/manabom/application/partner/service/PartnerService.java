@@ -10,7 +10,11 @@ import mannabom_server.manabom.application.partner.dto.request.PurchaseAdditiona
 import mannabom_server.manabom.application.partner.dto.request.UnlockTargetPhotoRequestDto;
 import mannabom_server.manabom.application.partner.dto.response.*;
 import mannabom_server.manabom.application.common.port.FileStoragePort;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingBalanceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeStatus;
@@ -57,6 +61,7 @@ public class PartnerService {
     private final TingWalletRepository tingWalletRepository;
     private final ProfileRatingRepository profileRatingRepository;
     private final ProfileScoreViewUnlockRepository profileScoreViewUnlockRepository;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     @Transactional(readOnly = true)
     public GetTargetProfileDetailResponseDto getTargetProfileDetail(Long requesterUserId, GetTargetProfileDetailRequestDto request){
@@ -205,13 +210,16 @@ public class PartnerService {
         }
 
         int cost = p.getTing().getCost().getViewExtraPhoto();
-        if(tingWallet.getEventTing() >= cost){
-            tingWallet.spendEventTing(cost);
-        } else if (tingWallet.getTing() >= cost) {
-            tingWallet.spendTing(cost);
-        } else {
-            throw new IllegalStateException("이벤트 팅과 팅이 부족합니다.");
-        }
+        spendEventFirst(
+                tingWallet,
+                cost,
+                TingTransactionType.EXTRA_PHOTO_UNLOCK,
+                TingTransactionReferenceType.PROFILE_PHOTO,
+                targetUserId + ":" + photoId,
+                "PROFILE_PHOTO:" + requesterUserId + ":" + targetUserId + ":" + photoId,
+                "상대 프로필 추가 사진 잠금 해제",
+                "이벤트 팅과 팅이 부족합니다."
+        );
 
         profileExtraPhotoUnlockRepository.save(
                 new ProfileExtraPhotoUnlock(requesterUserId, targetUserId, photoId)
@@ -239,13 +247,16 @@ public class PartnerService {
             throw new IllegalArgumentException("추가로 구매하는 프로필의 갯수가 1 또는 5가 아닙니다.");
         }
 
-        if(tingWallet.getEventTing() >= cost){
-            tingWallet.spendEventTing(cost);
-        }else if(tingWallet.getTing() >= cost){
-            tingWallet.spendTing(cost);
-        }else {
-            throw new IllegalStateException("팅이나 이벤트 팅이 부족합니다.");
-        }
+        spendEventFirst(
+                tingWallet,
+                cost,
+                TingTransactionType.EXTRA_PROFILE_PURCHASE,
+                TingTransactionReferenceType.USER,
+                String.valueOf(userId),
+                null,
+                "추가 프로필 이용권 " + num + "개 구매",
+                "팅이나 이벤트 팅이 부족합니다."
+        );
         tingWallet.addExtraProfileByTing(num);
     }
 
@@ -272,13 +283,16 @@ public class PartnerService {
             alreadyViewed = profileScoreViewUnlockRepository.existsByRequesterUserIdAndTargetUserId(userId, targetUserId);
             if(!alreadyViewed){
                 int cost = p.getTing().getCost().getViewScore();
-                if(tingWallet.getEventTing() >= cost){
-                    tingWallet.spendEventTing(cost);
-                } else if (tingWallet.getTing() >= cost){
-                    tingWallet.spendTing(cost);
-                } else {
-                    throw new IllegalStateException("팅 또는 이벤트 팅이 부족합니다.");
-                }
+                spendEventFirst(
+                        tingWallet,
+                        cost,
+                        TingTransactionType.PROFILE_SCORE_UNLOCK,
+                        TingTransactionReferenceType.PROFILE,
+                        String.valueOf(targetProfileId),
+                        "PROFILE_SCORE:" + userId + ":" + targetUserId,
+                        "상대방이 준 프로필 점수 열람",
+                        "팅 또는 이벤트 팅이 부족합니다."
+                );
                 profileScoreViewUnlockRepository.save(new ProfileScoreViewUnlock(userId, targetUserId));
             }
         }
@@ -299,5 +313,52 @@ public class PartnerService {
         } else {
             return new CheckReceivedScoreResponseDto(false);
         }
+    }
+
+    private void spendEventFirst(
+            TingWallet wallet,
+            int cost,
+            TingTransactionType transactionType,
+            TingTransactionReferenceType referenceType,
+            String referenceId,
+            String idempotencyKey,
+            String description,
+            String insufficientBalanceMessage
+    ) {
+        if (wallet.getEventTing() + wallet.getTing() < cost) {
+            throw new IllegalStateException(insufficientBalanceMessage);
+        }
+
+        int eventTingToSpend = Math.min(wallet.getEventTing(), cost);
+        if (eventTingToSpend > 0) {
+            wallet.spendEventTing(eventTingToSpend);
+            tingTransactionRecorder.recordEvent(
+                    wallet,
+                    transactionType,
+                    -eventTingToSpend,
+                    referenceType,
+                    referenceId,
+                    balanceIdempotencyKey(idempotencyKey, TingBalanceType.EVENT),
+                    description
+            );
+        }
+
+        int paidTingToSpend = cost - eventTingToSpend;
+        if (paidTingToSpend > 0) {
+            wallet.spendTing(paidTingToSpend);
+            tingTransactionRecorder.recordPaid(
+                    wallet,
+                    transactionType,
+                    -paidTingToSpend,
+                    referenceType,
+                    referenceId,
+                    balanceIdempotencyKey(idempotencyKey, TingBalanceType.PAID),
+                    description
+            );
+        }
+    }
+
+    private String balanceIdempotencyKey(String idempotencyKey, TingBalanceType balanceType) {
+        return idempotencyKey == null ? null : idempotencyKey + ":" + balanceType.name();
     }
 }

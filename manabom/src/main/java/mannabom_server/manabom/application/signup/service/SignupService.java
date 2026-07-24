@@ -5,9 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.signup.dto.request.*;
 import mannabom_server.manabom.application.signup.dto.response.*;
 import mannabom_server.manabom.application.common.port.FileStoragePort;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.question.entity.Question;
 import mannabom_server.manabom.domain.question.entity.QuestionAnswer;
@@ -64,6 +67,7 @@ public class SignupService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final TingWalletRepository tingWalletRepository;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     private static final int BONUS_OPTIONAL_TEXT_MALE = 11;
     private static final int BONUS_OPTIONAL_TEXT_FEMALE = 6;
@@ -416,6 +420,15 @@ public class SignupService {
             //wallet.addEventTing(initialPoints); (기본 지급을 답변 보상으로 대체)
             wallet.addEventTing(signupBonusEventTing);
             tingWalletRepository.save(wallet);
+            tingTransactionRecorder.recordEvent(
+                    wallet,
+                    TingTransactionType.SIGNUP_BONUS,
+                    signupBonusEventTing,
+                    TingTransactionReferenceType.USER,
+                    String.valueOf(user.getUserId()),
+                    "SIGNUP:" + user.getUserId() + ":BONUS",
+                    "회원가입 프로필 작성 보너스"
+            );
             int savedEventTing = wallet.getEventTing();
             log.info("해당 유저 팅 지갑 생성 및 보너스 팅 지급 완료, 지급된 이벤트 팅 : {}", savedEventTing);
         }else

@@ -27,6 +27,9 @@ public class GifticonOrderService {
         if (product == null) {
             throw new IllegalArgumentException("메시지 요청에 기프티콘 상품이 없습니다.");
         }
+        if (!messageRequest.hasCapturedGiftPayment()) {
+            throw new IllegalStateException("기프티콘 유상 팅 결제가 확정되지 않았습니다.");
+        }
         if (!product.isOrderableAt(java.time.LocalDateTime.now())) {
             throw new IllegalStateException("현재 발송할 수 없는 기프티콘 상품입니다.");
         }

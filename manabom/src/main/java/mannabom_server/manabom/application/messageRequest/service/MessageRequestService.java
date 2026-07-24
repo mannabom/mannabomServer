@@ -72,6 +72,13 @@ public class MessageRequestService {
         TingWallet tingWallet = tingWalletRepository.findByUserIdForUpdate(fromUserId)
                 .orElseGet(() -> tingWalletRepository.save(new TingWallet(fromUserId)));
 
+        if (gifticonProduct != null) {
+            if (gifticonProduct.getTingPrice() <= 0) {
+                throw new IllegalStateException("기프티콘의 팅 가격이 올바르지 않습니다.");
+            }
+            tingWallet.spendTing(gifticonProduct.getTingPrice());
+        }
+
         messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
                 .ifPresent(existing -> {
                     throw new IllegalStateException("이미 요청을 보냈습니다.");
@@ -168,12 +175,14 @@ public class MessageRequestService {
         GifticonOrderStatus gifticonOrderStatus = null;
         if (accepted) {
             messageRequest.accept();
+            messageRequest.captureGiftPayment();
             chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
             if (messageRequest.getGifticonProduct() != null) {
                 gifticonOrderStatus = gifticonOrderService.prepareOrder(messageRequest);
             }
         } else {
             messageRequest.reject(rejectReason);
+            releaseHeldGiftTing(messageRequest);
         }
 
         try {
@@ -188,6 +197,16 @@ public class MessageRequestService {
                 .status(messageRequest.getStatus().name())
                 .gifticonOrderStatus(gifticonOrderStatus == null ? null : gifticonOrderStatus.name())
                 .build();
+    }
+
+    private void releaseHeldGiftTing(MessageRequest messageRequest) {
+        if (messageRequest.getGifticonProduct() == null) {
+            return;
+        }
+        TingWallet senderWallet = tingWalletRepository
+                .findByUserIdForUpdate(messageRequest.getFromUserId())
+                .orElseThrow(() -> new IllegalStateException("발신자의 팅 지갑을 찾을 수 없습니다."));
+        senderWallet.addTing(messageRequest.releaseGiftPayment());
     }
 
     private Long createChatRoom(Long requesterUserId, Long targetUserId, MessageSource source) {

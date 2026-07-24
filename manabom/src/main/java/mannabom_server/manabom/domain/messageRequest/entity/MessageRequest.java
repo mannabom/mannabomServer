@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 
@@ -58,6 +59,13 @@ public class MessageRequest {
     @JoinColumn(name = "gifticon_product_id")
     private GifticonProduct gifticonProduct;
 
+    @Column(name = "held_gift_ting", nullable = false)
+    private int heldGiftTing;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gift_payment_status", length = 30)
+    private GifticonPaymentStatus giftPaymentStatus;
+
     public MessageRequest(
             Long fromUserId,
             Long toUserId,
@@ -70,6 +78,8 @@ public class MessageRequest {
         this.message = message;
         this.source = source;
         this.gifticonProduct = gifticonProduct;
+        this.heldGiftTing = gifticonProduct == null ? 0 : gifticonProduct.getTingPrice();
+        this.giftPaymentStatus = gifticonProduct == null ? null : GifticonPaymentStatus.HELD;
         this.status = MessageRequestStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
@@ -93,5 +103,30 @@ public class MessageRequest {
         this.status = MessageRequestStatus.REJECTED;
         this.rejectReason = reason;
         this.respondedAt = LocalDateTime.now();
+    }
+
+    public void captureGiftPayment() {
+        if (gifticonProduct == null) {
+            return;
+        }
+        if (giftPaymentStatus != GifticonPaymentStatus.HELD) {
+            throw new IllegalStateException("보류 중인 기프티콘 결제가 아닙니다.");
+        }
+        giftPaymentStatus = GifticonPaymentStatus.CAPTURED;
+    }
+
+    public int releaseGiftPayment() {
+        if (gifticonProduct == null) {
+            return 0;
+        }
+        if (giftPaymentStatus != GifticonPaymentStatus.HELD) {
+            throw new IllegalStateException("보류 중인 기프티콘 결제가 아닙니다.");
+        }
+        giftPaymentStatus = GifticonPaymentStatus.RELEASED;
+        return heldGiftTing;
+    }
+
+    public boolean hasCapturedGiftPayment() {
+        return giftPaymentStatus == GifticonPaymentStatus.CAPTURED;
     }
 }

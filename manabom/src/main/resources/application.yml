@@ -94,6 +94,7 @@ app:
     giftbiz:
       base-url: ${KAKAO_GIFTBIZ_BASE_URL:https://gateway-giftbiz.kakao.com}
       authorization: ${KAKAO_GIFTBIZ_AUTHORIZATION:}
+      token-encryption-key: ${GIFTICON_TOKEN_ENCRYPTION_KEY:}
       sender-name: ${KAKAO_GIFTBIZ_SENDER_NAME:만나봄}
       text: ${KAKAO_GIFTBIZ_TEXT:마음이 도착했어요}
       request-timeout-seconds: ${KAKAO_GIFTBIZ_REQUEST_TIMEOUT_SECONDS:10}

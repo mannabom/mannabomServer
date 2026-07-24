@@ -29,7 +29,7 @@ public interface GifticonProductRepository extends JpaRepository<GifticonProduct
             select product
             from GifticonProduct product
             where product.available = true
-              and product.templateToken is not null
+              and product.encryptedTemplateToken is not null
               and (product.startAt is null or product.startAt <= :now)
               and (product.endAt is null or product.endAt > :now)
               and product.gifticonProductId > :cursor

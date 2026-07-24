@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.admin.dto.request.AdminConfigureGifticonTokenRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductResponse;
 import mannabom_server.manabom.application.admin.dto.response.AdminGifticonProductSliceResponse;
+import mannabom_server.manabom.application.gifticon.port.GifticonTokenCipher;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditActionType;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditTargetType;
 import mannabom_server.manabom.domain.admin.enums.AdminRole;
@@ -24,6 +25,7 @@ public class AdminGifticonService {
 
     private final GifticonProductRepository gifticonProductRepository;
     private final AdminAuditService adminAuditService;
+    private final GifticonTokenCipher gifticonTokenCipher;
 
     @Transactional(readOnly = true)
     public AdminGifticonProductSliceResponse getProducts(
@@ -65,7 +67,9 @@ public class AdminGifticonService {
         GifticonProduct product = gifticonProductRepository.findById(gifticonProductId)
                 .orElseThrow(() -> new IllegalArgumentException("기프티콘 상품을 찾을 수 없습니다."));
         boolean configuredBefore = product.hasTemplateToken();
-        product.configureTemplateToken(request.getTemplateToken());
+        product.configureEncryptedTemplateToken(
+                gifticonTokenCipher.encrypt(request.getTemplateToken().trim())
+        );
 
         adminAuditService.log(
                 admin.adminId(),

@@ -28,8 +28,8 @@ public class GifticonProduct extends BaseTimeEntity {
     @Column(name = "template_trace_id", nullable = false, unique = true)
     private Long templateTraceId;
 
-    @Column(name = "template_token", unique = true, length = 512)
-    private String templateToken;
+    @Column(name = "encrypted_template_token", length = 1024)
+    private String encryptedTemplateToken;
 
     @Column(name = "template_name", nullable = false, length = 200)
     private String templateName;
@@ -165,13 +165,13 @@ public class GifticonProduct extends BaseTimeEntity {
     }
 
     public boolean hasTemplateToken() {
-        return templateToken != null && !templateToken.isBlank();
+        return encryptedTemplateToken != null && !encryptedTemplateToken.isBlank();
     }
 
-    public void configureTemplateToken(String templateToken) {
-        if (templateToken == null || templateToken.isBlank()) {
-            throw new IllegalArgumentException("템플릿 토큰은 비어있을 수 없습니다.");
+    public void configureEncryptedTemplateToken(String encryptedTemplateToken) {
+        if (encryptedTemplateToken == null || encryptedTemplateToken.isBlank()) {
+            throw new IllegalArgumentException("암호화된 템플릿 토큰은 비어있을 수 없습니다.");
         }
-        this.templateToken = templateToken.trim();
+        this.encryptedTemplateToken = encryptedTemplateToken.trim();
     }
 }

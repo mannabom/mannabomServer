@@ -29,9 +29,19 @@ public class AdminGifticonController {
     public ResponseEntity<AdminGifticonProductSliceResponse> getProducts(
             @AuthenticationPrincipal AdminPrincipal admin,
             @RequestParam(required = false) Long cursor,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Boolean tokenConfigured,
+            @RequestParam(required = false) String keyword
     ) {
-        return ResponseEntity.ok(adminGifticonService.getProducts(admin, cursor, size));
+        return ResponseEntity.ok(
+                adminGifticonService.getProducts(
+                        admin,
+                        cursor,
+                        size,
+                        tokenConfigured,
+                        keyword
+                )
+        );
     }
 
     @PutMapping("/{gifticonProductId}/template-token")

@@ -47,10 +47,23 @@ public interface GifticonProductRepository extends JpaRepository<GifticonProduct
             select product
             from GifticonProduct product
             where product.gifticonProductId > :cursor
+              and (
+                    :tokenConfigured is null
+                    or (:tokenConfigured = true and product.encryptedTemplateToken is not null)
+                    or (:tokenConfigured = false and product.encryptedTemplateToken is null)
+              )
+              and (
+                    :keyword = ''
+                    or lower(product.templateName) like lower(concat('%', :keyword, '%'))
+                    or lower(product.productName) like lower(concat('%', :keyword, '%'))
+                    or lower(product.brandName) like lower(concat('%', :keyword, '%'))
+              )
             order by product.gifticonProductId asc
             """)
     List<GifticonProduct> findProductsForAdminAfter(
             @Param("cursor") Long cursor,
+            @Param("tokenConfigured") Boolean tokenConfigured,
+            @Param("keyword") String keyword,
             Pageable pageable
     );
 }

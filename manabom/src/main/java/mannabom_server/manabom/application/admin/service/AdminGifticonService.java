@@ -14,6 +14,7 @@ import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -31,7 +32,9 @@ public class AdminGifticonService {
     public AdminGifticonProductSliceResponse getProducts(
             AdminPrincipal admin,
             Long cursor,
-            int size
+            int size,
+            Boolean tokenConfigured,
+            String keyword
     ) {
         requireSuperAdmin(admin);
         if (cursor != null && cursor < 0) {
@@ -43,6 +46,8 @@ public class AdminGifticonService {
 
         List<GifticonProduct> fetched = gifticonProductRepository.findProductsForAdminAfter(
                 cursor == null ? 0L : cursor,
+                tokenConfigured,
+                StringUtils.hasText(keyword) ? keyword.trim() : "",
                 PageRequest.of(0, size + 1)
         );
         boolean hasNext = fetched.size() > size;

@@ -144,6 +144,9 @@ public class MessageRequestService {
         if (!product.isAvailableAt(LocalDateTime.now())) {
             throw new IllegalStateException("현재 선택할 수 없는 기프티콘 상품입니다.");
         }
+        if (!product.hasTemplateToken()) {
+            throw new IllegalStateException("발송 토큰이 등록되지 않은 기프티콘 상품입니다.");
+        }
         return product;
     }
 

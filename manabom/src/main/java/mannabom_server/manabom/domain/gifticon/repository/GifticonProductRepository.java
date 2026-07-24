@@ -29,6 +29,7 @@ public interface GifticonProductRepository extends JpaRepository<GifticonProduct
             select product
             from GifticonProduct product
             where product.available = true
+              and product.templateToken is not null
               and (product.startAt is null or product.startAt <= :now)
               and (product.endAt is null or product.endAt > :now)
               and product.gifticonProductId > :cursor
@@ -38,6 +39,17 @@ public interface GifticonProductRepository extends JpaRepository<GifticonProduct
     List<GifticonProduct> findAvailableProductsAfter(
             @Param("now") LocalDateTime now,
             @Param("category") String category,
+            @Param("cursor") Long cursor,
+            Pageable pageable
+    );
+
+    @Query("""
+            select product
+            from GifticonProduct product
+            where product.gifticonProductId > :cursor
+            order by product.gifticonProductId asc
+            """)
+    List<GifticonProduct> findProductsForAdminAfter(
             @Param("cursor") Long cursor,
             Pageable pageable
     );

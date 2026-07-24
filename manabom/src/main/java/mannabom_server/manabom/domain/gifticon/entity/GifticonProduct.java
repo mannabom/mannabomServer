@@ -28,6 +28,9 @@ public class GifticonProduct extends BaseTimeEntity {
     @Column(name = "template_trace_id", nullable = false, unique = true)
     private Long templateTraceId;
 
+    @Column(name = "template_token", unique = true, length = 512)
+    private String templateToken;
+
     @Column(name = "template_name", nullable = false, length = 200)
     private String templateName;
 
@@ -155,5 +158,20 @@ public class GifticonProduct extends BaseTimeEntity {
         return available
                 && (startAt == null || !startAt.isAfter(now))
                 && (endAt == null || endAt.isAfter(now));
+    }
+
+    public boolean isOrderableAt(LocalDateTime now) {
+        return hasTemplateToken() && isAvailableAt(now);
+    }
+
+    public boolean hasTemplateToken() {
+        return templateToken != null && !templateToken.isBlank();
+    }
+
+    public void configureTemplateToken(String templateToken) {
+        if (templateToken == null || templateToken.isBlank()) {
+            throw new IllegalArgumentException("템플릿 토큰은 비어있을 수 없습니다.");
+        }
+        this.templateToken = templateToken.trim();
     }
 }

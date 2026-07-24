@@ -46,7 +46,6 @@ public class GifticonOrderService {
         String externalKey = externalOrderId + "-" + messageRequest.getToUserId();
         GifticonOrder order = gifticonOrderRepository.save(new GifticonOrder(
                 messageRequest,
-                product.getEncryptedTemplateToken(),
                 receiverPhone,
                 receiverName,
                 externalKey,

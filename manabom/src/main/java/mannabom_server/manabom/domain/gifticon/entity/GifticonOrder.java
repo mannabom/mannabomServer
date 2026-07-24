@@ -37,9 +37,6 @@ public class GifticonOrder extends BaseTimeEntity {
     @JoinColumn(name = "message_request_id", nullable = false, unique = true)
     private MessageRequest messageRequest;
 
-    @Column(name = "encrypted_template_token", nullable = false, length = 1024)
-    private String encryptedTemplateToken;
-
     @Column(name = "receiver_phone", nullable = false, length = 30)
     private String receiverPhone;
 
@@ -70,7 +67,6 @@ public class GifticonOrder extends BaseTimeEntity {
 
     public GifticonOrder(
             MessageRequest messageRequest,
-            String encryptedTemplateToken,
             String receiverPhone,
             String receiverName,
             String externalKey,
@@ -79,9 +75,6 @@ public class GifticonOrder extends BaseTimeEntity {
         if (messageRequest == null || messageRequest.getGifticonProduct() == null) {
             throw new IllegalArgumentException("기프티콘이 연결된 메시지 요청이 필요합니다.");
         }
-        if (encryptedTemplateToken == null || encryptedTemplateToken.isBlank()) {
-            throw new IllegalArgumentException("암호화된 템플릿 토큰은 필수입니다.");
-        }
         if (receiverPhone == null || receiverPhone.isBlank()) {
             throw new IllegalArgumentException("수신자 휴대폰 번호는 필수입니다.");
         }
@@ -89,7 +82,6 @@ public class GifticonOrder extends BaseTimeEntity {
             throw new IllegalArgumentException("수신자 이름은 필수입니다.");
         }
         this.messageRequest = messageRequest;
-        this.encryptedTemplateToken = encryptedTemplateToken;
         this.receiverPhone = receiverPhone;
         this.receiverName = receiverName;
         this.externalKey = requireExternalId(externalKey, "externalKey");

@@ -94,7 +94,6 @@ class GifticonOrderProcessorTest {
         );
         return new GifticonOrder(
                 messageRequest,
-                "encrypted-token",
                 "01012345678",
                 "수신자",
                 "MESSAGE-GIFT-1-2",

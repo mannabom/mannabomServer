@@ -62,6 +62,7 @@ class GifticonOrderProcessorTest {
                 ArgumentCaptor.forClass(GifticonOrderCommand.class);
         verify(gifticonOrderRequester).requestGift(commandCaptor.capture());
         assertThat(commandCaptor.getValue().templateToken()).isEqualTo("plain-token");
+        assertThat(commandCaptor.getValue().senderNickname()).isEqualTo("보낸사람");
         assertThat(order.getStatus()).isEqualTo(GifticonOrderStatus.REQUESTED);
         assertThat(order.getAttemptCount()).isEqualTo(1);
     }
@@ -94,6 +95,7 @@ class GifticonOrderProcessorTest {
         );
         return new GifticonOrder(
                 messageRequest,
+                "보낸사람",
                 "01012345678",
                 "수신자",
                 "MESSAGE-GIFT-1-2",

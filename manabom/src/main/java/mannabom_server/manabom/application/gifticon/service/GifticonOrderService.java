@@ -7,7 +7,9 @@ import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonOrderRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
+import mannabom_server.manabom.domain.user.entity.Profile;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ public class GifticonOrderService {
 
     private final GifticonOrderRepository gifticonOrderRepository;
     private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -34,6 +37,13 @@ public class GifticonOrderService {
             throw new IllegalStateException("현재 발송할 수 없는 기프티콘 상품입니다.");
         }
 
+        Profile senderProfile = profileRepository.findByUser_UserId(messageRequest.getFromUserId())
+                .orElseThrow(() -> new IllegalArgumentException("기프티콘 발신자의 프로필을 찾을 수 없습니다."));
+        String senderNickname = senderProfile.getNickName();
+        if (senderNickname == null || senderNickname.isBlank()) {
+            throw new IllegalStateException("기프티콘을 보내려면 프로필 닉네임이 필요합니다.");
+        }
+
         User receiver = userRepository.findById(messageRequest.getToUserId())
                 .orElseThrow(() -> new IllegalArgumentException("기프티콘 수신자를 찾을 수 없습니다."));
         String receiverPhone = normalizeKoreanMobile(receiver.getPhoneNum());
@@ -46,6 +56,7 @@ public class GifticonOrderService {
         String externalKey = externalOrderId + "-" + messageRequest.getToUserId();
         GifticonOrder order = gifticonOrderRepository.save(new GifticonOrder(
                 messageRequest,
+                senderNickname,
                 receiverPhone,
                 receiverName,
                 externalKey,

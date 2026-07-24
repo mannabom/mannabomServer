@@ -40,7 +40,7 @@ public class KakaoGiftbizOrderClient implements GifticonOrderRequester {
                         command.receiverPhone(),
                         command.receiverName(),
                         command.externalKey(),
-                        properties.getSenderName(),
+                        formatSenderName(command.senderNickname()),
                         properties.getText()
                 )),
                 blankToNull(orderProperties.getSuccessCallbackUrl()),
@@ -74,6 +74,13 @@ public class KakaoGiftbizOrderClient implements GifticonOrderRequester {
         if (properties.getRequestTimeoutSeconds() <= 0) {
             throw new IllegalStateException("Gift Biz 요청 제한 시간은 1초 이상이어야 합니다.");
         }
+    }
+
+    String formatSenderName(String senderNickname) {
+        if (!StringUtils.hasText(senderNickname)) {
+            throw new IllegalArgumentException("기프티콘 발신자 닉네임은 필수입니다.");
+        }
+        return properties.getSenderName().trim() + " - " + senderNickname.trim();
     }
 
     private String blankToNull(String value) {

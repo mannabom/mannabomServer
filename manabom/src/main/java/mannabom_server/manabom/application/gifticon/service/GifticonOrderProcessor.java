@@ -49,6 +49,7 @@ public class GifticonOrderProcessor {
             }
             gifticonOrderRequester.requestGift(new GifticonOrderCommand(
                     gifticonTokenCipher.decrypt(product.getEncryptedTemplateToken()),
+                    order.getSenderNickname(),
                     order.getReceiverPhone(),
                     order.getReceiverName(),
                     order.getExternalKey(),

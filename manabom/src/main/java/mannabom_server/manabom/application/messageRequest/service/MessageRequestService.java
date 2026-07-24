@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
+import mannabom_server.manabom.application.gifticon.service.GifticonOrderService;
 import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
@@ -13,6 +14,7 @@ import mannabom_server.manabom.domain.currency.entity.TingWallet;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
@@ -44,6 +46,7 @@ public class MessageRequestService {
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
     private final GifticonProductRepository gifticonProductRepository;
+    private final GifticonOrderService gifticonOrderService;
 
     @Transactional
     public SendMessageResponseDto sendMessageRequest(
@@ -162,9 +165,13 @@ public class MessageRequestService {
         }
 
         Long chatRoomId = null;
+        GifticonOrderStatus gifticonOrderStatus = null;
         if (accepted) {
             messageRequest.accept();
             chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
+            if (messageRequest.getGifticonProduct() != null) {
+                gifticonOrderStatus = gifticonOrderService.prepareOrder(messageRequest);
+            }
         } else {
             messageRequest.reject(rejectReason);
         }
@@ -179,6 +186,7 @@ public class MessageRequestService {
                 .accepted(accepted)
                 .chatRoomId(chatRoomId)
                 .status(messageRequest.getStatus().name())
+                .gifticonOrderStatus(gifticonOrderStatus == null ? null : gifticonOrderStatus.name())
                 .build();
     }
 

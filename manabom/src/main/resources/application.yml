@@ -103,6 +103,16 @@ app:
         initial-delay: ${KAKAO_GIFTBIZ_SYNC_INITIAL_DELAY:10000}
         fixed-delay: ${KAKAO_GIFTBIZ_SYNC_FIXED_DELAY:86400000}
         max-pages: ${KAKAO_GIFTBIZ_SYNC_MAX_PAGES:100}
+      order:
+        success-callback-url: ${KAKAO_GIFTBIZ_SUCCESS_CALLBACK_URL:}
+        fail-callback-url: ${KAKAO_GIFTBIZ_FAIL_CALLBACK_URL:}
+        gift-callback-url: ${KAKAO_GIFTBIZ_GIFT_CALLBACK_URL:}
+        retry:
+          enabled: ${KAKAO_GIFTBIZ_ORDER_RETRY_ENABLED:true}
+          initial-delay: ${KAKAO_GIFTBIZ_ORDER_RETRY_INITIAL_DELAY:60000}
+          fixed-delay: ${KAKAO_GIFTBIZ_ORDER_RETRY_FIXED_DELAY:60000}
+          max-attempts: ${KAKAO_GIFTBIZ_ORDER_RETRY_MAX_ATTEMPTS:5}
+          batch-size: ${KAKAO_GIFTBIZ_ORDER_RETRY_BATCH_SIZE:50}
     # 운영환경에서는 실제 도메인으로 변경 필요
     # redirect-uri: https://company-domain.com/api/auth/login/kakao
 

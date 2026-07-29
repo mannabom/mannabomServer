@@ -34,7 +34,7 @@ public class AuthController {
      * 카카오 로그인
      *
      * 처리 흐름:
-     * 1. React Native에서 카카오 OAuth 완료 후 인증 코드 전송
+     * 1. React Native에서 카카오 OAuth 완료 후 액세스 토큰 전송
      * 2. AuthService에서 카카오 API 연동 및 사용자 처리
      * 3. 상황별 응답 반환 (기존 유저/신규 유저/연령 제한)
      *
@@ -46,7 +46,6 @@ public class AuthController {
             @Valid @RequestBody KakaoLoginRequestDto request) {
 
         log.info("카카오 로그인 API 호출");
-        log.debug("요청 정보 - accessToken: {}", request.getAccessToken());
 
         KakaoLoginResponseDto response = authService.loginWithKakao(request);
 

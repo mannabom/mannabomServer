@@ -7,6 +7,7 @@ import mannabom_server.manabom.application.currency.dto.response.CheckTingWallet
 import mannabom_server.manabom.application.currency.service.TingWalletService;
 import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.gifticon.service.GifticonOrderService;
+import mannabom_server.manabom.application.gifticon.event.GifticonPaymentRefundRequestedEvent;
 import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
@@ -16,8 +17,10 @@ import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceTyp
 import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
-import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
+import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
 import mannabom_server.manabom.domain.matching.repository.LoveViewRecommendHistoryRepository;
@@ -31,6 +34,7 @@ import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
 import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,31 +52,80 @@ public class MessageRequestService {
     private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
-    private final GifticonProductRepository gifticonProductRepository;
+    private final GifticonPaymentRepository gifticonPaymentRepository;
     private final GifticonOrderService gifticonOrderService;
     private final TingTransactionRecorder tingTransactionRecorder;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional(readOnly = true)
+    public void validateMessageIntent(
+            Long fromUserId,
+            Long toProfileId,
+            String message,
+            MessageSource source
+    ) {
+        Long toUserId = validateMessageRequestInput(
+                fromUserId,
+                toProfileId,
+                message,
+                source
+        );
+        ensureMessageRequestDoesNotExist(fromUserId, toUserId);
+    }
+
+    @Transactional
+    public Long sendPaidGifticonMessage(Long gifticonPaymentId) {
+        GifticonPayment payment = gifticonPaymentRepository
+                .findByIdForUpdate(gifticonPaymentId)
+                .orElseThrow(() -> new IllegalArgumentException("기프티콘 결제를 찾을 수 없습니다."));
+        if (payment.getMessageRequest() != null) {
+            return payment.getMessageRequest().getId();
+        }
+        if (payment.getStatus() != GifticonPaymentStatus.PAID) {
+            throw new IllegalStateException("결제가 완료되지 않은 기프티콘입니다.");
+        }
+
+        createMessageRequest(
+                payment.getUserId(),
+                payment.getTargetProfileId(),
+                payment.getMessage(),
+                payment.getMessageSource(),
+                payment.getGifticonPaymentId()
+        );
+        return payment.getMessageRequest().getId();
+    }
 
     @Transactional
     public SendMessageResponseDto sendMessageRequest(
             Long fromUserId,
             Long toProfileId,
             String message,
-            MessageSource source,
-            Long gifticonProductId
+            MessageSource source
     ) {
-        if(fromUserId == null) throw new IllegalArgumentException("요청자의 정보를 찾을 수 없습니다.");
-        if(toProfileId == null) throw new IllegalArgumentException("toProfileId가 비어있습니다.");
+        return createMessageRequest(fromUserId, toProfileId, message, source, null);
+    }
 
-        Profile toProfile = profileRepository.findById(toProfileId)
-                .orElseThrow(() -> new IllegalArgumentException("대상자의 프로필을 찾을 수 없습니다."));
-        Long toUserId = toProfile.getUser().getUserId();
-
-        if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
-        GifticonProduct gifticonProduct = findOrderableGifticon(gifticonProductId);
-        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
-                .ifPresent(existing -> {
-                    throw new IllegalStateException("이미 요청을 보냈습니다.");
-                });
+    private SendMessageResponseDto createMessageRequest(
+            Long fromUserId,
+            Long toProfileId,
+            String message,
+            MessageSource source,
+            Long gifticonPaymentId
+    ) {
+        Long toUserId = validateMessageRequestInput(
+                fromUserId,
+                toProfileId,
+                message,
+                source
+        );
+        GifticonPayment gifticonPayment = findPaidGifticonPayment(
+                fromUserId,
+                gifticonPaymentId
+        );
+        GifticonProduct gifticonProduct = gifticonPayment == null
+                ? null
+                : gifticonPayment.getProduct();
+        ensureMessageRequestDoesNotExist(fromUserId, toUserId);
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -87,21 +140,8 @@ public class MessageRequestService {
                 source,
                 gifticonProduct
         ));
-
-        if (gifticonProduct != null) {
-            if (gifticonProduct.getTingPrice() <= 0) {
-                throw new IllegalStateException("기프티콘의 팅 가격이 올바르지 않습니다.");
-            }
-            tingWallet.spendTing(gifticonProduct.getTingPrice());
-            tingTransactionRecorder.recordPaid(
-                    tingWallet,
-                    TingTransactionType.GIFTICON_HOLD,
-                    -gifticonProduct.getTingPrice(),
-                    TingTransactionReferenceType.MESSAGE_REQUEST,
-                    String.valueOf(messageRequest.getId()),
-                    giftTransactionKey(messageRequest.getId(), "HOLD"),
-                    "메시지 요청 기프티콘 결제 보류"
-            );
+        if (gifticonPayment != null) {
+            gifticonPayment.attachTo(messageRequest);
         }
 
         int vipMessageRemains = 0;
@@ -173,20 +213,64 @@ public class MessageRequestService {
 
     }
 
-    private GifticonProduct findOrderableGifticon(Long gifticonProductId) {
-        if (gifticonProductId == null) {
+    private GifticonPayment findPaidGifticonPayment(
+            Long userId,
+            Long gifticonPaymentId
+    ) {
+        if (gifticonPaymentId == null) {
             return null;
         }
-
-        GifticonProduct product = gifticonProductRepository.findById(gifticonProductId)
-                .orElseThrow(() -> new IllegalArgumentException("기프티콘 상품을 찾을 수 없습니다."));
-        if (!product.isAvailableAt(LocalDateTime.now())) {
+        GifticonPayment payment = gifticonPaymentRepository
+                .findByIdForUpdate(gifticonPaymentId)
+                .orElseThrow(() -> new IllegalArgumentException("기프티콘 결제를 찾을 수 없습니다."));
+        if (!userId.equals(payment.getUserId())) {
+            throw new IllegalArgumentException("본인의 기프티콘 결제만 사용할 수 있습니다.");
+        }
+        if (payment.getStatus() != GifticonPaymentStatus.PAID) {
+            throw new IllegalStateException("결제가 완료되지 않은 기프티콘입니다.");
+        }
+        if (payment.getMessageRequest() != null) {
+            throw new IllegalStateException("이미 메시지 요청에 사용된 기프티콘 결제입니다.");
+        }
+        if (!payment.getProduct().isOrderableAt(LocalDateTime.now())) {
             throw new IllegalStateException("현재 선택할 수 없는 기프티콘 상품입니다.");
         }
-        if (!product.hasTemplateToken()) {
-            throw new IllegalStateException("발송 토큰이 등록되지 않은 기프티콘 상품입니다.");
+        return payment;
+    }
+
+    private Long validateMessageRequestInput(
+            Long fromUserId,
+            Long toProfileId,
+            String message,
+            MessageSource source
+    ) {
+        if (fromUserId == null) {
+            throw new IllegalArgumentException("요청자의 정보를 찾을 수 없습니다.");
         }
-        return product;
+        if (toProfileId == null) {
+            throw new IllegalArgumentException("toProfileId가 비어있습니다.");
+        }
+        if (source == null) {
+            throw new IllegalArgumentException("source가 비어있습니다.");
+        }
+        if (message != null && message.length() > 200) {
+            throw new IllegalArgumentException("메시지는 200자를 초과할 수 없습니다.");
+        }
+
+        Profile toProfile = profileRepository.findById(toProfileId)
+                .orElseThrow(() -> new IllegalArgumentException("대상자의 프로필을 찾을 수 없습니다."));
+        Long toUserId = toProfile.getUser().getUserId();
+        if (fromUserId.equals(toUserId)) {
+            throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
+        }
+        return toUserId;
+    }
+
+    private void ensureMessageRequestDoesNotExist(Long fromUserId, Long toUserId) {
+        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("이미 요청을 보냈습니다.");
+                });
     }
 
     @Transactional
@@ -202,28 +286,17 @@ public class MessageRequestService {
 
         Long chatRoomId = null;
         GifticonOrderStatus gifticonOrderStatus = null;
+        String gifticonPaymentStatus = null;
         if (accepted) {
             messageRequest.accept();
-            messageRequest.captureGiftPayment();
             chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
             if (messageRequest.getGifticonProduct() != null) {
-                TingWallet senderWallet = tingWalletRepository
-                        .findByUserIdForUpdate(messageRequest.getFromUserId())
-                        .orElseThrow(() -> new IllegalStateException("발신자의 팅 지갑을 찾을 수 없습니다."));
-                tingTransactionRecorder.recordPaid(
-                        senderWallet,
-                        TingTransactionType.GIFTICON_CAPTURE,
-                        0,
-                        TingTransactionReferenceType.MESSAGE_REQUEST,
-                        String.valueOf(messageRequest.getId()),
-                        giftTransactionKey(messageRequest.getId(), "CAPTURE"),
-                        "메시지 요청 수락으로 기프티콘 결제 확정"
-                );
+                gifticonPaymentStatus = confirmGiftPaymentForAcceptance(messageRequest);
                 gifticonOrderStatus = gifticonOrderService.prepareOrder(messageRequest);
             }
         } else {
             messageRequest.reject(rejectReason);
-            releaseHeldGiftTing(messageRequest);
+            gifticonPaymentStatus = requestGifticonRefund(messageRequest);
         }
 
         try {
@@ -237,31 +310,36 @@ public class MessageRequestService {
                 .chatRoomId(chatRoomId)
                 .status(messageRequest.getStatus().name())
                 .gifticonOrderStatus(gifticonOrderStatus == null ? null : gifticonOrderStatus.name())
+                .gifticonPaymentStatus(
+                        gifticonPaymentStatus
+                )
                 .build();
     }
 
-    private void releaseHeldGiftTing(MessageRequest messageRequest) {
-        if (messageRequest.getGifticonProduct() == null) {
-            return;
+    private String confirmGiftPaymentForAcceptance(MessageRequest messageRequest) {
+        GifticonPayment payment = gifticonPaymentRepository
+                .findByMessageRequestIdForUpdate(messageRequest.getId())
+                .orElseThrow(() -> new IllegalStateException("기프티콘 결제 정보를 찾을 수 없습니다."));
+        if (payment.getStatus() != GifticonPaymentStatus.PAID) {
+            throw new IllegalStateException("기프티콘 원화 결제가 완료되지 않았습니다.");
         }
-        TingWallet senderWallet = tingWalletRepository
-                .findByUserIdForUpdate(messageRequest.getFromUserId())
-                .orElseThrow(() -> new IllegalStateException("발신자의 팅 지갑을 찾을 수 없습니다."));
-        int releasedTing = messageRequest.releaseGiftPayment();
-        senderWallet.addTing(releasedTing);
-        tingTransactionRecorder.recordPaid(
-                senderWallet,
-                TingTransactionType.GIFTICON_RELEASE,
-                releasedTing,
-                TingTransactionReferenceType.MESSAGE_REQUEST,
-                String.valueOf(messageRequest.getId()),
-                giftTransactionKey(messageRequest.getId(), "RELEASE"),
-                "메시지 요청 거절로 기프티콘 결제 보류 해제"
-        );
+        return payment.getStatus().name();
     }
 
-    private String giftTransactionKey(Long messageRequestId, String action) {
-        return "MESSAGE_REQUEST:" + messageRequestId + ":GIFTICON_" + action;
+    private String requestGifticonRefund(MessageRequest messageRequest) {
+        if (messageRequest.getGifticonProduct() == null) {
+            return null;
+        }
+        GifticonPayment payment = gifticonPaymentRepository
+                .findByMessageRequestIdForUpdate(messageRequest.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "메시지 요청의 기프티콘 결제를 찾을 수 없습니다."
+                ));
+        payment.requestRefund();
+        eventPublisher.publishEvent(
+                new GifticonPaymentRefundRequestedEvent(payment.getGifticonPaymentId())
+        );
+        return payment.getStatus().name();
     }
 
     private Long createChatRoom(Long requesterUserId, Long targetUserId, MessageSource source) {

@@ -30,8 +30,7 @@ public class MessageRequestController {
                         userId,
                         request.getTargetProfileId(),
                         request.getMessage(),
-                        request.getSource(),
-                        request.getGifticonProductId()
+                        request.getSource()
                 )
         );
     }

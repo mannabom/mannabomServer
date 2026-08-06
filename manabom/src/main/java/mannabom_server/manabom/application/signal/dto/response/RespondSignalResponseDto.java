@@ -12,4 +12,5 @@ public class RespondSignalResponseDto {
     private Long chatRoomId;
     private String status;
     private String gifticonOrderStatus;
+    private String gifticonPaymentStatus;
 }

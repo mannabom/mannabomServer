@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.gifticon.scheduler;
 
 import mannabom_server.manabom.application.gifticon.service.GifticonPaymentService;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.infrastructure.external.toss.config.TossPaymentsProperties;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class UnusedGifticonPaymentRefundSchedulerTest {
         properties.getUnusedPaymentRefund().setBatchSize(20);
         when(paymentRepository.findUnusedPaidPaymentIds(
                 eq(GifticonPaymentStatus.PAID),
+                eq(GifticonPaymentPurpose.MESSAGE_REQUEST),
                 any(Instant.class),
                 any(Pageable.class)
         )).thenReturn(List.of(20L));

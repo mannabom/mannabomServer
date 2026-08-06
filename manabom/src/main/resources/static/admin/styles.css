@@ -251,6 +251,24 @@ textarea:focus {
     margin-bottom: 14px;
 }
 
+#gifticonPaymentsView .toolbar {
+    grid-template-columns: minmax(120px, 180px) minmax(200px, 1fr) auto auto auto;
+    align-items: end;
+}
+
+.payment-attention-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 38px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.payment-attention-toggle input {
+    width: auto;
+}
+
 .filter-grid {
     display: grid;
     grid-template-columns: minmax(150px, 190px) minmax(170px, 220px) minmax(120px, 150px) auto;
@@ -381,13 +399,16 @@ th {
 }
 
 tr[data-user-id],
-tr[data-gifticon-id] {
+tr[data-gifticon-id],
+tr[data-payment-id] {
     cursor: pointer;
 }
 
 tr[data-user-id]:hover,
 tr[data-gifticon-id]:hover,
-tr[data-gifticon-id].selected {
+tr[data-gifticon-id].selected,
+tr[data-payment-id]:hover,
+tr[data-payment-id].selected {
     background: #f4faf9;
 }
 
@@ -498,6 +519,27 @@ tr[data-gifticon-id].selected {
     color: var(--accent-dark);
 }
 
+.badge.danger {
+    background: #fee4e2;
+    color: var(--danger);
+}
+
+.attention-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 300px;
+    padding: 6px 0;
+    white-space: normal;
+}
+
+.attention-panel {
+    border: 1px solid #f7c9c5;
+    border-radius: 8px;
+    background: #fff7f6;
+    padding: 12px;
+}
+
 .pager {
     min-height: 56px;
     display: flex;
@@ -582,6 +624,12 @@ tr[data-gifticon-id].selected {
     padding: 12px;
     background: var(--surface-soft);
     border-radius: 8px;
+}
+
+.inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .form-panel {
@@ -796,6 +844,10 @@ tr[data-gifticon-id].selected {
         flex-direction: column;
     }
 
+    #gifticonPaymentsView .toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+
     .policy-row {
         grid-template-columns: 1fr;
     }
@@ -824,6 +876,11 @@ tr[data-gifticon-id].selected {
     .inline-grid.compact,
     .filter-grid,
     .role-grid {
+        grid-template-columns: 1fr;
+    }
+
+
+    #gifticonPaymentsView .toolbar {
         grid-template-columns: 1fr;
     }
 }

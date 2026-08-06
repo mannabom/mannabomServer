@@ -11,6 +11,8 @@ import mannabom_server.manabom.domain.notification.repository.NotificationReposi
 import mannabom_server.manabom.domain.pushMessage.PushMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -43,10 +45,34 @@ public class NotificationService {
                 .build();
         notificationRepository.save(notification);
 
-        pushService.sendToUser(
+        sendPushAfterCommit(
                 userId,
                 new PushMessage(title, message, convertObjectToMap(type, data))
         );
+    }
+
+    private void sendPushAfterCommit(Long userId, PushMessage pushMessage) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            sendPushSafely(userId, pushMessage);
+                        }
+                    }
+            );
+            return;
+        }
+
+        sendPushSafely(userId, pushMessage);
+    }
+
+    private void sendPushSafely(Long userId, PushMessage pushMessage) {
+        try {
+            pushService.sendToUser(userId, pushMessage);
+        } catch (RuntimeException e) {
+            log.error("Push 알림 전송 실패: userId={}", userId, e);
+        }
     }
 
     private String toJson(Object data) {

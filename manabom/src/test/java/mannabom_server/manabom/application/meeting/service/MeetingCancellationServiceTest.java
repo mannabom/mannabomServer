@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +54,10 @@ class MeetingCancellationServiceTest {
     private MeetingCancellationVoteRepository voteRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatMemberRepository chatMemberRepository;
     @Mock
     private MeetingCancellationExpirationService expirationService;
 
@@ -138,6 +143,7 @@ class MeetingCancellationServiceTest {
                 now,
                 now.plusSeconds(3600)
         );
+        ReflectionTestUtils.setField(request, "id", 30L);
         MeetingCancellationVote vote = MeetingCancellationVote.pending(request, voter);
 
         when(match.getId()).thenReturn(20L);
@@ -147,7 +153,18 @@ class MeetingCancellationServiceTest {
         when(meeting2.getId()).thenReturn(11L);
         when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
         when(voteRepository.findByRequest_IdAndUser_UserId(30L, 2L)).thenReturn(Optional.of(vote));
-        when(voteRepository.findAllByRequest_IdOrderById(null)).thenReturn(List.of(vote));
+        when(voteRepository.countByRequest_IdAndDecision(
+                30L,
+                CancellationVoteDecision.PENDING
+        )).thenReturn(0L);
+        when(voteRepository.countByRequest_IdAndDecision(
+                30L,
+                CancellationVoteDecision.REJECT
+        )).thenReturn(0L);
+        when(voteRepository.findAllByRequest_IdOrderById(30L)).thenReturn(List.of(vote));
+        when(chatRoomRepository.findByMatch(match)).thenReturn(Optional.empty());
+        when(chatRoomRepository.findByMeeting(meeting1)).thenReturn(Optional.empty());
+        when(chatRoomRepository.findByMeeting(meeting2)).thenReturn(Optional.empty());
         when(meetingMemberRepository.findByMeetingIdAndStatus(10L, ChatUserStatus.ACTIVE))
                 .thenReturn(List.of());
         when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))

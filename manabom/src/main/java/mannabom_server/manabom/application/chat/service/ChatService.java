@@ -10,6 +10,7 @@ import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
@@ -52,6 +53,10 @@ public class ChatService {
     //채팅 보내기
     @Transactional
     public void sendMessage(ChatSendRequest request, Long userId) {
+        if (request.getMessageType() != ChatMessageType.TEXT
+                && request.getMessageType() != ChatMessageType.IMAGE) {
+            throw new IllegalArgumentException("일반 채팅에서는 텍스트와 이미지만 직접 전송할 수 있습니다.");
+        }
         ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
         ChatMember sender = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(request.getRoomId(), userId, ChatMemberStatus.ACTIVATE)

@@ -15,6 +15,8 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class GifticonOrderProcessorTest {
@@ -24,12 +26,21 @@ class GifticonOrderProcessorTest {
 
     @Mock
     private GifticonOrderRequester gifticonOrderRequester;
+    @Mock
+    private GifticonOrderCompletionService completionService;
+    @Mock
+    private GifticonPaymentService paymentService;
 
     private GifticonOrderProcessor processor;
 
     @BeforeEach
     void setUp() {
-        processor = new GifticonOrderProcessor(attemptService, gifticonOrderRequester);
+        processor = new GifticonOrderProcessor(
+                attemptService,
+                completionService,
+                gifticonOrderRequester,
+                paymentService
+        );
     }
 
     @Test
@@ -40,7 +51,10 @@ class GifticonOrderProcessorTest {
         processor.process(1L);
 
         verify(gifticonOrderRequester).requestGift(attempt.command());
-        verify(attemptService).markRequested(org.mockito.ArgumentMatchers.eq(1L), any(Instant.class));
+        verify(completionService).completeRequested(
+                org.mockito.ArgumentMatchers.eq(1L),
+                any(Instant.class)
+        );
     }
 
     @Test
@@ -50,6 +64,11 @@ class GifticonOrderProcessorTest {
         doThrow(new IllegalStateException("temporary failure"))
                 .when(gifticonOrderRequester)
                 .requestGift(attempt.command());
+        when(attemptService.markFailed(
+                org.mockito.ArgumentMatchers.eq(1L),
+                any(Instant.class),
+                contains("temporary failure")
+        )).thenReturn(new GifticonOrderAttemptService.OrderFailure(null, false));
 
         processor.process(1L);
 
@@ -57,6 +76,32 @@ class GifticonOrderProcessorTest {
                 org.mockito.ArgumentMatchers.eq(1L),
                 any(Instant.class),
                 contains("temporary failure")
+        );
+        verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    void refundsChatPaymentOnlyAfterFinalExternalDeliveryFailure() {
+        GifticonOrderAttemptService.GifticonOrderAttempt attempt = attempt();
+        when(attemptService.prepare(1L)).thenReturn(attempt);
+        doThrow(new IllegalStateException("permanent failure"))
+                .when(gifticonOrderRequester)
+                .requestGift(attempt.command());
+        when(attemptService.markFailed(
+                org.mockito.ArgumentMatchers.eq(1L),
+                any(Instant.class),
+                contains("permanent failure")
+        )).thenReturn(new GifticonOrderAttemptService.OrderFailure(55L, true));
+
+        processor.process(1L);
+
+        verify(paymentService).failChatDeliveryAndRefund(
+                org.mockito.ArgumentMatchers.eq(55L),
+                contains("permanent failure")
+        );
+        verify(completionService, never()).completeRequested(
+                org.mockito.ArgumentMatchers.anyLong(),
+                any(Instant.class)
         );
     }
 

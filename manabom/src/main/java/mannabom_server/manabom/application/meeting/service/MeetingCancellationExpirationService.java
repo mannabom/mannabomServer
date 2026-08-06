@@ -36,7 +36,12 @@ public class MeetingCancellationExpirationService {
         MeetingCancellationRequest request = requestRepository.findByIdForUpdate(requestId)
                 .orElse(null);
 
-        if (request == null || !request.isExpiredAt(now)) {
+        return request != null && expire(request, now);
+    }
+
+    @Transactional
+    public boolean expire(MeetingCancellationRequest request, Instant now) {
+        if (!request.isExpiredAt(now)) {
             return false;
         }
 

@@ -1,7 +1,5 @@
 package mannabom_server.manabom.application.meeting.service;
 
-import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
-import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
@@ -23,7 +21,6 @@ import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.global.error.MeetingCancellationExpiredException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -177,7 +174,7 @@ class MeetingCancellationServiceTest {
     }
 
     @Test
-    void expiredRequestIsCommittedAndPublishesExpirationEventWhenVoting() throws NoSuchMethodException {
+    void expiredVoteDelegatesExpirationAndUsesNoRollbackException() throws NoSuchMethodException {
         Instant requestedAt = Instant.now().minus(Duration.ofHours(25));
         Meeting meeting1 = Meeting.builder().id(10L).build();
         Meeting meeting2 = Meeting.builder().id(11L).build();
@@ -193,12 +190,8 @@ class MeetingCancellationServiceTest {
         );
         ReflectionTestUtils.setField(request, "id", 30L);
         when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
-        when(meetingMemberRepository.findByMeetingIdAndStatus(10L, ChatUserStatus.ACTIVE))
-                .thenReturn(List.of());
-        when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))
-                .thenReturn(List.of());
-        when(chatRoomRepository.findByMatch(match))
-                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
+        when(expirationService.expire(eq(request), any(Instant.class)))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> meetingCancellationService.vote(
                 30L,
@@ -208,13 +201,8 @@ class MeetingCancellationServiceTest {
                 .isInstanceOf(MeetingCancellationExpiredException.class)
                 .hasMessage("이미 만료된 미팅 취소 요청입니다.");
 
-        assertThat(request.getStatus()).isEqualTo(MeetingCancellationStatus.EXPIRED);
+        verify(expirationService).expire(eq(request), any(Instant.class));
         verifyNoInteractions(voteRepository);
-        ArgumentCaptor<ChatSystemMessageEvent> eventCaptor =
-                ArgumentCaptor.forClass(ChatSystemMessageEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().type())
-                .isEqualTo(SystemMessageType.MEETING_CANCELLATION_EXPIRED);
 
         Method voteMethod = MeetingCancellationService.class.getMethod(
                 "vote",

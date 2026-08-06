@@ -138,7 +138,7 @@ public class MeetingCancellationService {
         MeetingCancellationRequest request = requestRepository.findByIdForUpdate(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅 취소 요청입니다."));
         Instant now = Instant.now();
-        if (expireIfNecessary(request, now)) {
+        if (expirationService.expire(request, now)) {
             throw new MeetingCancellationExpiredException(
                     "이미 만료된 미팅 취소 요청입니다."
             );
@@ -185,7 +185,7 @@ public class MeetingCancellationService {
         MeetingCancellationRequest request = requestRepository
                 .findByMeetingMatch_IdAndStatus(matchId, MeetingCancellationStatus.PENDING)
                 .orElseThrow(() -> new IllegalArgumentException("진행 중인 미팅 취소 요청이 없습니다."));
-        expireIfNecessary(request, Instant.now());
+        expirationService.expire(request, Instant.now());
         return response(request);
     }
 
@@ -229,25 +229,6 @@ public class MeetingCancellationService {
         activeMembers(match).forEach(MeetingMember::deactivate);
         meeting1.cancelByAgreement();
         meeting2.cancelByAgreement();
-    }
-
-    private boolean expireIfNecessary(
-            MeetingCancellationRequest request,
-            Instant now
-    ) {
-        if (!request.isExpiredAt(now)) {
-            return false;
-        }
-
-        List<Long> recipients = memberUserIds(activeMembers(request.getMeetingMatch()));
-        request.expire(now);
-        publishCancellationEvent(
-                request,
-                SystemMessageType.MEETING_CANCELLATION_EXPIRED,
-                null,
-                recipients
-        );
-        return true;
     }
 
     private boolean allMembersAgreed(Long requestId) {

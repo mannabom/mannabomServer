@@ -1,46 +1,60 @@
 package mannabom_server.manabom.domain.messageRequest.entity;
 
+import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.lang.reflect.Field;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MessageRequestGiftPaymentTest {
 
     @Test
-    void holdsAndCapturesPaidTingForGifticon() throws Exception {
-        MessageRequest request = giftMessageRequest(3);
+    void attachesOnlyPaidTossPaymentToGifticonMessage() {
+        GifticonProduct product = product(11_000);
+        GifticonPayment payment = paidPayment(product);
+        MessageRequest request = request(product);
 
-        assertThat(request.getHeldGiftTing()).isEqualTo(3);
-        assertThat(request.getGiftPaymentStatus()).isEqualTo(GifticonPaymentStatus.HELD);
+        payment.attachTo(request);
 
-        request.captureGiftPayment();
-
-        assertThat(request.getGiftPaymentStatus()).isEqualTo(GifticonPaymentStatus.CAPTURED);
-        assertThatThrownBy(request::releaseGiftPayment)
-                .isInstanceOf(IllegalStateException.class);
+        assertThat(request.hasPaidGifticonPayment()).isTrue();
+        assertThat(payment.getMessageRequest()).isEqualTo(request);
+        assertThat(payment.getAmount()).isEqualTo(11_000);
     }
 
     @Test
-    void releasesExactlyHeldPaidTingWhenRejected() throws Exception {
-        MessageRequest request = giftMessageRequest(100);
+    void rejectedGifticonPaymentMovesToRefundPendingInsteadOfTingRelease() {
+        GifticonPayment payment = paidPayment(product(11_000));
 
-        int released = request.releaseGiftPayment();
+        payment.requestRefund();
 
-        assertThat(released).isEqualTo(100);
-        assertThat(request.getGiftPaymentStatus()).isEqualTo(GifticonPaymentStatus.RELEASED);
+        assertThat(payment.getStatus()).isEqualTo(GifticonPaymentStatus.REFUND_PENDING);
     }
 
-    private MessageRequest giftMessageRequest(int tingPrice) throws Exception {
-        GifticonProduct product = new GifticonProduct(100L);
-        Field tingPriceField = GifticonProduct.class.getDeclaredField("tingPrice");
-        tingPriceField.setAccessible(true);
-        tingPriceField.setInt(product, tingPrice);
+    private GifticonPayment paidPayment(GifticonProduct product) {
+        GifticonPayment payment = new GifticonPayment(
+                1L,
+                product,
+                "GIFTICON_123456",
+                "CUSTOMER_123456",
+                100L,
+                "안녕하세요",
+                MessageSource.PROFILE_MATCH
+        );
+        payment.startConfirmation(
+                "payment-key",
+                Instant.now(),
+                Instant.now().minusSeconds(60)
+        );
+        payment.markPaid(Instant.now());
+        return payment;
+    }
+
+    private MessageRequest request(GifticonProduct product) {
         return new MessageRequest(
                 1L,
                 2L,
@@ -48,5 +62,11 @@ class MessageRequestGiftPaymentTest {
                 MessageSource.PROFILE_MATCH,
                 product
         );
+    }
+
+    private GifticonProduct product(int salePrice) {
+        GifticonProduct product = new GifticonProduct(100L);
+        ReflectionTestUtils.setField(product, "salePrice", salePrice);
+        return product;
     }
 }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
@@ -59,12 +60,8 @@ public class MessageRequest {
     @JoinColumn(name = "gifticon_product_id")
     private GifticonProduct gifticonProduct;
 
-    @Column(name = "held_gift_ting", nullable = false)
-    private int heldGiftTing;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "gift_payment_status", length = 30)
-    private GifticonPaymentStatus giftPaymentStatus;
+    @OneToOne(mappedBy = "messageRequest", fetch = FetchType.LAZY)
+    private GifticonPayment gifticonPayment;
 
     public MessageRequest(
             Long fromUserId,
@@ -78,8 +75,6 @@ public class MessageRequest {
         this.message = message;
         this.source = source;
         this.gifticonProduct = gifticonProduct;
-        this.heldGiftTing = gifticonProduct == null ? 0 : gifticonProduct.getTingPrice();
-        this.giftPaymentStatus = gifticonProduct == null ? null : GifticonPaymentStatus.HELD;
         this.status = MessageRequestStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
@@ -105,28 +100,18 @@ public class MessageRequest {
         this.respondedAt = LocalDateTime.now();
     }
 
-    public void captureGiftPayment() {
-        if (gifticonProduct == null) {
-            return;
+    public void attachGifticonPayment(GifticonPayment payment) {
+        if (gifticonProduct == null || payment == null || payment.getProduct() != gifticonProduct) {
+            throw new IllegalArgumentException("메시지의 기프티콘 상품과 결제가 일치하지 않습니다.");
         }
-        if (giftPaymentStatus != GifticonPaymentStatus.HELD) {
-            throw new IllegalStateException("보류 중인 기프티콘 결제가 아닙니다.");
+        if (gifticonPayment != null) {
+            throw new IllegalStateException("이미 기프티콘 결제가 연결된 메시지 요청입니다.");
         }
-        giftPaymentStatus = GifticonPaymentStatus.CAPTURED;
+        this.gifticonPayment = payment;
     }
 
-    public int releaseGiftPayment() {
-        if (gifticonProduct == null) {
-            return 0;
-        }
-        if (giftPaymentStatus != GifticonPaymentStatus.HELD) {
-            throw new IllegalStateException("보류 중인 기프티콘 결제가 아닙니다.");
-        }
-        giftPaymentStatus = GifticonPaymentStatus.RELEASED;
-        return heldGiftTing;
-    }
-
-    public boolean hasCapturedGiftPayment() {
-        return giftPaymentStatus == GifticonPaymentStatus.CAPTURED;
+    public boolean hasPaidGifticonPayment() {
+        return gifticonPayment != null
+                && gifticonPayment.getStatus() == GifticonPaymentStatus.PAID;
     }
 }

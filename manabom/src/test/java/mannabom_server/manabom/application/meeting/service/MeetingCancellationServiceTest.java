@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.meeting.service;
 
+import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
@@ -17,6 +18,7 @@ import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository
 import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.domain.user.entity.User;
+import mannabom_server.manabom.global.error.MeetingCancellationExpiredException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,9 +31,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -49,10 +53,6 @@ class MeetingCancellationServiceTest {
     private MeetingCancellationVoteRepository voteRepository;
     @Mock
     private UserRepository userRepository;
-    @Mock
-    private ChatRoomRepository chatRoomRepository;
-    @Mock
-    private ChatMemberRepository chatMemberRepository;
     @Mock
     private MeetingCancellationExpirationService expirationService;
 
@@ -157,6 +157,30 @@ class MeetingCancellationServiceTest {
 
         verify(meeting1).cancelByAgreement();
         verify(meeting2).cancelByAgreement();
+    }
+
+    @Test
+    void expiredRequestIsMarkedExpiredWhenVoting() {
+        Instant requestedAt = Instant.now().minus(Duration.ofHours(25));
+        MeetingCancellationRequest request = MeetingCancellationRequest.create(
+                mock(MeetingMatch.class),
+                user(1L),
+                requestedAt,
+                requestedAt.plus(Duration.ofHours(24))
+        );
+        when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> meetingCancellationService.vote(
+                30L,
+                2L,
+                CancellationVoteDecision.AGREE
+        ))
+                .isInstanceOf(MeetingCancellationExpiredException.class)
+                .hasMessage("이미 만료된 미팅 취소 요청입니다.");
+
+        assertThat(request.getStatus()).isEqualTo(MeetingCancellationStatus.EXPIRED);
+        assertThat(request.getCompletedAt()).isNotNull();
+        verifyNoInteractions(voteRepository);
     }
 
     @Test

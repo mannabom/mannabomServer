@@ -3,6 +3,7 @@ package mannabom_server.manabom.application.meeting.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
+import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
@@ -22,6 +23,7 @@ import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.global.error.MeetingCancellationExpiredException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,7 +112,9 @@ public class MeetingCancellationService {
         return MeetingCancellationResponse.of(request, votes);
     }
 
-    @Transactional
+    @Transactional(
+            noRollbackFor = MeetingCancellationExpiredException.class
+    )
     public MeetingCancellationResponse vote(
             Long requestId,
             Long userId,
@@ -120,18 +124,37 @@ public class MeetingCancellationService {
             throw new IllegalArgumentException("투표 결과는 AGREE 또는 REJECT여야 합니다.");
         }
 
-        MeetingCancellationRequest request = requestRepository.findByIdForUpdate(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅 취소 요청입니다."));
+        MeetingCancellationRequest request =
+                requestRepository.findByIdForUpdate(requestId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "존재하지 않는 미팅 취소 요청입니다."
+                                )
+                        );
+
         Instant now = Instant.now();
-        expireIfNecessary(request, now);
+
+        if (request.isExpiredAt(now)) {
+            request.expire(now);
+            throw new MeetingCancellationExpiredException(
+                    "이미 만료된 미팅 취소 요청입니다."
+            );
+        }
 
         if (request.getStatus() != MeetingCancellationStatus.PENDING) {
-            throw new IllegalStateException("이미 종료된 미팅 취소 요청입니다.");
+            throw new IllegalStateException(
+                    "이미 종료된 미팅 취소 요청입니다."
+            );
         }
 
         MeetingCancellationVote vote = voteRepository
                 .findByRequest_IdAndUser_UserId(requestId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 미팅의 투표 대상자가 아닙니다."));
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "해당 미팅의 투표 대상자가 아닙니다."
+                        )
+                );
+
         vote.decide(decision, now);
 
         if (decision == CancellationVoteDecision.REJECT) {
@@ -258,6 +281,6 @@ public class MeetingCancellationService {
         chatMemberRepository.findAllByRoomIdAndStatus(
                 room.getId(),
                 ChatMemberStatus.ACTIVATE
-        ).forEach(chatMember -> chatMember.deactivate());
+        ).forEach(ChatMember::deactivate);
     }
 }

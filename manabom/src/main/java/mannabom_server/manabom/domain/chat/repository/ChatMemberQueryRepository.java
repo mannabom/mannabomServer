@@ -16,6 +16,7 @@ public class ChatMemberQueryRepository {
         return em.createQuery("""
             select new mannabom_server.manabom.application.meeting.dto.response.MatchedChatRoomInfo$Participant(
                 u.userId,
+                p.profileId,
                 p.gender,
                 p.nickName,
                 (

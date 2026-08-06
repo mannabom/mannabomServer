@@ -27,8 +27,13 @@ class JacksonConfigTest {
 
         JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(payload));
 
+        assertThat(json.get("userId").isTextual()).isTrue();
         assertThat(json.get("userId").asText()).isEqualTo("10");
+
+        assertThat(json.get("recipientUserIds").get(0).isTextual()).isTrue();
         assertThat(json.get("recipientUserIds").get(0).asText()).isEqualTo("20");
+
+        assertThat(json.get("data").get("roomId").isTextual()).isTrue();
         assertThat(json.get("data").get("roomId").asText()).isEqualTo("30");
         assertThat(json.get("totalCount").isIntegralNumber()).isTrue();
     }
@@ -46,7 +51,10 @@ class JacksonConfigTest {
 
         JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(participant));
 
+        assertThat(json.get("userId").isTextual()).isTrue();
         assertThat(json.get("userId").asText()).isEqualTo("10");
+
+        assertThat(json.get("profileId").isTextual()).isTrue();
         assertThat(json.get("profileId").asText()).isEqualTo("100");
     }
 

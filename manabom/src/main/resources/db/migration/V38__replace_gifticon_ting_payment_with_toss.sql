@@ -30,6 +30,10 @@ ALTER TABLE message_request
     DROP COLUMN IF EXISTS held_gift_ting,
     DROP COLUMN IF EXISTS gift_payment_status;
 
+-- 0원 거래는 잔액 변화가 없는 과거 원장이므로 새 제약을 추가하기 전에 제거한다.
+DELETE FROM ting_transaction
+WHERE amount_delta = 0;
+
 ALTER TABLE ting_transaction
     DROP CONSTRAINT IF EXISTS ck_ting_transaction_amount,
     ADD CONSTRAINT ck_ting_transaction_amount

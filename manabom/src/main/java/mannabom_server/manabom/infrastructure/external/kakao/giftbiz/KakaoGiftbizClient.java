@@ -58,9 +58,7 @@ public class KakaoGiftbizClient implements GifticonTemplateProvider {
 
             if (Boolean.TRUE.equals(response.last())) {
                 log.info("[Gift Biz] 활성 템플릿 조회 완료: {}개", templates.size());
-                return templates.stream()
-                        .map(templateMapper::toSnapshot)
-                        .toList();
+                return mapValidTemplates(templates);
             }
             if (contents.isEmpty()) {
                 throw new IllegalStateException(
@@ -72,6 +70,24 @@ public class KakaoGiftbizClient implements GifticonTemplateProvider {
         throw new IllegalStateException(
                 "Gift Biz 템플릿 조회가 최대 페이지 수를 초과했습니다: " + maxPages
         );
+    }
+
+    private List<GifticonTemplateSnapshot> mapValidTemplates(
+            List<KakaoGiftbizTemplate> templates
+    ) {
+        List<GifticonTemplateSnapshot> snapshots = new ArrayList<>();
+        for (KakaoGiftbizTemplate template : templates) {
+            try {
+                snapshots.add(templateMapper.toSnapshot(template));
+            } catch (IllegalArgumentException e) {
+                log.warn(
+                        "[Gift Biz] 필수 상품 정보가 누락된 템플릿을 건너뜁니다. templateTraceId={}",
+                        template == null ? null : template.templateTraceId(),
+                        e
+                );
+            }
+        }
+        return snapshots;
     }
 
     private KakaoGiftbizTemplatePage fetchPage(int page) {

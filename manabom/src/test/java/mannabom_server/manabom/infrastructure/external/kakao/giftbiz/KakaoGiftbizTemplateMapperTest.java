@@ -6,6 +6,7 @@ import mannabom_server.manabom.infrastructure.external.kakao.giftbiz.dto.KakaoGi
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class KakaoGiftbizTemplateMapperTest {
 
@@ -50,5 +51,27 @@ class KakaoGiftbizTemplateMapperTest {
         assertThat(result.endAt()).isNull();
         assertThat(result.brandName()).isEqualTo("스타벅스");
         assertThat(result.productPrice()).isEqualTo(10_000);
+    }
+
+    @Test
+    void rejectsTemplateWithoutProductPrice() throws Exception {
+        KakaoGiftbizTemplatePage response = objectMapper.readValue(
+                """
+                {
+                  "contents": [{
+                    "template_name": "가격 누락",
+                    "template_trace_id": 1,
+                    "order_template_status": "ALIVE",
+                    "product": {"product_name": "상품"}
+                  }],
+                  "last": true
+                }
+                """,
+                KakaoGiftbizTemplatePage.class
+        );
+
+        assertThatThrownBy(() -> mapper.toSnapshot(response.contents().get(0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("상품 가격");
     }
 }

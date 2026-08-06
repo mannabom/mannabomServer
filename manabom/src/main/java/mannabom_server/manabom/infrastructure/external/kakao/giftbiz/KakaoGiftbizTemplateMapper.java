@@ -17,7 +17,13 @@ public class KakaoGiftbizTemplateMapper {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     public GifticonTemplateSnapshot toSnapshot(KakaoGiftbizTemplate template) {
+        if (template == null) {
+            throw new IllegalArgumentException("Gift Biz 템플릿은 null일 수 없습니다.");
+        }
         Product product = template.product();
+        if (product == null || product.productPrice() == null) {
+            throw new IllegalArgumentException("Gift Biz 템플릿의 상품 가격이 누락되었습니다.");
+        }
         return new GifticonTemplateSnapshot(
                 template.templateTraceId(),
                 template.templateName(),
@@ -29,13 +35,13 @@ public class KakaoGiftbizTemplateMapper {
                 template.businessMessageSenderName(),
                 template.messageCardImageUrl(),
                 template.messageCardText(),
-                product == null ? null : product.itemType(),
-                product == null ? null : product.productName(),
-                product == null ? null : product.brandName(),
-                product == null ? null : product.productImageUrl(),
-                product == null ? null : product.productThumbnailImageUrl(),
-                product == null ? null : product.brandImageUrl(),
-                product == null ? null : product.productPrice()
+                product.itemType(),
+                product.productName(),
+                product.brandName(),
+                product.productImageUrl(),
+                product.productThumbnailImageUrl(),
+                product.brandImageUrl(),
+                product.productPrice()
         );
     }
 

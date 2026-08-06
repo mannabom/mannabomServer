@@ -22,7 +22,7 @@ public class GiftbizProperties {
     @Getter
     @Setter
     public static class Sync {
-        private boolean enabled = true;
+        private boolean enabled = false;
         private long initialDelay = 10_000L;
         private long fixedDelay = 1_800_000L;
         private int maxPages = 100;

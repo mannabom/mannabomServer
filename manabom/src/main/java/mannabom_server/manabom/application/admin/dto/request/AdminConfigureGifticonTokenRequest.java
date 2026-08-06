@@ -13,6 +13,7 @@ public class AdminConfigureGifticonTokenRequest {
     @Size(max = 512, message = "templateToken은 512자를 초과할 수 없습니다.")
     private String templateToken;
 
+    @NotBlank(message = "reason은 필수입니다.")
     @Size(max = 500, message = "reason은 500자를 초과할 수 없습니다.")
     private String reason;
 }

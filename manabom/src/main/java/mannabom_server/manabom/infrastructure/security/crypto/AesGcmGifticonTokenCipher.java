@@ -22,13 +22,16 @@ public class AesGcmGifticonTokenCipher implements GifticonTokenCipher {
     private static final int GCM_IV_BYTES = 12;
     private static final int GCM_TAG_BITS = 128;
 
-    private final String encodedKey;
+    private static final String KEY_SETTING_NAME =
+            "APP_KAKAO_GIFTBIZ_TOKEN_ENCRYPTION_KEY";
+
+    private final SecretKey secretKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AesGcmGifticonTokenCipher(
             @Value("${app.kakao.giftbiz.token-encryption-key:}") String encodedKey
     ) {
-        this.encodedKey = encodedKey;
+        this.secretKey = decodeOptionalSecretKey(encodedKey);
     }
 
     @Override
@@ -41,7 +44,7 @@ public class AesGcmGifticonTokenCipher implements GifticonTokenCipher {
             secureRandom.nextBytes(iv);
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
+            cipher.init(Cipher.ENCRYPT_MODE, requiredSecretKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
             byte[] encrypted = cipher.doFinal(plainToken.getBytes(StandardCharsets.UTF_8));
             byte[] payload = ByteBuffer.allocate(iv.length + encrypted.length)
                     .put(iv)
@@ -73,31 +76,38 @@ public class AesGcmGifticonTokenCipher implements GifticonTokenCipher {
                     .get(ciphertext);
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
+            cipher.init(Cipher.DECRYPT_MODE, requiredSecretKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException | GeneralSecurityException e) {
             throw new IllegalStateException("기프티콘 템플릿 토큰 복호화에 실패했습니다.", e);
         }
     }
 
-    private SecretKey secretKey() {
+    private SecretKey decodeOptionalSecretKey(String encodedKey) {
         if (encodedKey == null || encodedKey.isBlank()) {
-            throw new IllegalStateException("GIFTICON_TOKEN_ENCRYPTION_KEY 설정이 필요합니다.");
+            return null;
         }
         byte[] decoded;
         try {
             decoded = Base64.getDecoder().decode(encodedKey.trim());
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException(
-                    "GIFTICON_TOKEN_ENCRYPTION_KEY는 Base64 형식이어야 합니다.",
+                    KEY_SETTING_NAME + "는 Base64 형식이어야 합니다.",
                     e
             );
         }
         if (decoded.length != AES_256_KEY_BYTES) {
             throw new IllegalStateException(
-                    "GIFTICON_TOKEN_ENCRYPTION_KEY는 Base64로 인코딩한 32바이트 키여야 합니다."
+                    KEY_SETTING_NAME + "는 Base64로 인코딩한 32바이트 키여야 합니다."
             );
         }
         return new SecretKeySpec(decoded, "AES");
+    }
+
+    private SecretKey requiredSecretKey() {
+        if (secretKey == null) {
+            throw new IllegalStateException(KEY_SETTING_NAME + " 설정이 필요합니다.");
+        }
+        return secretKey;
     }
 }

@@ -48,4 +48,20 @@ class AesGcmGifticonTokenCipherTest {
         assertThatThrownBy(() -> anotherCipher.decrypt(encrypted))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void rejectsInvalidConfiguredKeyDuringConstruction() {
+        assertThatThrownBy(() -> new AesGcmGifticonTokenCipher("not-base64"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("APP_KAKAO_GIFTBIZ_TOKEN_ENCRYPTION_KEY");
+    }
+
+    @Test
+    void allowsEmptyOptionalKeyButFailsWhenEncryptionIsRequested() {
+        AesGcmGifticonTokenCipher cipher = new AesGcmGifticonTokenCipher("");
+
+        assertThatThrownBy(() -> cipher.encrypt("token"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("APP_KAKAO_GIFTBIZ_TOKEN_ENCRYPTION_KEY");
+    }
 }

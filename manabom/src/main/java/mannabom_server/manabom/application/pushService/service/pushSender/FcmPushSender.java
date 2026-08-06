@@ -25,12 +25,14 @@ public class FcmPushSender implements PushSender {
         log.info("firebase를 통해 전송 시작");
         FirebaseMessaging messaging = FirebaseMessaging.getInstance(firebaseApp);
 
+        Notification.Builder notification = Notification.builder()
+                .setTitle(msg.title());
+        if (msg.body() != null && !msg.body().isBlank()) {
+            notification.setBody(msg.body());
+        }
         Message.Builder b = Message.builder()
                 .setToken(token)
-                .setNotification(Notification.builder()
-                        .setTitle(msg.title())
-                        .setBody(msg.body())
-                        .build());
+                .setNotification(notification.build());
 
         if (msg.data() != null) b.putAllData(msg.data());
 
@@ -50,12 +52,14 @@ public class FcmPushSender implements PushSender {
 
         FirebaseMessaging messaging = FirebaseMessaging.getInstance(firebaseApp);
 
+        Notification.Builder notification = Notification.builder()
+                .setTitle(msg.title());
+        if (msg.body() != null && !msg.body().isBlank()) {
+            notification.setBody(msg.body());
+        }
         MulticastMessage.Builder b = MulticastMessage.builder()
                 .addAllTokens(tokens)
-                .setNotification(Notification.builder()
-                        .setTitle(msg.title())
-                        .setBody(msg.body())
-                        .build());
+                .setNotification(notification.build());
 
         if (msg.data() != null) b.putAllData(msg.data());
 

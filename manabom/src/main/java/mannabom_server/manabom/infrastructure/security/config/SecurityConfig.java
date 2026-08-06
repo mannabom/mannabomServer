@@ -48,6 +48,9 @@ public class SecurityConfig {
                                 "/api/signup/**",
                                 "/api/questions/**",
                                 "/api/signup/terms/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
                                 "/ws-chat/**",
                                 "/error"
                         ).permitAll()

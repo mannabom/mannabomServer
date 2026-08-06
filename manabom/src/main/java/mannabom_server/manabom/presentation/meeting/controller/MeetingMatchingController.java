@@ -2,7 +2,6 @@ package mannabom_server.manabom.presentation.meeting.controller;
 
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.common.dto.ApiResponse;
-import mannabom_server.manabom.application.notification.service.SseService;
 import mannabom_server.manabom.application.meeting.dto.response.*;
 import mannabom_server.manabom.application.meeting.service.MeetingMatchingService;
 import mannabom_server.manabom.application.meeting.service.MeetingService;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/meeting/matching")
 public class MeetingMatchingController {
-    private final SseService sseService;
     private final MeetingService meetingService;
     private final MeetingMatchingService meetingMatchingService;
 

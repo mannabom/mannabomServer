@@ -119,7 +119,7 @@ public enum SystemMessageType {
             );
             case MEETING_VERIFICATION_SUCCEEDED -> message(
                     defaultTitle,
-                    nickname + "님이 시작한 만남인증이 완료되었어요.\n"
+                    nickname + "님의 참여로 만남인증이 완료되었어요.\n"
                             + "참여인원 : " + verifiedParticipantCount + "명"
             );
             case MEETING_VERIFICATION_FAILED -> message(

@@ -254,12 +254,11 @@ public class MeetingVerificationService {
                 eventPublisher.publishEvent(ChatSystemMessageEvent.of(
                         chatRoomId,
                         SystemMessageType.MEETING_VERIFICATION_SUCCEEDED,
-                        verification.getStartedBy() == null
-                                ? userId
-                                : verification.getStartedBy().getUserId(),
+                        userId,
                         null,
                         Map.of(
                                 "verifiedAt", verification.getVerifiedAt().toString(),
+                                "expiresAt", verification.getExpiresAt().toString(),
                                 "participantCount", bestCluster.count(),
                                 "submittedCount", verification.getParticipantCount(),
                                 "verifiedParticipantCount", bestCluster.count()

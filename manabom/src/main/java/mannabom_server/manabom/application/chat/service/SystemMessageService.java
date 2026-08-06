@@ -94,8 +94,13 @@ public class SystemMessageService {
         SystemMessageType failedTeamType = isByTimeout
                 ? SystemMessageType.MATCH_TIMED_OUT
                 : SystemMessageType.MATCH_REJECTED_BY_LEADER;
+        boolean bothTeamsTimedOut = isByTimeout
+                && match.getMeeting1Decision() == MeetingDecision.AUTO_REJECTED
+                && match.getMeeting2Decision() == MeetingDecision.AUTO_REJECTED;
         SystemMessageType opponentType = isByTimeout
-                ? SystemMessageType.OPPONENT_MATCH_TIMED_OUT
+                ? bothTeamsTimedOut
+                        ? SystemMessageType.MATCH_TIMED_OUT
+                        : SystemMessageType.OPPONENT_MATCH_TIMED_OUT
                 : SystemMessageType.MATCH_REJECTED_BY_OPPONENT;
         Map<String, Object> data = Map.of("matchId", matchId, "timeout", isByTimeout);
 

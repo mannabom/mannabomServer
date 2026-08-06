@@ -145,7 +145,7 @@ class SystemMessageServiceTest {
     }
 
     @Test
-    void recordsTimeoutMessagesForBothTeams() {
+    void recordsTimeoutAndOpponentTimeoutMessagesWhenOnlyOneTeamTimedOut() {
         Meeting meeting1 = Meeting.builder().id(10L).build();
         Meeting meeting2 = Meeting.builder().id(11L).build();
         MeetingMatch match = org.mockito.Mockito.mock(MeetingMatch.class);
@@ -165,5 +165,29 @@ class SystemMessageServiceTest {
         assertThat(events.get(0).message().getContent()).contains("자동으로 거절됐어요");
         assertThat(events.get(1).message().getRoomId()).isEqualTo(100L);
         assertThat(events.get(1).message().getContent()).contains("상대 팀의 응답 시간이 지나");
+    }
+
+    @Test
+    void recordsOwnTimeoutMessageForBothTeamsWhenBothTimedOut() {
+        Meeting meeting1 = Meeting.builder().id(10L).build();
+        Meeting meeting2 = Meeting.builder().id(11L).build();
+        MeetingMatch match = org.mockito.Mockito.mock(MeetingMatch.class);
+        when(match.getMeeting1()).thenReturn(meeting1);
+        when(match.getMeeting2()).thenReturn(meeting2);
+        when(match.getMeeting1Decision()).thenReturn(MeetingDecision.AUTO_REJECTED);
+        when(match.getMeeting2Decision()).thenReturn(MeetingDecision.AUTO_REJECTED);
+        when(meetingMatchRepository.findByIdWithMeeting(20L)).thenReturn(Optional.of(match));
+        when(chatRoomRepository.findByMeeting_Id(10L))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).meeting(meeting1).build()));
+        when(chatRoomRepository.findByMeeting_Id(11L))
+                .thenReturn(Optional.of(ChatRoom.builder().id(101L).meeting(meeting2).build()));
+
+        List<SystemMessageService.RecordedSystemMessage> events =
+                systemMessageService.recordMatchFailure(20L, null, true);
+
+        assertThat(events).extracting(event -> event.message().getSystemEventType())
+                .containsExactly("MATCH_TIMED_OUT", "MATCH_TIMED_OUT");
+        assertThat(events).allSatisfy(event ->
+                assertThat(event.message().getContent()).contains("자동으로 거절됐어요"));
     }
 }

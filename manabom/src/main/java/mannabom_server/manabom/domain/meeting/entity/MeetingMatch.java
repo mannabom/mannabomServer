@@ -115,7 +115,7 @@ public class MeetingMatch {
             this.meeting1Decision = determineAutoDecision(meeting1);
 
         }
-        if(meeting1Decision.equals(MeetingDecision.WAITING)){
+        if(meeting2Decision.equals(MeetingDecision.WAITING)){
             this.meeting2Decision = determineAutoDecision(meeting2);
         }
         updateStatus();

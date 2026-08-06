@@ -89,8 +89,7 @@ app:
 
   # 카카오 OAuth 설정
   kakao:
-    client-id: ${KAKAO_CLIENT_ID:your-kakao-client-id}
-    redirect-uri: http://localhost:8080/api/auth/login/kakao  # 임시로 카카오 디벨로퍼에 등록한 URI
+    app-id: ${KAKAO_APP_ID:0}
     giftbiz:
       base-url: ${KAKAO_GIFTBIZ_BASE_URL:https://gateway-giftbiz.kakao.com}
       authorization: ${KAKAO_GIFTBIZ_AUTHORIZATION:}
@@ -113,14 +112,6 @@ app:
           fixed-delay: ${KAKAO_GIFTBIZ_ORDER_RETRY_FIXED_DELAY:60000}
           max-attempts: ${KAKAO_GIFTBIZ_ORDER_RETRY_MAX_ATTEMPTS:5}
           batch-size: ${KAKAO_GIFTBIZ_ORDER_RETRY_BATCH_SIZE:50}
-    # 운영환경에서는 실제 도메인으로 변경 필요
-    # redirect-uri: https://company-domain.com/api/auth/login/kakao
-
-    # 사업자 등록 하기 전 임시 개발환경 전용 설정
-    development:
-      skip-age-verification: true        # 연령검증 스킵
-      default-birth-year: 2000          # 더미 출생년도 (24세)
-      default-gender: "MALE"            # 더미 성별
 
   toss-payments:
     base-url: ${TOSS_PAYMENTS_BASE_URL:https://api.tosspayments.com}
@@ -218,8 +209,3 @@ benefit:
     basic: # 기본 지급
       daily-profile: 10
       daily-love-view: 10
-
-gifticon:
-  pricing:
-    markup-percent: ${GIFTICON_MARKUP_PERCENT:10}
-    round-unit: ${GIFTICON_PRICE_ROUND_UNIT:100}

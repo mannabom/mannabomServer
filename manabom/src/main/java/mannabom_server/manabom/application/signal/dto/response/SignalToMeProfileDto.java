@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.signal.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import mannabom_server.manabom.application.signal.dto.enums.MatchType;
 import mannabom_server.manabom.application.signal.dto.enums.Type;
@@ -11,7 +12,9 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class SignalToMeProfileDto {
-    private Long id;
+    private Long targetProfileId;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long requestId; // LIKE/MESSAGE 요청 객체 id, HIGH_SCORE에는 미포함
     private MatchType matchType; // PROFILE | LOVE_VIEW
     private Type type; // LIKE | MESSAGE | HIGH_SCORE
     private String fromUserNickname;

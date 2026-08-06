@@ -3,6 +3,7 @@ package mannabom_server.manabom.presentation.gifticon.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.gifticon.dto.request.ConfirmGifticonPaymentRequest;
+import mannabom_server.manabom.application.gifticon.dto.request.PrepareChatGifticonPaymentRequest;
 import mannabom_server.manabom.application.gifticon.dto.request.PrepareGifticonPaymentRequest;
 import mannabom_server.manabom.application.gifticon.dto.response.GifticonPaymentPrepareResponse;
 import mannabom_server.manabom.application.gifticon.dto.response.GifticonPaymentResponse;
@@ -31,6 +32,14 @@ public class GifticonPaymentController {
         return ResponseEntity.ok(
                 paymentService.prepare(userId, request)
         );
+    }
+
+    @PostMapping("/chat/prepare")
+    public ResponseEntity<GifticonPaymentPrepareResponse> prepareChat(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody PrepareChatGifticonPaymentRequest request
+    ) {
+        return ResponseEntity.ok(paymentService.prepareChat(userId, request));
     }
 
     @PostMapping("/confirm")

@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonMessageCreationStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.infrastructure.external.toss.config.TossPaymentsProperties;
 import org.springframework.stereotype.Service;
@@ -85,7 +87,8 @@ public class GifticonPaymentStateService {
     public void startMessageCreationForAdmin(Long paymentId) {
         GifticonPayment payment = findForUpdate(paymentId);
         Instant now = Instant.now();
-        if (payment.getStatus() != GifticonPaymentStatus.PAID
+        if (payment.getPurpose() != GifticonPaymentPurpose.MESSAGE_REQUEST
+                || payment.getStatus() != GifticonPaymentStatus.PAID
                 || payment.getMessageRequest() != null) {
             throw new IllegalStateException("메시지가 없는 결제 완료 건만 재시도할 수 있습니다.");
         }
@@ -121,6 +124,13 @@ public class GifticonPaymentStateService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void failChatDelivery(Long paymentId, String reason) {
+        GifticonPayment payment = findForUpdate(paymentId);
+        payment.markChatDeliveryFailed(reason);
+        payment.requestRefund();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RefundAttempt startRefund(Long paymentId) {
         GifticonPayment payment = findForUpdate(paymentId);
         Instant now = Instant.now();
@@ -136,7 +146,7 @@ public class GifticonPaymentStateService {
                 payment.getGifticonPaymentId(),
                 payment.getPaymentKey(),
                 payment.getOrderId(),
-                payment.getMessageRequest() == null
+                payment.getMessageRequest() == null && payment.getChatMessage() == null
         );
     }
 
@@ -144,8 +154,12 @@ public class GifticonPaymentStateService {
     public RefundAttempt startRefundForAdmin(Long paymentId) {
         GifticonPayment payment = findForUpdate(paymentId);
         if (payment.getStatus() == GifticonPaymentStatus.PAID) {
-            if (payment.getMessageRequest() != null) {
-                throw new IllegalStateException("메시지가 생성된 결제는 강제 환불할 수 없습니다.");
+            if (payment.getMessageRequest() != null || payment.getChatMessage() != null) {
+                throw new IllegalStateException("수신자에게 공개된 결제는 강제 환불할 수 없습니다.");
+            }
+            if (payment.getGifticonOrder() != null
+                    && payment.getGifticonOrder().getStatus() != GifticonOrderStatus.FAILED) {
+                throw new IllegalStateException("기프티콘 발송 처리가 진행 중인 결제는 강제 환불할 수 없습니다.");
             }
             payment.requestRefund();
         }
@@ -165,7 +179,7 @@ public class GifticonPaymentStateService {
                 payment.getGifticonPaymentId(),
                 payment.getPaymentKey(),
                 payment.getOrderId(),
-                payment.getMessageRequest() == null
+                payment.getMessageRequest() == null && payment.getChatMessage() == null
         );
     }
 

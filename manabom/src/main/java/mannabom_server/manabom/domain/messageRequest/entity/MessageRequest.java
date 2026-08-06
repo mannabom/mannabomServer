@@ -67,6 +67,15 @@ public class MessageRequest {
             Long fromUserId,
             Long toUserId,
             String message,
+            MessageSource source
+    ) {
+        this(fromUserId, toUserId, message, source, null);
+    }
+
+    public MessageRequest(
+            Long fromUserId,
+            Long toUserId,
+            String message,
             MessageSource source,
             GifticonProduct gifticonProduct
     ) {

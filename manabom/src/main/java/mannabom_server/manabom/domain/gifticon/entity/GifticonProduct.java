@@ -79,11 +79,8 @@ public class GifticonProduct extends BaseTimeEntity {
     @Column(name = "product_price", nullable = false)
     private int productPrice;
 
-    @Column(name = "ting_price", nullable = false)
-    private int tingPrice;
-
-    @Column(name = "ting_price_manually_set", nullable = false)
-    private boolean tingPriceManuallySet;
+    @Column(name = "sale_price", nullable = false)
+    private int salePrice;
 
     @Column(name = "available", nullable = false)
     private boolean available;
@@ -112,7 +109,7 @@ public class GifticonProduct extends BaseTimeEntity {
             String productThumbnailImageUrl,
             String brandImageUrl,
             int productPrice,
-            int calculatedTingPrice,
+            int calculatedSalePrice,
             Instant syncedAt
     ) {
         this.templateName = templateName;
@@ -131,27 +128,9 @@ public class GifticonProduct extends BaseTimeEntity {
         this.productThumbnailImageUrl = productThumbnailImageUrl;
         this.brandImageUrl = brandImageUrl;
         this.productPrice = productPrice;
-        if (!this.tingPriceManuallySet) {
-            this.tingPrice = calculatedTingPrice;
-        }
+        this.salePrice = calculatedSalePrice;
         this.available = "ALIVE".equals(orderTemplateStatus);
         this.lastSyncedAt = syncedAt;
-    }
-
-    public void changeTingPrice(int tingPrice) {
-        if (tingPrice <= 0) {
-            throw new IllegalArgumentException("팅 판매가는 0보다 커야 합니다.");
-        }
-        this.tingPrice = tingPrice;
-        this.tingPriceManuallySet = true;
-    }
-
-    public void useCalculatedTingPrice(int calculatedTingPrice) {
-        if (calculatedTingPrice < 0) {
-            throw new IllegalArgumentException("계산된 팅 판매가는 0 이상이어야 합니다.");
-        }
-        this.tingPrice = calculatedTingPrice;
-        this.tingPriceManuallySet = false;
     }
 
     public boolean isAvailableAt(LocalDateTime now) {
@@ -161,11 +140,18 @@ public class GifticonProduct extends BaseTimeEntity {
     }
 
     public boolean isOrderableAt(LocalDateTime now) {
-        return hasTemplateToken() && isAvailableAt(now);
+        return salePrice > 0 && hasTemplateToken() && isAvailableAt(now);
     }
 
     public boolean hasTemplateToken() {
         return encryptedTemplateToken != null && !encryptedTemplateToken.isBlank();
+    }
+
+    public void updateSalePrice(int calculatedSalePrice) {
+        if (calculatedSalePrice < 0) {
+            throw new IllegalArgumentException("기프티콘 판매가는 0 이상이어야 합니다.");
+        }
+        this.salePrice = calculatedSalePrice;
     }
 
     public void configureEncryptedTemplateToken(String encryptedTemplateToken) {

@@ -15,7 +15,6 @@ public class GifticonPricingConfiguration {
     @Bean
     public GifticonPriceCalculator gifticonPriceCalculator() {
         return new GifticonPriceCalculator(
-                properties.getWonPerTing(),
                 properties.getMarkupPercent(),
                 properties.getRoundUnit()
         );

@@ -15,7 +15,7 @@ public record GifticonProductResponse(
         String productThumbnailImageUrl,
         String brandImageUrl,
         int productPrice,
-        int tingPrice,
+        int salePrice,
         LocalDateTime startAt,
         LocalDateTime endAt
 ) {
@@ -31,7 +31,7 @@ public record GifticonProductResponse(
                 product.getProductThumbnailImageUrl(),
                 product.getBrandImageUrl(),
                 product.getProductPrice(),
-                product.getTingPrice(),
+                product.getSalePrice(),
                 product.getStartAt(),
                 product.getEndAt()
         );

@@ -7,6 +7,7 @@ import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.vo.GifticonTemplateSnapshot;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
 import mannabom_server.manabom.domain.gifticon.service.GifticonPriceCalculator;
+import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class GifticonCatalogService {
 
     private final GifticonProductRepository gifticonProductRepository;
     private final GifticonPriceCalculator gifticonPriceCalculator;
+    private final RuntimePolicyService runtimePolicyService;
     private final Clock clock = Clock.system(KOREA_ZONE);
 
     @Transactional(readOnly = true)
@@ -133,7 +135,13 @@ public class GifticonCatalogService {
                 template.productThumbnailImageUrl(),
                 template.brandImageUrl(),
                 template.productPrice(),
-                gifticonPriceCalculator.calculateTingPrice(template.productPrice()),
+                gifticonPriceCalculator.calculateSalePrice(
+                        template.productPrice(),
+                        runtimePolicyService.snapshot()
+                                .getGifticon()
+                                .getPricing()
+                                .getMarkupPercent()
+                ),
                 syncedAt
         );
         return gifticonProduct;

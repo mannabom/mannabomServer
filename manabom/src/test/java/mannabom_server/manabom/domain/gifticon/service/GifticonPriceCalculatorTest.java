@@ -9,15 +9,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GifticonPriceCalculatorTest {
 
     @Test
-    void calculateTingPriceAppliesConversionMarkupAndCeilingUnit() {
+    void calculateSalePriceAddsTenPercentAndRoundsUpToHundredWon() {
         GifticonPriceCalculator calculator = new GifticonPriceCalculator(
                 BigDecimal.TEN,
-                BigDecimal.valueOf(5),
-                10
+                100
         );
 
-        int tingPrice = calculator.calculateTingPrice(300);
+        assertThat(calculator.calculateSalePrice(300)).isEqualTo(400);
+        assertThat(calculator.calculateSalePrice(10_000)).isEqualTo(11_000);
+        assertThat(calculator.calculateSalePrice(10_050)).isEqualTo(11_100);
+    }
 
-        assertThat(tingPrice).isEqualTo(40);
+    @Test
+    void calculateSalePriceRejectsNegativeProductPrice() {
+        GifticonPriceCalculator calculator = new GifticonPriceCalculator(
+                BigDecimal.TEN,
+                100
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> calculator.calculateSalePrice(-1)
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 }

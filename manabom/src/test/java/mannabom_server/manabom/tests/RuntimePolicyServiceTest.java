@@ -1,6 +1,7 @@
 package mannabom_server.manabom.tests;
 
 import mannabom_server.manabom.policy.config.BenefitPolicyProperties;
+import mannabom_server.manabom.policy.config.GifticonPricingProperties;
 import mannabom_server.manabom.policy.config.MatchPolicyProperties;
 import mannabom_server.manabom.policy.config.TingPolicyProperties;
 import mannabom_server.manabom.policy.entity.PolicyConfig;
@@ -52,7 +53,11 @@ class RuntimePolicyServiceTest {
         benefit.setMembership(membership);
         benefit.setVip(vip);
 
-        return new RuntimePolicyService(match, ting, benefit, repo);
+        GifticonPricingProperties gifticon = new GifticonPricingProperties();
+        gifticon.setMarkupPercent(java.math.BigDecimal.TEN);
+        gifticon.setRoundUnit(100);
+
+        return new RuntimePolicyService(match, ting, benefit, gifticon, repo);
     }
 
     @Test
@@ -78,6 +83,9 @@ class RuntimePolicyServiceTest {
         assertEquals(30, s.getBenefit().getMembership().getCycleExtraProfiles());
         assertEquals(10, s.getBenefit().getMembership().getCycleFreeMessages());
         assertEquals(0, s.getBenefit().getVip().getDailyFreeLikes());
+        assertEquals(0, s.getGifticon().getPricing().getMarkupPercent()
+                .compareTo(java.math.BigDecimal.TEN));
+        assertEquals(100, s.getGifticon().getPricing().getRoundUnit());
     }
 
     @Test
@@ -88,6 +96,7 @@ class RuntimePolicyServiceTest {
         row.updateTingVipThreshold(999);
         row.updateTingCostLike(7);
         row.updateBenefitVipDailyExtraProfiles(11);
+        row.updateGifticonMarkupPercent(new java.math.BigDecimal("12.5"));
 
         PolicyConfigRepository repo = mock(PolicyConfigRepository.class);
         when(repo.findById(1L)).thenReturn(Optional.of(row));
@@ -106,6 +115,8 @@ class RuntimePolicyServiceTest {
 
         assertEquals(11, s.getBenefit().getVip().getDailyExtraProfiles());
         assertEquals(10, s.getBenefit().getMembership().getCycleFreeMessages());
+        assertEquals(0, s.getGifticon().getPricing().getMarkupPercent()
+                .compareTo(new java.math.BigDecimal("12.5")));
     }
 
     @Test

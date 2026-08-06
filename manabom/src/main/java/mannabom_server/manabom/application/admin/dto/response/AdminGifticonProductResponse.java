@@ -12,7 +12,7 @@ public record AdminGifticonProductResponse(
         String brandName,
         String productThumbnailImageUrl,
         int productPrice,
-        int tingPrice,
+        int salePrice,
         boolean available,
         boolean templateTokenConfigured,
         Instant lastSyncedAt
@@ -26,7 +26,7 @@ public record AdminGifticonProductResponse(
                 product.getBrandName(),
                 product.getProductThumbnailImageUrl(),
                 product.getProductPrice(),
-                product.getTingPrice(),
+                product.getSalePrice(),
                 product.isAvailable(),
                 product.hasTemplateToken(),
                 product.getLastSyncedAt()

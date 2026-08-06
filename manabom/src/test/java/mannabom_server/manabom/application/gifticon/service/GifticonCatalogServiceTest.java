@@ -5,6 +5,8 @@ import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.vo.GifticonTemplateSnapshot;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
 import mannabom_server.manabom.domain.gifticon.service.GifticonPriceCalculator;
+import mannabom_server.manabom.policy.model.RuntimePolicySnapshot;
+import mannabom_server.manabom.policy.service.RuntimePolicyService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,6 +36,9 @@ class GifticonCatalogServiceTest {
 
     @Mock
     private GifticonProductRepository gifticonProductRepository;
+
+    @Mock
+    private RuntimePolicyService runtimePolicyService;
 
     @Test
     void getAvailableProductsSupportsCategoryCursorPagination() {
@@ -85,6 +90,14 @@ class GifticonCatalogServiceTest {
     void synchronizeAliveTemplatesCreatesProductFromKakaoResponse() {
         GifticonCatalogService service = service();
         GifticonTemplateSnapshot template = template();
+        when(runtimePolicyService.snapshot()).thenReturn(RuntimePolicySnapshot.builder()
+                .gifticon(RuntimePolicySnapshot.Gifticon.builder()
+                        .pricing(RuntimePolicySnapshot.Gifticon.Pricing.builder()
+                                .markupPercent(BigDecimal.TEN)
+                                .roundUnit(100)
+                                .build())
+                        .build())
+                .build());
         when(gifticonProductRepository.findAllByTemplateTraceIdIn(anyCollection()))
                 .thenReturn(List.of());
 
@@ -101,7 +114,7 @@ class GifticonCatalogServiceTest {
         assertThat(product.getProductName()).isEqualTo("퍼페티)츄파춥스");
         assertThat(product.getBrandName()).isEqualTo("GS25");
         assertThat(product.getProductPrice()).isEqualTo(300);
-        assertThat(product.getTingPrice()).isEqualTo(3);
+        assertThat(product.getSalePrice()).isEqualTo(400);
         assertThat(product.getStartAt()).isEqualTo(LocalDateTime.of(2026, 7, 23, 0, 0));
         assertThat(product.isAvailable()).isTrue();
         verify(gifticonProductRepository)
@@ -121,11 +134,14 @@ class GifticonCatalogServiceTest {
 
     private GifticonCatalogService service() {
         GifticonPriceCalculator priceCalculator = new GifticonPriceCalculator(
-                BigDecimal.valueOf(100),
-                BigDecimal.ZERO,
-                1
+                BigDecimal.TEN,
+                100
         );
-        return new GifticonCatalogService(gifticonProductRepository, priceCalculator);
+        return new GifticonCatalogService(
+                gifticonProductRepository,
+                priceCalculator,
+                runtimePolicyService
+        );
     }
 
     private GifticonProduct product(Long id, String brandName) {
@@ -147,7 +163,7 @@ class GifticonCatalogServiceTest {
                 null,
                 null,
                 300,
-                3,
+                400,
                 Instant.parse("2026-07-23T00:00:00Z")
         );
         ReflectionTestUtils.setField(product, "gifticonProductId", id);

@@ -24,6 +24,7 @@ import mannabom_server.manabom.domain.meeting.repository.MeetingMatchRepository;
 import mannabom_server.manabom.domain.meeting.repository.MeetingMemberRepository;
 import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
+import mannabom_server.manabom.global.error.MeetingCancellationExpiredException;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
@@ -122,7 +123,9 @@ public class MeetingCancellationService {
         return MeetingCancellationResponse.of(request, votes);
     }
 
-    @Transactional
+    @Transactional(
+            noRollbackFor = MeetingCancellationExpiredException.class
+    )
     public MeetingCancellationResponse vote(
             Long requestId,
             Long userId,
@@ -135,7 +138,11 @@ public class MeetingCancellationService {
         MeetingCancellationRequest request = requestRepository.findByIdForUpdate(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 미팅 취소 요청입니다."));
         Instant now = Instant.now();
-        expireIfNecessary(request, now);
+        if (expireIfNecessary(request, now)) {
+            throw new MeetingCancellationExpiredException(
+                    "이미 만료된 미팅 취소 요청입니다."
+            );
+        }
 
         if (request.getStatus() != MeetingCancellationStatus.PENDING) {
             throw new IllegalStateException("이미 종료된 미팅 취소 요청입니다.");
@@ -156,13 +163,15 @@ public class MeetingCancellationService {
                     recipientUserIds
             );
         } else if (allMembersAgreed(requestId)) {
-            approveCancellation(request, now);
+
             publishCancellationEvent(
                     request,
                     SystemMessageType.MEETING_CANCELLATION_APPROVED,
                     userId,
                     recipientUserIds
             );
+
+            approveCancellation(request, now);
         }
 
         return response(request);
@@ -222,20 +231,23 @@ public class MeetingCancellationService {
         meeting2.cancelByAgreement();
     }
 
-    private void expireIfNecessary(
+    private boolean expireIfNecessary(
             MeetingCancellationRequest request,
             Instant now
     ) {
-        if (request.isExpiredAt(now)) {
-            List<Long> recipients = memberUserIds(activeMembers(request.getMeetingMatch()));
-            request.expire(now);
-            publishCancellationEvent(
-                    request,
-                    SystemMessageType.MEETING_CANCELLATION_EXPIRED,
-                    null,
-                    recipients
-            );
+        if (!request.isExpiredAt(now)) {
+            return false;
         }
+
+        List<Long> recipients = memberUserIds(activeMembers(request.getMeetingMatch()));
+        request.expire(now);
+        publishCancellationEvent(
+                request,
+                SystemMessageType.MEETING_CANCELLATION_EXPIRED,
+                null,
+                recipients
+        );
+        return true;
     }
 
     private boolean allMembersAgreed(Long requestId) {

@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonMessageCreationStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,7 +20,13 @@ import java.util.Optional;
 
 public interface GifticonPaymentRepository extends JpaRepository<GifticonPayment, Long> {
 
-    @EntityGraph(attributePaths = {"messageRequest", "product"})
+    @EntityGraph(attributePaths = {
+            "messageRequest",
+            "chatRoom",
+            "chatMessage",
+            "gifticonOrder",
+            "product"
+    })
     @Query("select p from GifticonPayment p where p.gifticonPaymentId = :paymentId")
     Optional<GifticonPayment> findByIdWithMessageRequest(@Param("paymentId") Long paymentId);
 
@@ -58,6 +65,7 @@ public interface GifticonPaymentRepository extends JpaRepository<GifticonPayment
             select p.gifticonPaymentId
             from GifticonPayment p
             where p.status = :paidStatus
+              and p.purpose = :purpose
               and p.messageRequest is null
               and p.messageCreationStatus in :messageStatuses
               and p.messageCreationAttemptCount < :maxAttempts
@@ -67,6 +75,7 @@ public interface GifticonPaymentRepository extends JpaRepository<GifticonPayment
             """)
     List<Long> findMessageCreationRetryIds(
             @Param("paidStatus") GifticonPaymentStatus paidStatus,
+            @Param("purpose") GifticonPaymentPurpose purpose,
             @Param("messageStatuses") Collection<GifticonMessageCreationStatus> messageStatuses,
             @Param("maxAttempts") int maxAttempts,
             @Param("processingStatus") GifticonMessageCreationStatus processingStatus,
@@ -78,12 +87,14 @@ public interface GifticonPaymentRepository extends JpaRepository<GifticonPayment
             select p.gifticonPaymentId
             from GifticonPayment p
             where p.status = :status
+              and p.purpose = :purpose
               and p.messageRequest is null
               and p.approvedAt <= :approvedBefore
             order by p.approvedAt asc
             """)
     List<Long> findUnusedPaidPaymentIds(
             @Param("status") GifticonPaymentStatus status,
+            @Param("purpose") GifticonPaymentPurpose purpose,
             @Param("approvedBefore") Instant approvedBefore,
             Pageable pageable
     );
@@ -108,6 +119,7 @@ public interface GifticonPaymentRepository extends JpaRepository<GifticonPayment
                     or p.refundAttemptCount >= :maxRefundAttempts
                     or (p.status = :paidStatus
                         and p.messageRequest is null
+                        and p.chatMessage is null
                         and p.approvedAt is not null
                         and p.approvedAt < :messageStaleBefore)
                     or (p.messageCreationStatus = :messageFailedStatus

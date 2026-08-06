@@ -3,6 +3,7 @@ package mannabom_server.manabom.application.gifticon.scheduler;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.gifticon.service.GifticonPaymentService;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.infrastructure.external.toss.config.TossPaymentsProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -40,6 +41,7 @@ public class UnusedGifticonPaymentRefundScheduler {
                 .minus(gracePeriodMinutes, ChronoUnit.MINUTES);
         List<Long> paymentIds = paymentRepository.findUnusedPaidPaymentIds(
                 GifticonPaymentStatus.PAID,
+                GifticonPaymentPurpose.MESSAGE_REQUEST,
                 approvedBefore,
                 PageRequest.of(0, Math.max(1, policy.getBatchSize()))
         );

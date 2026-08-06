@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.gifticon.service.GifticonPaymentService;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonMessageCreationStatus;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.infrastructure.external.toss.config.TossPaymentsProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,6 +44,7 @@ public class GifticonMessageCreationRetryScheduler {
                 properties.getMessageCreationRetry();
         List<Long> paymentIds = paymentRepository.findMessageCreationRetryIds(
                 GifticonPaymentStatus.PAID,
+                GifticonPaymentPurpose.MESSAGE_REQUEST,
                 RETRYABLE_STATUSES,
                 retry.getMaxAttempts(),
                 GifticonMessageCreationStatus.PROCESSING,

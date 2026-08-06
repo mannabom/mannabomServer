@@ -19,4 +19,6 @@ public class ChatMessageEvent {
     private String clientMessageId;
 
     private Instant sendAt;
+
+    private ChatGifticonInfo gifticon;
 }

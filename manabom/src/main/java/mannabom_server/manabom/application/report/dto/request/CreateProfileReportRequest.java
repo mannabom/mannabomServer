@@ -1,6 +1,7 @@
 package mannabom_server.manabom.application.report.dto.request;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,6 +16,7 @@ import mannabom_server.manabom.domain.report.entity.ReportReason;
 public class CreateProfileReportRequest {
 
     @NotNull(message = "신고 대상 프로필 ID는 필수입니다.")
+    @Positive(message = "신고 대상 프로필 ID는 0보다 커야 합니다.")
     private Long profileId;
 
     @NotNull(message = "신고 사유는 필수입니다.")

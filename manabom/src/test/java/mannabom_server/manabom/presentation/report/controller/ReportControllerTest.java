@@ -4,6 +4,7 @@ import mannabom_server.manabom.application.common.dto.ApiResponse;
 import mannabom_server.manabom.application.report.dto.request.CreateProfileReportRequest;
 import mannabom_server.manabom.application.report.dto.response.CreateReportResponse;
 import mannabom_server.manabom.application.report.service.ReportService;
+import mannabom_server.manabom.domain.report.entity.ReportReason;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
@@ -20,6 +21,7 @@ class ReportControllerTest {
     void returnsCreatedReportIdForProfileReport() {
         CreateProfileReportRequest request = CreateProfileReportRequest.builder()
                 .profileId(200L)
+                .reason(ReportReason.INAPPROPRIATE_PROFILE)
                 .build();
         when(reportService.createProfileReport(1L, request)).thenReturn(300L);
 

@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 
 import java.time.Instant;
@@ -33,9 +34,13 @@ public class GifticonOrder extends BaseTimeEntity {
     @Column(name = "gifticon_order_id")
     private Long gifticonOrderId;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "message_request_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "message_request_id", unique = true)
     private MessageRequest messageRequest;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gifticon_payment_id", unique = true)
+    private GifticonPayment payment;
 
     @Column(name = "sender_nickname", nullable = false)
     private String senderNickname;
@@ -69,6 +74,7 @@ public class GifticonOrder extends BaseTimeEntity {
     private String failureReason;
 
     public GifticonOrder(
+            GifticonPayment payment,
             MessageRequest messageRequest,
             String senderNickname,
             String receiverPhone,
@@ -76,8 +82,12 @@ public class GifticonOrder extends BaseTimeEntity {
             String externalKey,
             String externalOrderId
     ) {
-        if (messageRequest == null || messageRequest.getGifticonProduct() == null) {
-            throw new IllegalArgumentException("기프티콘이 연결된 메시지 요청이 필요합니다.");
+        if (payment == null || payment.getProduct() == null) {
+            throw new IllegalArgumentException("결제가 완료된 기프티콘 정보가 필요합니다.");
+        }
+        if (payment.getPurpose() == GifticonPaymentPurpose.MESSAGE_REQUEST
+                && (messageRequest == null || messageRequest.getGifticonProduct() == null)) {
+            throw new IllegalArgumentException("메시지 요청용 기프티콘 주문에는 메시지 요청이 필요합니다.");
         }
         if (senderNickname == null || senderNickname.isBlank()) {
             throw new IllegalArgumentException("기프티콘 발신자 닉네임은 필수입니다.");
@@ -88,6 +98,7 @@ public class GifticonOrder extends BaseTimeEntity {
         if (receiverName == null || receiverName.isBlank()) {
             throw new IllegalArgumentException("수신자 이름은 필수입니다.");
         }
+        this.payment = payment;
         this.messageRequest = messageRequest;
         this.senderNickname = senderNickname.trim();
         this.receiverPhone = receiverPhone;
@@ -123,6 +134,10 @@ public class GifticonOrder extends BaseTimeEntity {
         lastAttemptAt = now;
         failureReason = abbreviate(reason);
         status = GifticonOrderStatus.FAILED;
+    }
+
+    public boolean hasExhaustedAttempts(int maxAttempts) {
+        return attemptCount >= maxAttempts;
     }
 
     private static String requireExternalId(String value, String fieldName) {

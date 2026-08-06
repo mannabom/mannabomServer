@@ -16,8 +16,11 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.chat.entity.ChatMessage;
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonMessageCreationStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 
@@ -48,6 +51,20 @@ public class GifticonPayment extends BaseTimeEntity {
     @JoinColumn(name = "message_request_id", unique = true)
     private MessageRequest messageRequest;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_room_id")
+    private ChatRoom chatRoom;
+
+    @Column(name = "receiver_user_id")
+    private Long receiverUserId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_message_id", unique = true)
+    private ChatMessage chatMessage;
+
+    @OneToOne(mappedBy = "payment", fetch = FetchType.LAZY)
+    private GifticonOrder gifticonOrder;
+
     @Column(name = "order_id", nullable = false, unique = true, updatable = false, length = 64)
     private String orderId;
 
@@ -59,6 +76,10 @@ public class GifticonPayment extends BaseTimeEntity {
 
     @Column(name = "amount", nullable = false, updatable = false)
     private int amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, updatable = false, length = 30)
+    private GifticonPaymentPurpose purpose;
 
     @Column(name = "target_profile_id", nullable = false, updatable = false)
     private Long targetProfileId;
@@ -140,11 +161,50 @@ public class GifticonPayment extends BaseTimeEntity {
         this.orderId = orderId;
         this.customerKey = customerKey;
         this.amount = product.getSalePrice();
+        this.purpose = GifticonPaymentPurpose.MESSAGE_REQUEST;
         this.targetProfileId = targetProfileId;
         this.message = message;
         this.messageSource = messageSource;
         this.status = GifticonPaymentStatus.READY;
         this.messageCreationStatus = GifticonMessageCreationStatus.PENDING;
+    }
+
+    public static GifticonPayment createForChat(
+            Long userId,
+            GifticonProduct product,
+            String orderId,
+            String customerKey,
+            ChatRoom chatRoom,
+            Long receiverUserId
+    ) {
+        if (userId == null) {
+            throw new IllegalArgumentException("결제 사용자 ID는 필수입니다.");
+        }
+        if (product == null || product.getSalePrice() <= 0) {
+            throw new IllegalArgumentException("결제 가능한 기프티콘 상품이 필요합니다.");
+        }
+        if (orderId == null || !orderId.matches("[A-Za-z0-9_-]{6,64}")) {
+            throw new IllegalArgumentException("토스 주문번호 형식이 올바르지 않습니다.");
+        }
+        if (customerKey == null || !customerKey.matches("[A-Za-z0-9_=-]{2,64}")) {
+            throw new IllegalArgumentException("토스 고객 키 형식이 올바르지 않습니다.");
+        }
+        if (chatRoom == null || receiverUserId == null || userId.equals(receiverUserId)) {
+            throw new IllegalArgumentException("1대1 채팅방과 상대 사용자 정보가 필요합니다.");
+        }
+
+        GifticonPayment payment = new GifticonPayment();
+        payment.userId = userId;
+        payment.product = product;
+        payment.orderId = orderId;
+        payment.customerKey = customerKey;
+        payment.amount = product.getSalePrice();
+        payment.purpose = GifticonPaymentPurpose.CHAT;
+        payment.chatRoom = chatRoom;
+        payment.receiverUserId = receiverUserId;
+        payment.status = GifticonPaymentStatus.READY;
+        payment.messageCreationStatus = GifticonMessageCreationStatus.PENDING;
+        return payment;
     }
 
     public void startConfirmation(String paymentKey, Instant now, Instant staleBefore) {
@@ -190,6 +250,9 @@ public class GifticonPayment extends BaseTimeEntity {
     }
 
     public void attachTo(MessageRequest request) {
+        if (purpose != GifticonPaymentPurpose.MESSAGE_REQUEST) {
+            throw new IllegalStateException("메시지 요청용 결제만 메시지 요청에 연결할 수 있습니다.");
+        }
         if (status != GifticonPaymentStatus.PAID) {
             throw new IllegalStateException("결제가 완료된 기프티콘만 메시지에 첨부할 수 있습니다.");
         }
@@ -205,11 +268,35 @@ public class GifticonPayment extends BaseTimeEntity {
         this.messageCreationStatus = GifticonMessageCreationStatus.CREATED;
     }
 
+    public void attachToChatMessage(ChatMessage chatMessage) {
+        if (purpose != GifticonPaymentPurpose.CHAT || status != GifticonPaymentStatus.PAID) {
+            throw new IllegalStateException("결제가 완료된 채팅 기프티콘만 공개할 수 있습니다.");
+        }
+        if (this.chatMessage != null) {
+            return;
+        }
+        if (chatMessage == null || chatMessage.getRoom() != chatRoom) {
+            throw new IllegalArgumentException("결제한 채팅방의 메시지만 연결할 수 있습니다.");
+        }
+        this.chatMessage = chatMessage;
+        this.messageCreationFailureReason = null;
+        this.messageCreationStatus = GifticonMessageCreationStatus.CREATED;
+    }
+
+    public void markChatDeliveryFailed(String reason) {
+        if (purpose != GifticonPaymentPurpose.CHAT || chatMessage != null) {
+            return;
+        }
+        this.messageCreationFailureReason = abbreviate(reason);
+        this.messageCreationStatus = GifticonMessageCreationStatus.FAILED;
+    }
+
     public boolean canStartMessageCreation(
             int maxAttempts,
             Instant processingStaleBefore
     ) {
-        if (status != GifticonPaymentStatus.PAID
+        if (purpose != GifticonPaymentPurpose.MESSAGE_REQUEST
+                || status != GifticonPaymentStatus.PAID
                 || messageRequest != null
                 || messageCreationStatus == GifticonMessageCreationStatus.CREATED
                 || messageCreationStatus == GifticonMessageCreationStatus.FAILED
@@ -222,7 +309,9 @@ public class GifticonPayment extends BaseTimeEntity {
     }
 
     public void startMessageCreation(Instant now) {
-        if (status != GifticonPaymentStatus.PAID || messageRequest != null) {
+        if (purpose != GifticonPaymentPurpose.MESSAGE_REQUEST
+                || status != GifticonPaymentStatus.PAID
+                || messageRequest != null) {
             throw new IllegalStateException("메시지를 생성할 수 없는 기프티콘 결제 상태입니다.");
         }
         messageCreationAttemptCount++;

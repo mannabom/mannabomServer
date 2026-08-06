@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.enums.ChatMessageTypeConverter;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.user.entity.User;
 
 /**
@@ -36,6 +37,9 @@ public class ChatMessage extends BaseTimeEntity {
     private ChatMessageType type;
 
     private String content;
+
+    @OneToOne(mappedBy = "chatMessage", fetch = FetchType.LAZY)
+    private GifticonPayment gifticonPayment;
 
 
 }

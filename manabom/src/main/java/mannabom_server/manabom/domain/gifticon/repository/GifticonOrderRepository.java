@@ -26,6 +26,8 @@ public interface GifticonOrderRepository extends JpaRepository<GifticonOrder, Lo
             @Param("gifticonOrderId") Long gifticonOrderId
     );
 
+    Optional<GifticonOrder> findByPayment_GifticonPaymentId(Long paymentId);
+
     @Query("""
             select gifticonOrder.gifticonOrderId
             from GifticonOrder gifticonOrder

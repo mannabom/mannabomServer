@@ -2,6 +2,7 @@ package mannabom_server.manabom.domain.chat.repository;
 
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,9 +17,22 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
 
     boolean existsByRoomIdAndUser_UserIdAndStatus(Long roomId, Long userId, ChatMemberStatus status);
 
+    boolean existsByRoomIdAndUser_UserIdAndStatusAndRoom_ChatStatus(
+            Long roomId,
+            Long userId,
+            ChatMemberStatus status,
+            ChatStatus chatStatus
+    );
+
     boolean existsByRoomIdAndUser_UserId(Long roomId, Long userId);
 
     List<ChatMember> findAllByUser_UserIdAndStatus(Long userId, ChatMemberStatus status);
+
+    List<ChatMember> findAllByUser_UserIdAndStatusAndRoom_ChatStatus(
+            Long userId,
+            ChatMemberStatus status,
+            ChatStatus chatStatus
+    );
 
     List<ChatMember> findByRoomId(Long roomId);
 

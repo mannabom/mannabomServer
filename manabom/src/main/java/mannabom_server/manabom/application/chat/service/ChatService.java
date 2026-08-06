@@ -10,6 +10,7 @@ import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
@@ -54,6 +55,9 @@ public class ChatService {
     public void sendMessage(ChatSendRequest request, Long userId) {
         ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
+        if (chatRoom.getChatStatus() == ChatStatus.DISABLED) {
+            throw new IllegalStateException("비활성화된 채팅방에는 메시지를 보낼 수 없습니다.");
+        }
         ChatMember sender = chatMemberRepository.findByRoomIdAndUser_UserIdAndStatus(request.getRoomId(), userId, ChatMemberStatus.ACTIVATE)
                 .orElseThrow(()-> new IllegalArgumentException("참여중인 채팅방이 아닙니다."));
         User user = userRepository.findById(userId)
@@ -118,7 +122,12 @@ public class ChatService {
      */
     @Transactional(readOnly = true)
     public ChatInitialSyncResponse getInitialSync(Long userId) {
-        List<ChatMember> myRooms = chatMemberRepository.findAllByUser_UserIdAndStatus(userId, ChatMemberStatus.ACTIVATE);
+        List<ChatMember> myRooms = chatMemberRepository
+                .findAllByUser_UserIdAndStatusAndRoom_ChatStatus(
+                        userId,
+                        ChatMemberStatus.ACTIVATE,
+                        ChatStatus.ENABLED
+                );
 
         boolean hasUnreadMessages = false;
         boolean hasNewRoom = false;
@@ -144,7 +153,12 @@ public class ChatService {
      */
     @Transactional(readOnly = true)
     public List<ChatRoomListResponse> getChatRoomListSync(Long userId) {
-        List<ChatMember> myRooms = chatMemberRepository.findAllByUser_UserIdAndStatus(userId, ChatMemberStatus.ACTIVATE);
+        List<ChatMember> myRooms = chatMemberRepository
+                .findAllByUser_UserIdAndStatusAndRoom_ChatStatus(
+                        userId,
+                        ChatMemberStatus.ACTIVATE,
+                        ChatStatus.ENABLED
+                );
 
         return myRooms.stream().map(m -> {
             ChatRoom room = m.getRoom();

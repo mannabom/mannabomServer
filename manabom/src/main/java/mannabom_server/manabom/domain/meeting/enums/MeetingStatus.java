@@ -11,7 +11,8 @@ public enum MeetingStatus {
     MATCHING_WAITING(2), //매칭 대기중
     MATCHING_PENDING(3), // 매칭 완료 상대 수락/거절 대기중
     MATCHED(4),  //매칭 성공
-    FASTMATCHING(5); // 빠른 매칭
+    FASTMATCHING(5),
+    CANCELLED(6); // 빠른 매칭
 
 
     private final int code;

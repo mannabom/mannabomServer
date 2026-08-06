@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
@@ -23,7 +24,11 @@ import java.util.List;
 public class GifticonOrderRetryScheduler {
 
     private static final List<GifticonOrderStatus> RETRYABLE_STATUSES =
-            List.of(GifticonOrderStatus.PENDING, GifticonOrderStatus.FAILED);
+            List.of(
+                    GifticonOrderStatus.PENDING,
+                    GifticonOrderStatus.PROCESSING,
+                    GifticonOrderStatus.FAILED
+            );
 
     private final GifticonOrderRepository gifticonOrderRepository;
     private final GifticonOrderProcessor gifticonOrderProcessor;
@@ -38,6 +43,11 @@ public class GifticonOrderRetryScheduler {
         List<Long> orderIds = gifticonOrderRepository.findRetryableOrderIds(
                 RETRYABLE_STATUSES,
                 retry.getMaxAttempts(),
+                GifticonOrderStatus.PROCESSING,
+                Instant.now().minusSeconds(Math.max(
+                        60L,
+                        giftbizProperties.getRequestTimeoutSeconds() * 3L
+                )),
                 PageRequest.of(0, retry.getBatchSize())
         );
         orderIds.forEach(gifticonOrderProcessor::process);

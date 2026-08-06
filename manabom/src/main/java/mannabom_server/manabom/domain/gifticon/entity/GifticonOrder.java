@@ -97,20 +97,29 @@ public class GifticonOrder extends BaseTimeEntity {
         this.status = GifticonOrderStatus.PENDING;
     }
 
-    public boolean canAttempt(int maxAttempts) {
-        return status != GifticonOrderStatus.REQUESTED && attemptCount < maxAttempts;
+    public boolean canStartAttempt(int maxAttempts, Instant processingStaleBefore) {
+        if (attemptCount >= maxAttempts || status == GifticonOrderStatus.REQUESTED) {
+            return false;
+        }
+        return status != GifticonOrderStatus.PROCESSING
+                || lastAttemptAt == null
+                || lastAttemptAt.isBefore(processingStaleBefore);
+    }
+
+    public void markProcessing(Instant now) {
+        attemptCount++;
+        lastAttemptAt = now;
+        failureReason = null;
+        status = GifticonOrderStatus.PROCESSING;
     }
 
     public void markRequested(Instant now) {
-        attemptCount++;
-        lastAttemptAt = now;
         requestedAt = now;
         failureReason = null;
         status = GifticonOrderStatus.REQUESTED;
     }
 
     public void markFailed(Instant now, String reason) {
-        attemptCount++;
         lastAttemptAt = now;
         failureReason = abbreviate(reason);
         status = GifticonOrderStatus.FAILED;

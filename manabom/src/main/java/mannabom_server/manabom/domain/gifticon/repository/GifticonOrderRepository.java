@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 public interface GifticonOrderRepository extends JpaRepository<GifticonOrder, Long> {
 
@@ -30,11 +31,15 @@ public interface GifticonOrderRepository extends JpaRepository<GifticonOrder, Lo
             from GifticonOrder gifticonOrder
             where gifticonOrder.status in :statuses
               and gifticonOrder.attemptCount < :maxAttempts
+              and (gifticonOrder.status <> :processingStatus
+                   or gifticonOrder.lastAttemptAt < :processingStaleBefore)
             order by gifticonOrder.createdAt asc
             """)
     List<Long> findRetryableOrderIds(
             @Param("statuses") Collection<GifticonOrderStatus> statuses,
             @Param("maxAttempts") int maxAttempts,
+            @Param("processingStatus") GifticonOrderStatus processingStatus,
+            @Param("processingStaleBefore") Instant processingStaleBefore,
             Pageable pageable
     );
 }

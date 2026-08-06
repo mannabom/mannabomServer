@@ -1,6 +1,7 @@
 package mannabom_server.manabom.application.gifticon.service;
 
 import mannabom_server.manabom.application.gifticon.dto.request.ConfirmGifticonPaymentRequest;
+import mannabom_server.manabom.application.gifticon.dto.request.PrepareChatGifticonPaymentRequest;
 import mannabom_server.manabom.application.gifticon.dto.request.PrepareGifticonPaymentRequest;
 import mannabom_server.manabom.application.gifticon.dto.response.GifticonPaymentPrepareResponse;
 import mannabom_server.manabom.application.gifticon.dto.response.GifticonPaymentResponse;
@@ -10,12 +11,20 @@ import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonMessageCreationStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
+import mannabom_server.manabom.domain.chat.entity.ChatMember;
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
+import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
+import mannabom_server.manabom.domain.chat.enums.ChatStatus;
+import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonPaymentRepository;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonProductRepository;
 import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 import mannabom_server.manabom.infrastructure.external.toss.config.TossPaymentsProperties;
 import mannabom_server.manabom.application.messageRequest.service.MessageRequestService;
+import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
+import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,12 +38,14 @@ import org.springframework.dao.TransientDataAccessResourceException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -54,6 +65,12 @@ class GifticonPaymentServiceTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private MessageRequestService messageRequestService;
+    @Mock
+    private GifticonOrderService gifticonOrderService;
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatMemberRepository chatMemberRepository;
 
     private TossPaymentsProperties properties;
     private GifticonPaymentService service;
@@ -69,7 +86,10 @@ class GifticonPaymentServiceTest {
                 paymentGateway,
                 properties,
                 eventPublisher,
-                messageRequestService
+                messageRequestService,
+                gifticonOrderService,
+                chatRoomRepository,
+                chatMemberRepository
         );
     }
 
@@ -102,6 +122,49 @@ class GifticonPaymentServiceTest {
                 "안녕하세요",
                 MessageSource.PROFILE_MATCH
         );
+    }
+
+    @Test
+    void preparesChatGifticonForOtherActiveMemberInOneToOneRoom() {
+        ChatRoom room = mock(ChatRoom.class);
+        when(room.getId()).thenReturn(30L);
+        when(room.getChatStatus()).thenReturn(ChatStatus.ENABLED);
+        when(room.getType()).thenReturn(ChatRoomType.PROFILE_MATCH);
+        when(chatRoomRepository.findById(30L)).thenReturn(Optional.of(room));
+
+        User sender = mock(User.class);
+        when(sender.getUserId()).thenReturn(1L);
+        User receiver = mock(User.class);
+        when(receiver.getUserId()).thenReturn(2L);
+        ChatMember senderMember = mock(ChatMember.class);
+        when(senderMember.getUser()).thenReturn(sender);
+        ChatMember receiverMember = mock(ChatMember.class);
+        when(receiverMember.getUser()).thenReturn(receiver);
+        when(chatMemberRepository.findAllByRoomIdAndStatus(eq(30L), any()))
+                .thenReturn(List.of(senderMember, receiverMember));
+
+        GifticonProduct product = orderableProduct(5_200);
+        when(productRepository.findById(10L)).thenReturn(Optional.of(product));
+        when(paymentRepository.save(any(GifticonPayment.class))).thenAnswer(invocation -> {
+            GifticonPayment payment = invocation.getArgument(0);
+            ReflectionTestUtils.setField(payment, "gifticonPaymentId", 21L);
+            return payment;
+        });
+
+        GifticonPaymentPrepareResponse response = service.prepareChat(
+                1L,
+                new PrepareChatGifticonPaymentRequest(10L, 30L)
+        );
+
+        ArgumentCaptor<GifticonPayment> paymentCaptor =
+                ArgumentCaptor.forClass(GifticonPayment.class);
+        verify(paymentRepository).save(paymentCaptor.capture());
+        GifticonPayment payment = paymentCaptor.getValue();
+        assertThat(payment.getPurpose()).isEqualTo(GifticonPaymentPurpose.CHAT);
+        assertThat(payment.getReceiverUserId()).isEqualTo(2L);
+        assertThat(payment.getChatRoom()).isSameAs(room);
+        assertThat(response.gifticonPaymentId()).isEqualTo(21L);
+        assertThat(response.amount()).isEqualTo(5_200);
     }
 
     @Test

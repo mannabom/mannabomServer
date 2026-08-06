@@ -99,7 +99,12 @@ public class AdminAuditService {
     }
 
     private void requireAuditReadable(AdminPrincipal admin) {
-        if (admin.hasAnyRole(AdminRole.SUPER_ADMIN, AdminRole.OPERATOR, AdminRole.SUPPORT)) {
+        if (admin.hasAnyRole(
+                AdminRole.SUPER_ADMIN,
+                AdminRole.OPERATOR,
+                AdminRole.SUPPORT,
+                AdminRole.FINANCE
+        )) {
             return;
         }
         throw new SecurityException("감사 로그를 조회할 권한이 없습니다.");

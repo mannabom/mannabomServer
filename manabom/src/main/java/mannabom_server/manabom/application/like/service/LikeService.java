@@ -3,6 +3,7 @@ package mannabom_server.manabom.application.like.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
 import mannabom_server.manabom.application.like.dto.response.SendLikeResponseDto;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
@@ -10,6 +11,8 @@ import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
 import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
@@ -41,6 +44,7 @@ public class LikeService {
     private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     @Transactional
     public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId, LikeSource source){
@@ -63,6 +67,9 @@ public class LikeService {
                 .ifPresent(existing -> {
                     throw new IllegalStateException("이미 요청을 보냈습니다.");
                 });
+        LikeRequest likeRequest = likeRequestRepository.save(
+                new LikeRequest(fromUserId, toUserId, source)
+        );
 
         int vipLikeRemains = 0;
         int membershipLikeRemains = 0;
@@ -85,18 +92,33 @@ public class LikeService {
 
         if(tingWallet.getEventTing() >= likeCost) {
             tingWallet.spendEventTing(likeCost);
+            tingTransactionRecorder.recordEvent(
+                    tingWallet,
+                    TingTransactionType.LIKE_REQUEST,
+                    -likeCost,
+                    TingTransactionReferenceType.LIKE_REQUEST,
+                    String.valueOf(likeRequest.getId()),
+                    "LIKE_REQUEST:" + likeRequest.getId() + ":EVENT_COST",
+                    "호감 요청 비용"
+            );
         } else if (vipLikeRemains > 0){
             tingWallet.consumeVipFreeLike(today);
         } else if (membershipLikeRemains > 0) {
             tingWallet.consumeMembershipFreeLike(now);
         } else if (tingWallet.getTing() >= likeCost) {
             tingWallet.spendTing(likeCost);
+            tingTransactionRecorder.recordPaid(
+                    tingWallet,
+                    TingTransactionType.LIKE_REQUEST,
+                    -likeCost,
+                    TingTransactionReferenceType.LIKE_REQUEST,
+                    String.valueOf(likeRequest.getId()),
+                    "LIKE_REQUEST:" + likeRequest.getId() + ":PAID_COST",
+                    "호감 요청 비용"
+            );
         } else {
             throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
         }
-
-        LikeRequest likeRequest = new LikeRequest(fromUserId, toUserId, source);
-        likeRequestRepository.save(likeRequest);
 
         try {
             pushService.sendToUser(toUserId, PushMessages.likeReceived(fromUserId));

@@ -1,0 +1,162 @@
+package mannabom_server.manabom.domain.gifticon.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.common.BaseTimeEntity;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
+import mannabom_server.manabom.domain.messageRequest.entity.MessageRequest;
+
+import java.time.Instant;
+
+@Getter
+@Entity
+@Table(name = "gifticon_order")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class GifticonOrder extends BaseTimeEntity {
+
+    private static final int MAX_FAILURE_REASON_LENGTH = 1000;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "gifticon_order_id")
+    private Long gifticonOrderId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "message_request_id", unique = true)
+    private MessageRequest messageRequest;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gifticon_payment_id", unique = true)
+    private GifticonPayment payment;
+
+    @Column(name = "sender_nickname", nullable = false)
+    private String senderNickname;
+
+    @Column(name = "receiver_phone", nullable = false, length = 30)
+    private String receiverPhone;
+
+    @Column(name = "receiver_name", nullable = false, length = 100)
+    private String receiverName;
+
+    @Column(name = "external_key", nullable = false, unique = true, length = 70)
+    private String externalKey;
+
+    @Column(name = "external_order_id", nullable = false, unique = true, length = 70)
+    private String externalOrderId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private GifticonOrderStatus status;
+
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount;
+
+    @Column(name = "last_attempt_at")
+    private Instant lastAttemptAt;
+
+    @Column(name = "requested_at")
+    private Instant requestedAt;
+
+    @Column(name = "failure_reason", length = MAX_FAILURE_REASON_LENGTH)
+    private String failureReason;
+
+    public GifticonOrder(
+            GifticonPayment payment,
+            MessageRequest messageRequest,
+            String senderNickname,
+            String receiverPhone,
+            String receiverName,
+            String externalKey,
+            String externalOrderId
+    ) {
+        if (payment == null || payment.getProduct() == null) {
+            throw new IllegalArgumentException("결제가 완료된 기프티콘 정보가 필요합니다.");
+        }
+        if (payment.getPurpose() == GifticonPaymentPurpose.MESSAGE_REQUEST
+                && (messageRequest == null || messageRequest.getGifticonProduct() == null)) {
+            throw new IllegalArgumentException("메시지 요청용 기프티콘 주문에는 메시지 요청이 필요합니다.");
+        }
+        if (senderNickname == null || senderNickname.isBlank()) {
+            throw new IllegalArgumentException("기프티콘 발신자 닉네임은 필수입니다.");
+        }
+        if (receiverPhone == null || receiverPhone.isBlank()) {
+            throw new IllegalArgumentException("수신자 휴대폰 번호는 필수입니다.");
+        }
+        if (receiverName == null || receiverName.isBlank()) {
+            throw new IllegalArgumentException("수신자 이름은 필수입니다.");
+        }
+        this.payment = payment;
+        this.messageRequest = messageRequest;
+        this.senderNickname = senderNickname.trim();
+        this.receiverPhone = receiverPhone;
+        this.receiverName = receiverName;
+        this.externalKey = requireExternalId(externalKey, "externalKey");
+        this.externalOrderId = requireExternalId(externalOrderId, "externalOrderId");
+        this.status = GifticonOrderStatus.PENDING;
+    }
+
+    public boolean canStartAttempt(int maxAttempts, Instant processingStaleBefore) {
+        if (attemptCount >= maxAttempts || status == GifticonOrderStatus.REQUESTED) {
+            return false;
+        }
+        return status != GifticonOrderStatus.PROCESSING
+                || lastAttemptAt == null
+                || lastAttemptAt.isBefore(processingStaleBefore);
+    }
+
+    public void markProcessing(Instant now) {
+        attemptCount++;
+        lastAttemptAt = now;
+        failureReason = null;
+        status = GifticonOrderStatus.PROCESSING;
+    }
+
+    public void markRequested(Instant now) {
+        requestedAt = now;
+        failureReason = null;
+        status = GifticonOrderStatus.REQUESTED;
+    }
+
+    public void markFailed(Instant now, String reason) {
+        lastAttemptAt = now;
+        failureReason = abbreviate(reason);
+        status = GifticonOrderStatus.FAILED;
+    }
+
+    public boolean hasExhaustedAttempts(int maxAttempts) {
+        return attemptCount >= maxAttempts;
+    }
+
+    private static String requireExternalId(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + "는 필수입니다.");
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > 70) {
+            throw new IllegalArgumentException(fieldName + "는 70자를 초과할 수 없습니다.");
+        }
+        return trimmed;
+    }
+
+    private static String abbreviate(String value) {
+        if (value == null || value.isBlank()) {
+            return "알 수 없는 발송 요청 오류";
+        }
+        return value.length() <= MAX_FAILURE_REASON_LENGTH
+                ? value
+                : value.substring(0, MAX_FAILURE_REASON_LENGTH);
+    }
+}

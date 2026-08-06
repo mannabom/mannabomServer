@@ -36,6 +36,8 @@
         </div>
         <nav class="nav">
             <button class="nav-item active" data-view="usersView">회원</button>
+            <button class="nav-item super-only" data-view="gifticonsView">기프티콘</button>
+            <button class="nav-item payment-read hidden" data-view="gifticonPaymentsView">기프티콘 결제</button>
             <button class="nav-item" data-view="policiesView">운영 정책</button>
             <button class="nav-item" data-view="pushView">푸시 알림</button>
             <button class="nav-item" data-view="reportsView">신고</button>
@@ -129,6 +131,211 @@
                     </div>
                     <div id="userDetail" class="detail-empty">회원을 선택하세요.</div>
                     <p id="userActionResult" class="feedback"></p>
+                </section>
+            </div>
+        </section>
+
+        <section id="gifticonsView" class="view hidden">
+            <div class="notice">
+                <div class="gifticon-sync-row">
+                    <div>
+                        <strong>템플릿 토큰은 최초 1회만 등록하면 됩니다.</strong>
+                        <span>일일 동기화에서 같은 templateTraceId의 상품은 기존 토큰을 유지하며, 새로 추가된 템플릿만 토큰을 등록하면 사용자 목록에 노출됩니다.</span>
+                    </div>
+                    <button id="synchronizeGifticonsButton" class="primary" type="button">
+                        카카오에서 지금 동기화
+                    </button>
+                </div>
+                <p id="gifticonSyncResult" class="gifticon-sync-result"></p>
+            </div>
+            <div class="filter-grid gifticon-filter-grid">
+                <label>
+                    <span>토큰 상태</span>
+                    <select id="gifticonTokenFilter">
+                        <option value="">전체</option>
+                        <option value="false">미등록</option>
+                        <option value="true">등록 완료</option>
+                    </select>
+                </label>
+                <label>
+                    <span>페이지 크기</span>
+                    <select id="gifticonPageSize">
+                        <option value="20">20개</option>
+                        <option value="50">50개</option>
+                        <option value="100">100개</option>
+                    </select>
+                </label>
+                <button id="clearGifticonFilterButton" class="ghost" type="button">초기화</button>
+            </div>
+            <div class="toolbar">
+                <input id="gifticonKeyword" type="search" placeholder="브랜드, 상품명, 템플릿명 검색">
+                <button id="gifticonSearchButton" class="secondary" type="button">검색</button>
+            </div>
+            <div class="content-grid gifticon-content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <div>
+                            <h3>동기화된 기프티콘</h3>
+                            <p id="gifticonListInfo" class="muted"></p>
+                        </div>
+                        <span class="muted">토큰 원문은 표시되지 않습니다.</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>상품</th>
+                                <th>브랜드</th>
+                                <th>가격</th>
+                                <th>판매가</th>
+                                <th>판매</th>
+                                <th>토큰</th>
+                            </tr>
+                            </thead>
+                            <tbody id="gifticonsTable"></tbody>
+                        </table>
+                    </div>
+                    <div class="pager">
+                        <button id="prevGifticonPageButton" class="ghost" type="button">이전</button>
+                        <span id="gifticonPageInfo">1 페이지</span>
+                        <button id="nextGifticonPageButton" class="ghost" type="button">다음</button>
+                    </div>
+                </section>
+
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>템플릿 토큰 등록</h3>
+                        <span id="selectedGifticonLabel" class="muted">상품을 선택하세요.</span>
+                    </div>
+                    <div id="gifticonDetail" class="detail-empty">왼쪽 목록에서 상품을 선택하세요.</div>
+                    <form id="gifticonTokenForm" class="form-panel hidden">
+                        <input id="gifticonIdInput" type="hidden">
+                        <label>
+                            <span>카카오 템플릿 토큰</span>
+                            <input
+                                    id="gifticonTokenInput"
+                                    type="password"
+                                    autocomplete="new-password"
+                                    maxlength="512"
+                                    placeholder="토큰 원문 입력"
+                                    required
+                            >
+                        </label>
+                        <p class="security-note">토큰은 저장 즉시 AES-256-GCM으로 암호화되며 화면에 다시 표시되지 않습니다.</p>
+                        <label>
+                            <span>등록/변경 사유</span>
+                            <input id="gifticonTokenReason" type="text" maxlength="500" placeholder="예: 신규 템플릿 등록" required>
+                        </label>
+                        <button id="gifticonTokenSaveButton" type="submit" class="primary">암호화하여 저장</button>
+                        <p id="gifticonTokenResult" class="feedback"></p>
+                    </form>
+                </section>
+            </div>
+        </section>
+
+        <section id="gifticonPaymentsView" class="view hidden">
+            <div class="notice">
+                <strong>처리 필요 결제를 우선 확인하세요.</strong>
+                <span>목록은 서버 상태 기준이며, 결제를 선택하면 토스페이먼츠 상태를 실시간으로 대조합니다.</span>
+            </div>
+            <div class="filter-grid">
+                <label>
+                    <span>결제 상태</span>
+                    <select id="paymentStatusFilter">
+                        <option value="">전체</option>
+                        <option value="READY">READY</option>
+                        <option value="CONFIRMING">CONFIRMING</option>
+                        <option value="PAID">PAID</option>
+                        <option value="REFUND_PENDING">REFUND_PENDING</option>
+                        <option value="REFUND_PROCESSING">REFUND_PROCESSING</option>
+                        <option value="REFUNDED">REFUNDED</option>
+                        <option value="REFUND_FAILED">REFUND_FAILED</option>
+                    </select>
+                </label>
+                <label>
+                    <span>메시지 생성 상태</span>
+                    <select id="messageCreationStatusFilter">
+                        <option value="">전체</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="PROCESSING">PROCESSING</option>
+                        <option value="RETRY_PENDING">RETRY_PENDING</option>
+                        <option value="CREATED">CREATED</option>
+                        <option value="FAILED">FAILED</option>
+                    </select>
+                </label>
+                <label>
+                    <span>메시지 요청 상태</span>
+                    <select id="messageRequestStatusFilter">
+                        <option value="">전체</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="ACCEPTED">ACCEPTED</option>
+                        <option value="REJECTED">REJECTED</option>
+                    </select>
+                </label>
+                <label>
+                    <span>페이지 크기</span>
+                    <select id="paymentPageSize">
+                        <option value="20">20건</option>
+                        <option value="50">50건</option>
+                        <option value="100">100건</option>
+                    </select>
+                </label>
+            </div>
+            <div class="toolbar">
+                <input id="paymentUserIdFilter" type="search" inputmode="numeric" placeholder="구매자 userId">
+                <input id="paymentOrderIdFilter" type="search" placeholder="토스 orderId">
+                <label class="payment-attention-toggle">
+                    <input id="paymentAttentionOnly" type="checkbox" checked>
+                    <span>처리 필요만</span>
+                </label>
+                <button id="paymentSearchButton" class="secondary" type="button">검색</button>
+                <button id="clearPaymentFilterButton" class="ghost" type="button">초기화</button>
+            </div>
+            <div class="content-grid">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h3>결제 목록</h3>
+                        <span id="paymentListInfo" class="muted"></span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>결제</th>
+                                <th>구매자</th>
+                                <th>금액</th>
+                                <th>결제 상태</th>
+                                <th>메시지</th>
+                                <th>처리 필요</th>
+                            </tr>
+                            </thead>
+                            <tbody id="paymentsTable"></tbody>
+                        </table>
+                    </div>
+                    <div class="pager">
+                        <button id="prevPaymentPageButton" class="ghost" type="button">이전</button>
+                        <span id="paymentPageInfo">1 페이지</span>
+                        <button id="nextPaymentPageButton" class="ghost" type="button">다음</button>
+                    </div>
+                </section>
+
+                <section class="panel detail-panel">
+                    <div class="panel-head">
+                        <h3>결제 상세 · 토스 대조</h3>
+                        <span id="selectedPaymentLabel" class="muted">선택 없음</span>
+                    </div>
+                    <div id="paymentDetail" class="detail-empty">결제를 선택하세요.</div>
+                    <div id="paymentActions" class="action-box hidden">
+                        <label>
+                            <span>관리자 처리 사유 (필수)</span>
+                            <textarea id="paymentActionReason" maxlength="500" placeholder="처리 근거와 확인 내용을 입력하세요."></textarea>
+                        </label>
+                        <div class="inline-actions">
+                            <button id="retryPaymentMessageButton" class="secondary hidden" type="button">메시지 생성 재시도</button>
+                            <button id="forceRefundPaymentButton" class="secondary danger hidden" type="button">강제 환불</button>
+                        </div>
+                        <p id="paymentActionResult" class="feedback"></p>
+                    </div>
                 </section>
             </div>
         </section>

@@ -90,6 +90,52 @@ app:
   # 카카오 OAuth 설정
   kakao:
     app-id: ${KAKAO_APP_ID:0}
+    giftbiz:
+      base-url: ${KAKAO_GIFTBIZ_BASE_URL:https://gateway-giftbiz.kakao.com}
+      authorization: ${KAKAO_GIFTBIZ_AUTHORIZATION:}
+      token-encryption-key: ${APP_KAKAO_GIFTBIZ_TOKEN_ENCRYPTION_KEY:${GIFTICON_TOKEN_ENCRYPTION_KEY:}}
+      sender-name: ${KAKAO_GIFTBIZ_SENDER_NAME:만나봄}
+      text: ${KAKAO_GIFTBIZ_TEXT:마음이 도착했어요}
+      request-timeout-seconds: ${KAKAO_GIFTBIZ_REQUEST_TIMEOUT_SECONDS:10}
+      sync:
+        enabled: ${KAKAO_GIFTBIZ_SYNC_ENABLED:false}
+        initial-delay: ${KAKAO_GIFTBIZ_SYNC_INITIAL_DELAY:10000}
+        fixed-delay: ${KAKAO_GIFTBIZ_SYNC_FIXED_DELAY:86400000}
+        max-pages: ${KAKAO_GIFTBIZ_SYNC_MAX_PAGES:100}
+      order:
+        success-callback-url: ${KAKAO_GIFTBIZ_SUCCESS_CALLBACK_URL:}
+        fail-callback-url: ${KAKAO_GIFTBIZ_FAIL_CALLBACK_URL:}
+        gift-callback-url: ${KAKAO_GIFTBIZ_GIFT_CALLBACK_URL:}
+        retry:
+          enabled: ${KAKAO_GIFTBIZ_ORDER_RETRY_ENABLED:true}
+          initial-delay: ${KAKAO_GIFTBIZ_ORDER_RETRY_INITIAL_DELAY:60000}
+          fixed-delay: ${KAKAO_GIFTBIZ_ORDER_RETRY_FIXED_DELAY:60000}
+          max-attempts: ${KAKAO_GIFTBIZ_ORDER_RETRY_MAX_ATTEMPTS:5}
+          batch-size: ${KAKAO_GIFTBIZ_ORDER_RETRY_BATCH_SIZE:50}
+
+  toss-payments:
+    base-url: ${TOSS_PAYMENTS_BASE_URL:https://api.tosspayments.com}
+    client-key: ${TOSS_PAYMENTS_CLIENT_KEY:}
+    secret-key: ${TOSS_PAYMENTS_SECRET_KEY:}
+    request-timeout-seconds: ${TOSS_PAYMENTS_REQUEST_TIMEOUT_SECONDS:10}
+    message-creation-retry:
+      enabled: ${GIFTICON_MESSAGE_CREATION_RETRY_ENABLED:true}
+      initial-delay: ${GIFTICON_MESSAGE_CREATION_RETRY_INITIAL_DELAY:60000}
+      fixed-delay: ${GIFTICON_MESSAGE_CREATION_RETRY_FIXED_DELAY:60000}
+      max-attempts: ${GIFTICON_MESSAGE_CREATION_RETRY_MAX_ATTEMPTS:10}
+      batch-size: ${GIFTICON_MESSAGE_CREATION_RETRY_BATCH_SIZE:50}
+    refund-retry:
+      enabled: ${TOSS_PAYMENTS_REFUND_RETRY_ENABLED:true}
+      initial-delay: ${TOSS_PAYMENTS_REFUND_RETRY_INITIAL_DELAY:60000}
+      fixed-delay: ${TOSS_PAYMENTS_REFUND_RETRY_FIXED_DELAY:60000}
+      max-attempts: ${TOSS_PAYMENTS_REFUND_RETRY_MAX_ATTEMPTS:10}
+      batch-size: ${TOSS_PAYMENTS_REFUND_RETRY_BATCH_SIZE:50}
+    unused-payment-refund:
+      enabled: ${TOSS_PAYMENTS_UNUSED_REFUND_ENABLED:true}
+      grace-period-minutes: ${TOSS_PAYMENTS_UNUSED_REFUND_GRACE_MINUTES:30}
+      initial-delay: ${TOSS_PAYMENTS_UNUSED_REFUND_INITIAL_DELAY:60000}
+      fixed-delay: ${TOSS_PAYMENTS_UNUSED_REFUND_FIXED_DELAY:60000}
+      batch-size: ${TOSS_PAYMENTS_UNUSED_REFUND_BATCH_SIZE:50}
 
   # 파일 저장 설정 (로컬 개발용)
   file:

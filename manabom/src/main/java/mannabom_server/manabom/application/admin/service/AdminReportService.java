@@ -3,6 +3,7 @@ package mannabom_server.manabom.application.admin.service;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.admin.dto.request.AdminProcessReportRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminReportDetailResponse;
 import mannabom_server.manabom.application.admin.dto.response.AdminReportListResponse;
@@ -14,6 +15,8 @@ import mannabom_server.manabom.domain.admin.enums.AdminRole;
 import mannabom_server.manabom.domain.admin.enums.UserAccountStatus;
 import mannabom_server.manabom.domain.admin.repository.UserAccountRestrictionRepository;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.report.entity.Report;
 import mannabom_server.manabom.domain.report.entity.ReportStatus;
@@ -41,6 +44,7 @@ public class AdminReportService {
     private final ReportRepository reportRepository;
     private final ProfileRepository profileRepository;
     private final TingWalletRepository tingWalletRepository;
+    private final TingTransactionRecorder tingTransactionRecorder;
     private final UserAccountRestrictionRepository userAccountRestrictionRepository;
     private final AdminAuditService adminAuditService;
 
@@ -177,9 +181,27 @@ public class AdminReportService {
         String before = walletLabel(wallet);
         if (tingGrant > 0) {
             wallet.addTing(tingGrant);
+            tingTransactionRecorder.recordPaid(
+                    wallet,
+                    TingTransactionType.REPORT_COMPENSATION,
+                    tingGrant,
+                    TingTransactionReferenceType.REPORT,
+                    String.valueOf(report.getId()),
+                    "REPORT:" + report.getId() + ":PAID_COMPENSATION",
+                    request.getWalletReason()
+            );
         }
         if (eventTingGrant > 0) {
             wallet.addEventTing(eventTingGrant);
+            tingTransactionRecorder.recordEvent(
+                    wallet,
+                    TingTransactionType.REPORT_COMPENSATION,
+                    eventTingGrant,
+                    TingTransactionReferenceType.REPORT,
+                    String.valueOf(report.getId()),
+                    "REPORT:" + report.getId() + ":EVENT_COMPENSATION",
+                    request.getWalletReason()
+            );
         }
         adminAuditService.log(admin.adminId(), AdminAuditActionType.WALLET_ADJUST,
                 AdminAuditTargetType.TING_WALLET, targetUserId, before, walletLabel(wallet),

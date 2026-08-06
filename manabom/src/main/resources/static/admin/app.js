@@ -17,7 +17,30 @@ const state = {
     selectedReportId: null,
     auditPage: 0,
     auditSize: 30,
-    isActivatingMembership: false
+    isActivatingMembership: false,
+    selectedGifticonId: null,
+    gifticonCursor: null,
+    gifticonCursorHistory: [],
+    gifticonNextCursor: null,
+    gifticonPage: 0,
+    gifticonSize: 20,
+    gifticonKeyword: "",
+    gifticonTokenConfigured: null,
+    gifticonItems: [],
+    isSavingGifticonToken: false,
+    isSynchronizingGifticons: false,
+    paymentPage: 0,
+    paymentSize: 20,
+    paymentStatus: "",
+    messageCreationStatus: "",
+    messageRequestStatus: "",
+    paymentUserId: "",
+    paymentOrderId: "",
+    paymentAttentionOnly: true,
+    paymentItems: [],
+    selectedPaymentId: null,
+    selectedPayment: null,
+    isProcessingPayment: false
 };
 
 const policyKeys = [
@@ -40,7 +63,8 @@ const policyKeys = [
     "benefit.membership.cycleFreeLikes",
     "benefit.vip.dailyExtraProfiles",
     "benefit.vip.dailyFreeMessages",
-    "benefit.vip.dailyFreeLikes"
+    "benefit.vip.dailyFreeLikes",
+    "gifticon.pricing.markupPercent"
 ];
 
 const roleOptions = [
@@ -71,7 +95,8 @@ const policyLabels = {
     "benefit.membership.cycleFreeLikes": "멤버십 주기별 무료 호감",
     "benefit.vip.dailyExtraProfiles": "VIP 일일 추가 프로필",
     "benefit.vip.dailyFreeMessages": "VIP 일일 무료 메시지",
-    "benefit.vip.dailyFreeLikes": "VIP 일일 무료 호감"
+    "benefit.vip.dailyFreeLikes": "VIP 일일 무료 호감",
+    "gifticon.pricing.markupPercent": "기프티콘 판매 마진율(%)"
 };
 
 const $ = (id) => document.getElementById(id);
@@ -160,6 +185,67 @@ function bindEvents() {
         state.auditPage += 1;
         loadAudits();
     });
+    $("gifticonTokenForm").addEventListener("submit", saveGifticonToken);
+    $("synchronizeGifticonsButton").addEventListener("click", synchronizeGifticons);
+    $("gifticonSearchButton").addEventListener("click", applyGifticonFilters);
+    $("gifticonKeyword").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            applyGifticonFilters();
+        }
+    });
+    $("gifticonTokenFilter").addEventListener("change", applyGifticonFilters);
+    $("gifticonPageSize").addEventListener("change", () => {
+        state.gifticonSize = numberOrZero($("gifticonPageSize").value) || 20;
+        resetGifticonPagination();
+        loadGifticons();
+    });
+    $("clearGifticonFilterButton").addEventListener("click", clearGifticonFilters);
+    $("prevGifticonPageButton").addEventListener("click", () => {
+        if (state.gifticonCursorHistory.length === 0) {
+            return;
+        }
+        state.gifticonCursor = state.gifticonCursorHistory.pop();
+        state.gifticonPage = Math.max(0, state.gifticonPage - 1);
+        loadGifticons();
+    });
+    $("nextGifticonPageButton").addEventListener("click", () => {
+        if (state.gifticonNextCursor === null) {
+            return;
+        }
+        state.gifticonCursorHistory.push(state.gifticonCursor);
+        state.gifticonCursor = state.gifticonNextCursor;
+        state.gifticonPage += 1;
+        loadGifticons();
+    });
+    $("paymentSearchButton").addEventListener("click", applyPaymentFilters);
+    $("paymentOrderIdFilter").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") applyPaymentFilters();
+    });
+    $("paymentUserIdFilter").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") applyPaymentFilters();
+    });
+    $("paymentStatusFilter").addEventListener("change", applyPaymentFilters);
+    $("messageCreationStatusFilter").addEventListener("change", applyPaymentFilters);
+    $("messageRequestStatusFilter").addEventListener("change", applyPaymentFilters);
+    $("paymentAttentionOnly").addEventListener("change", applyPaymentFilters);
+    $("paymentPageSize").addEventListener("change", () => {
+        state.paymentSize = numberOrZero($("paymentPageSize").value) || 20;
+        state.paymentPage = 0;
+        loadGifticonPayments();
+    });
+    $("clearPaymentFilterButton").addEventListener("click", clearPaymentFilters);
+    $("prevPaymentPageButton").addEventListener("click", () => {
+        if (state.paymentPage > 0) {
+            state.paymentPage -= 1;
+            loadGifticonPayments();
+        }
+    });
+    $("nextPaymentPageButton").addEventListener("click", () => {
+        state.paymentPage += 1;
+        loadGifticonPayments();
+    });
+    $("retryPaymentMessageButton").addEventListener("click", retryPaymentMessage);
+    $("forceRefundPaymentButton").addEventListener("click", forceRefundPayment);
     renderRoleCards([]);
     document.querySelectorAll(".nav-item").forEach((button) => {
         button.addEventListener("click", () => switchView(button.dataset.view));
@@ -206,6 +292,12 @@ async function showAdmin() {
     document.querySelectorAll(".super-only").forEach((element) => {
         element.classList.toggle("hidden", !(state.admin.roles || []).includes("SUPER_ADMIN"));
     });
+    document.querySelectorAll(".payment-read").forEach((element) => {
+        element.classList.toggle(
+                "hidden",
+                !hasAnyAdminRole("SUPER_ADMIN", "FINANCE", "SUPPORT")
+        );
+    });
     $("loginView").classList.add("hidden");
     $("adminView").classList.remove("hidden");
     await loadUsers();
@@ -240,6 +332,8 @@ function switchView(viewId) {
     });
     const titles = {
         usersView: "회원 관리",
+        gifticonsView: "기프티콘 관리",
+        gifticonPaymentsView: "기프티콘 결제 관리",
         policiesView: "운영 정책",
         pushView: "푸시 알림",
         reportsView: "신고/CS 처리",
@@ -252,7 +346,14 @@ function switchView(viewId) {
 }
 
 function refreshCurrentView() {
-    if (!$("auditsView").classList.contains("hidden")) {
+    if (!$("gifticonPaymentsView").classList.contains("hidden")) {
+        loadGifticonPayments();
+        if (state.selectedPaymentId) {
+            loadGifticonPaymentDetail(state.selectedPaymentId);
+        }
+    } else if (!$("gifticonsView").classList.contains("hidden")) {
+        loadGifticons();
+    } else if (!$("auditsView").classList.contains("hidden")) {
         loadAudits();
     } else if (!$("reportsView").classList.contains("hidden")) {
         loadReports();
@@ -273,6 +374,493 @@ function refreshCurrentView() {
             loadUserDetail(state.selectedUserId);
         }
     }
+}
+
+function applyGifticonFilters() {
+    state.gifticonKeyword = $("gifticonKeyword").value.trim();
+    const tokenFilter = $("gifticonTokenFilter").value;
+    state.gifticonTokenConfigured = tokenFilter === "" ? null : tokenFilter === "true";
+    resetGifticonPagination();
+    loadGifticons();
+}
+
+function clearGifticonFilters() {
+    $("gifticonKeyword").value = "";
+    $("gifticonTokenFilter").value = "";
+    $("gifticonPageSize").value = "20";
+    state.gifticonKeyword = "";
+    state.gifticonTokenConfigured = null;
+    state.gifticonSize = 20;
+    resetGifticonPagination();
+    loadGifticons();
+}
+
+function resetGifticonPagination() {
+    state.gifticonCursor = null;
+    state.gifticonCursorHistory = [];
+    state.gifticonNextCursor = null;
+    state.gifticonPage = 0;
+}
+
+async function synchronizeGifticons() {
+    if (state.isSynchronizingGifticons) {
+        return;
+    }
+
+    state.isSynchronizingGifticons = true;
+    const button = $("synchronizeGifticonsButton");
+    const resultElement = $("gifticonSyncResult");
+    button.disabled = true;
+    button.textContent = "동기화 중...";
+    resultElement.textContent = "카카오 Gift Biz에서 활성 템플릿을 조회하고 있습니다.";
+    resultElement.classList.remove("error-text");
+
+    try {
+        const result = await request("/api/admin/gifticons/synchronize", {
+            method: "POST"
+        });
+        resultElement.textContent =
+            `${formatNumber(result.synchronizedCount)}개 동기화 완료 · ${formatDate(result.synchronizedAt)}`;
+        resetGifticonPagination();
+        await loadGifticons();
+    } catch (error) {
+        resultElement.textContent = `동기화 실패: ${error.message}`;
+        resultElement.classList.add("error-text");
+    } finally {
+        state.isSynchronizingGifticons = false;
+        button.disabled = false;
+        button.textContent = "카카오에서 지금 동기화";
+    }
+}
+
+async function loadGifticons() {
+    if (!(state.admin?.roles || []).includes("SUPER_ADMIN")) {
+        return;
+    }
+
+    const query = new URLSearchParams({
+        size: String(state.gifticonSize)
+    });
+    if (state.gifticonCursor !== null) {
+        query.set("cursor", String(state.gifticonCursor));
+    }
+    if (state.gifticonTokenConfigured !== null) {
+        query.set("tokenConfigured", String(state.gifticonTokenConfigured));
+    }
+    if (state.gifticonKeyword) {
+        query.set("keyword", state.gifticonKeyword);
+    }
+
+    try {
+        const data = await request(`/api/admin/gifticons?${query.toString()}`);
+        state.gifticonItems = data.contents || [];
+        state.gifticonNextCursor = data.hasNext ? data.nextCursor : null;
+        renderGifticons(data);
+    } catch (error) {
+        $("gifticonListInfo").textContent = `목록 조회 실패: ${error.message}`;
+        $("gifticonListInfo").classList.add("error-text");
+    }
+}
+
+function renderGifticons(data) {
+    const items = data.contents || [];
+    $("gifticonListInfo").classList.remove("error-text");
+    $("gifticonListInfo").textContent =
+        `${items.length}개 표시 · ${state.gifticonPage + 1}페이지`;
+    $("gifticonPageInfo").textContent = `${state.gifticonPage + 1} 페이지`;
+    $("prevGifticonPageButton").disabled = state.gifticonCursorHistory.length === 0;
+    $("nextGifticonPageButton").disabled = !data.hasNext;
+
+    $("gifticonsTable").innerHTML = items.length > 0
+        ? items.map((product) => `
+            <tr
+                    data-gifticon-id="${escapeHtml(product.gifticonProductId)}"
+                    class="${String(product.gifticonProductId) === String(state.selectedGifticonId) ? "selected" : ""}"
+            >
+                <td>
+                    <div class="gifticon-product-cell">
+                        ${gifticonThumbnail(product)}
+                        <div class="gifticon-product-copy">
+                            <strong>${escapeHtml(product.productName || "-")}</strong>
+                            <small>${escapeHtml(product.templateName || "-")}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>${escapeHtml(product.brandName || "-")}</td>
+                <td>${formatNumber(product.productPrice)}원</td>
+                <td>${formatNumber(product.salePrice)}원</td>
+                <td>${product.available ? statusBadge("ALIVE") : statusBadge("INACTIVE")}</td>
+                <td>${gifticonTokenBadge(product.templateTokenConfigured)}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="6" class="empty-table-cell">조건에 맞는 기프티콘이 없습니다.</td></tr>`;
+
+    document.querySelectorAll("tr[data-gifticon-id]").forEach((row) => {
+        row.addEventListener("click", () => {
+            const product = state.gifticonItems.find(
+                    (item) => String(item.gifticonProductId) === row.dataset.gifticonId
+            );
+            if (product) {
+                selectGifticon(product);
+            }
+        });
+    });
+}
+
+function selectGifticon(product) {
+    state.selectedGifticonId = product.gifticonProductId;
+    document.querySelectorAll("tr[data-gifticon-id]").forEach((row) => {
+        row.classList.toggle(
+                "selected",
+                row.dataset.gifticonId === String(product.gifticonProductId)
+        );
+    });
+    renderGifticonDetail(product);
+}
+
+function renderGifticonDetail(product) {
+    $("selectedGifticonLabel").textContent = `상품 ID ${product.gifticonProductId}`;
+    $("gifticonDetail").className = "detail-body";
+    $("gifticonDetail").innerHTML = `
+        <section class="gifticon-detail-summary">
+            ${gifticonThumbnail(product, true)}
+            <div>
+                <strong>${escapeHtml(product.productName || "-")}</strong>
+                <span>${escapeHtml(product.brandName || "-")}</span>
+            </div>
+        </section>
+        <section>
+            ${kv("템플릿명", product.templateName || "-")}
+            ${kv("내부 상품 ID", product.gifticonProductId)}
+            ${kv("Trace ID", product.templateTraceId || "-")}
+            ${kv("상품 가격", `${formatNumber(product.productPrice)}원`)}
+            ${kv("판매 가격", `${formatNumber(product.salePrice)}원`)}
+            ${kvHtml("판매 상태", product.available ? statusBadge("ALIVE") : statusBadge("INACTIVE"))}
+            ${kvHtml("토큰 상태", gifticonTokenBadge(product.templateTokenConfigured))}
+            ${kv("마지막 동기화", formatDate(product.lastSyncedAt))}
+        </section>
+    `;
+
+    $("gifticonIdInput").value = product.gifticonProductId;
+    $("gifticonTokenInput").value = "";
+    $("gifticonTokenReason").value = "";
+    $("gifticonTokenResult").textContent = "";
+    $("gifticonTokenResult").classList.remove("error-text");
+    $("gifticonTokenSaveButton").textContent =
+        product.templateTokenConfigured ? "토큰 교체" : "암호화하여 저장";
+    $("gifticonTokenForm").classList.remove("hidden");
+}
+
+async function saveGifticonToken(event) {
+    event.preventDefault();
+    if (!state.selectedGifticonId || state.isSavingGifticonToken) {
+        return;
+    }
+
+    const selected = state.gifticonItems.find(
+            (item) => String(item.gifticonProductId) === String(state.selectedGifticonId)
+    );
+    if (selected?.templateTokenConfigured
+            && !confirm("이미 등록된 템플릿 토큰을 새 값으로 교체할까요?")) {
+        return;
+    }
+
+    const token = $("gifticonTokenInput").value.trim();
+    const reason = $("gifticonTokenReason").value.trim();
+    if (!token || !reason) {
+        showGifticonTokenResult("토큰과 등록/변경 사유를 모두 입력하세요.", true);
+        return;
+    }
+
+    state.isSavingGifticonToken = true;
+    $("gifticonTokenSaveButton").disabled = true;
+    showGifticonTokenResult("");
+    try {
+        const updated = await request(
+                `/api/admin/gifticons/${state.selectedGifticonId}/template-token`,
+                {
+                    method: "PUT",
+                    body: {
+                        templateToken: token,
+                        reason
+                    }
+                }
+        );
+        $("gifticonTokenInput").value = "";
+        $("gifticonTokenReason").value = "";
+        renderGifticonDetail(updated);
+        showGifticonTokenResult("템플릿 토큰을 암호화하여 저장했습니다.");
+        await loadGifticons();
+    } catch (error) {
+        showGifticonTokenResult(`저장 실패: ${error.message}`, true);
+    } finally {
+        state.isSavingGifticonToken = false;
+        $("gifticonTokenSaveButton").disabled = false;
+    }
+}
+
+function showGifticonTokenResult(message, error = false) {
+    $("gifticonTokenResult").textContent = message;
+    $("gifticonTokenResult").classList.toggle("error-text", error);
+}
+
+function gifticonThumbnail(product, large = false) {
+    if (!product.productThumbnailImageUrl) {
+        return `<span class="gifticon-thumb placeholder ${large ? "large" : ""}">선물</span>`;
+    }
+    return `
+        <img
+                class="gifticon-thumb ${large ? "large" : ""}"
+                src="${escapeHtml(product.productThumbnailImageUrl)}"
+                alt=""
+                loading="lazy"
+        >
+    `;
+}
+
+function gifticonTokenBadge(configured) {
+    return configured
+        ? `<span class="badge token-configured">등록 완료</span>`
+        : `<span class="badge token-missing">미등록</span>`;
+}
+
+function applyPaymentFilters() {
+    state.paymentStatus = $("paymentStatusFilter").value;
+    state.messageCreationStatus = $("messageCreationStatusFilter").value;
+    state.messageRequestStatus = $("messageRequestStatusFilter").value;
+    state.paymentUserId = $("paymentUserIdFilter").value.trim();
+    state.paymentOrderId = $("paymentOrderIdFilter").value.trim();
+    state.paymentAttentionOnly = $("paymentAttentionOnly").checked;
+    state.paymentPage = 0;
+    loadGifticonPayments();
+}
+
+function clearPaymentFilters() {
+    $("paymentStatusFilter").value = "";
+    $("messageCreationStatusFilter").value = "";
+    $("messageRequestStatusFilter").value = "";
+    $("paymentUserIdFilter").value = "";
+    $("paymentOrderIdFilter").value = "";
+    $("paymentAttentionOnly").checked = true;
+    $("paymentPageSize").value = "20";
+    state.paymentStatus = "";
+    state.messageCreationStatus = "";
+    state.messageRequestStatus = "";
+    state.paymentUserId = "";
+    state.paymentOrderId = "";
+    state.paymentAttentionOnly = true;
+    state.paymentSize = 20;
+    state.paymentPage = 0;
+    loadGifticonPayments();
+}
+
+async function loadGifticonPayments() {
+    const query = new URLSearchParams({
+        page: String(state.paymentPage),
+        size: String(state.paymentSize),
+        attentionOnly: String(state.paymentAttentionOnly)
+    });
+    if (state.paymentStatus) query.set("paymentStatus", state.paymentStatus);
+    if (state.messageCreationStatus) {
+        query.set("messageCreationStatus", state.messageCreationStatus);
+    }
+    if (state.messageRequestStatus) {
+        query.set("messageRequestStatus", state.messageRequestStatus);
+    }
+    if (state.paymentUserId) query.set("userId", state.paymentUserId);
+    if (state.paymentOrderId) query.set("orderId", state.paymentOrderId);
+
+    try {
+        const data = await request(`/api/admin/gifticon-payments?${query.toString()}`);
+        state.paymentItems = data.contents || [];
+        renderGifticonPayments(data);
+    } catch (error) {
+        $("paymentListInfo").textContent = `목록 조회 실패: ${error.message}`;
+        $("paymentListInfo").classList.add("error-text");
+    }
+}
+
+function renderGifticonPayments(data) {
+    const items = data.contents || [];
+    $("paymentListInfo").classList.remove("error-text");
+    $("paymentListInfo").textContent = `${formatNumber(data.totalCount || 0)}건`;
+    $("paymentPageInfo").textContent =
+        `${data.page + 1} / ${Math.max(data.totalPages || 1, 1)} 페이지`;
+    $("prevPaymentPageButton").disabled = data.page <= 0;
+    $("nextPaymentPageButton").disabled = data.page + 1 >= data.totalPages;
+    $("paymentsTable").innerHTML = items.length
+        ? items.map((payment) => `
+            <tr
+                    data-payment-id="${escapeHtml(payment.gifticonPaymentId)}"
+                    class="${String(payment.gifticonPaymentId) === String(state.selectedPaymentId) ? "selected" : ""}"
+            >
+                <td>
+                    <strong>#${escapeHtml(payment.gifticonPaymentId)}</strong><br>
+                    <small>${escapeHtml(payment.orderId || "-")}</small>
+                </td>
+                <td>${escapeHtml(payment.userId)}</td>
+                <td>${formatNumber(payment.amount)}원</td>
+                <td>${statusBadge(payment.paymentStatus)}</td>
+                <td>${statusBadge(payment.messageCreationStatus)}</td>
+                <td>${paymentAttentionHtml(payment.attentionReasons)}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="6" class="empty-table-cell">조건에 맞는 결제가 없습니다.</td></tr>`;
+
+    document.querySelectorAll("tr[data-payment-id]").forEach((row) => {
+        row.addEventListener("click", () => loadGifticonPaymentDetail(row.dataset.paymentId));
+    });
+}
+
+async function loadGifticonPaymentDetail(paymentId) {
+    state.selectedPaymentId = paymentId;
+    $("selectedPaymentLabel").textContent = `결제 ID ${paymentId}`;
+    $("paymentDetail").className = "detail-empty";
+    $("paymentDetail").textContent = "토스 결제 상태를 확인하는 중입니다.";
+    try {
+        const payment = await request(`/api/admin/gifticon-payments/${paymentId}`);
+        state.selectedPayment = payment;
+        renderGifticonPaymentDetail(payment);
+    } catch (error) {
+        $("paymentDetail").className = "detail-empty error-text";
+        $("paymentDetail").textContent = `상세 조회 실패: ${error.message}`;
+        $("paymentActions").classList.add("hidden");
+    }
+}
+
+function renderGifticonPaymentDetail(payment) {
+    const mismatch = payment.tossStatusMismatch === true;
+    const tossLabel = payment.tossVerificationError
+        ? `조회 실패: ${payment.tossVerificationError}`
+        : payment.tossPaymentStatus || "확인 불가";
+    $("paymentDetail").className = "detail-body";
+    $("paymentDetail").innerHTML = `
+        <section>
+            <p class="section-title">결제</p>
+            ${kv("결제 ID", payment.gifticonPaymentId)}
+            ${kv("Order ID", payment.orderId)}
+            ${kv("Payment Key", payment.maskedPaymentKey || "-")}
+            ${kv("구매자 userId", payment.userId)}
+            ${kv("대상 profileId", payment.targetProfileId)}
+            ${kv("상품", `${payment.productName || "-"} (#${payment.gifticonProductId})`)}
+            ${kv("결제 금액", `${formatNumber(payment.amount)}원`)}
+            ${kvHtml("서버 결제 상태", statusBadge(payment.paymentStatus))}
+            ${kv("상태 설명", payment.paymentStatusDescription || "-")}
+            ${kv("승인 시각", formatDate(payment.approvedAt))}
+            ${kv("환불 시각", formatDate(payment.refundedAt))}
+        </section>
+        <section>
+            <p class="section-title">메시지 생성</p>
+            ${kvHtml("생성 상태", statusBadge(payment.messageCreationStatus))}
+            ${kv("상태 설명", payment.messageCreationStatusDescription || "-")}
+            ${kv("시도 횟수", payment.messageCreationAttemptCount)}
+            ${kv("마지막 시도", formatDate(payment.lastMessageCreationAttemptAt))}
+            ${kv("실패 사유", payment.messageCreationFailureReason || "-")}
+            ${kv("메시지 요청 ID", payment.messageRequestId || "-")}
+            ${kvHtml("메시지 요청 상태", payment.messageRequestStatus ? statusBadge(payment.messageRequestStatus) : "-")}
+        </section>
+        <section>
+            <p class="section-title">환불 · 처리 필요</p>
+            ${kv("환불 시도 횟수", payment.refundAttemptCount)}
+            ${kv("마지막 환불 시도", formatDate(payment.lastRefundAttemptAt))}
+            ${kv("결제 처리 실패 사유", payment.paymentFailureReason || "-")}
+            ${kvHtml("처리 필요", paymentAttentionHtml(payment.attentionReasons))}
+        </section>
+        <section class="${mismatch ? "attention-panel" : ""}">
+            <p class="section-title">토스페이먼츠 실시간 대조</p>
+            ${kv("토스 상태", tossLabel)}
+            ${kvHtml("일치 여부", payment.tossStatusMismatch == null
+                ? `<span class="muted">확인 실패</span>`
+                : mismatch
+                    ? `<span class="badge danger">불일치 · 처리 필요</span>`
+                    : `<span class="badge token-configured">일치</span>`)}
+        </section>
+    `;
+    renderPaymentActions(payment);
+}
+
+function renderPaymentActions(payment) {
+    const canRetry = hasAnyAdminRole("SUPER_ADMIN", "OPERATOR")
+        && payment.paymentStatus === "PAID"
+        && !payment.messageRequestId;
+    const refundableStatuses = new Set([
+        "PAID",
+        "REFUND_PENDING",
+        "REFUND_PROCESSING",
+        "REFUND_FAILED"
+    ]);
+    const canRefund = hasAnyAdminRole("SUPER_ADMIN", "FINANCE")
+        && !payment.messageRequestId
+        && refundableStatuses.has(payment.paymentStatus);
+    $("paymentActions").classList.toggle("hidden", !canRetry && !canRefund);
+    $("retryPaymentMessageButton").classList.toggle("hidden", !canRetry);
+    $("forceRefundPaymentButton").classList.toggle("hidden", !canRefund);
+    $("paymentActionResult").textContent = "";
+}
+
+async function retryPaymentMessage() {
+    await executePaymentAction(
+            "retry-message",
+            "메시지 생성을 다시 시도할까요?",
+            "메시지 생성 재시도를 요청했습니다."
+    );
+}
+
+async function forceRefundPayment() {
+    await executePaymentAction(
+            "refund",
+            "토스 결제를 강제로 환불할까요? 이 작업은 되돌릴 수 없습니다.",
+            "강제 환불을 요청했습니다."
+    );
+}
+
+async function executePaymentAction(path, confirmation, successMessage) {
+    if (!state.selectedPaymentId || state.isProcessingPayment) return;
+    const reason = $("paymentActionReason").value.trim();
+    if (!reason) {
+        showPaymentActionResult("관리자 처리 사유를 입력하세요.", true);
+        return;
+    }
+    if (!confirm(confirmation)) return;
+
+    state.isProcessingPayment = true;
+    $("retryPaymentMessageButton").disabled = true;
+    $("forceRefundPaymentButton").disabled = true;
+    try {
+        const payment = await request(
+                `/api/admin/gifticon-payments/${state.selectedPaymentId}/${path}`,
+                { method: "POST", body: { reason } }
+        );
+        state.selectedPayment = payment;
+        renderGifticonPaymentDetail(payment);
+        $("paymentActionReason").value = "";
+        showPaymentActionResult(successMessage);
+        await loadGifticonPayments();
+    } catch (error) {
+        await loadGifticonPaymentDetail(state.selectedPaymentId);
+        showPaymentActionResult(`처리 실패: ${error.message}`, true);
+    } finally {
+        state.isProcessingPayment = false;
+        $("retryPaymentMessageButton").disabled = false;
+        $("forceRefundPaymentButton").disabled = false;
+    }
+}
+
+function showPaymentActionResult(message, error = false) {
+    $("paymentActionResult").textContent = message;
+    $("paymentActionResult").classList.toggle("error-text", error);
+}
+
+function paymentAttentionHtml(reasons) {
+    if (!reasons?.length) return `<span class="muted">없음</span>`;
+    return `<div class="attention-list">${reasons.map((reason) =>
+        `<span class="badge danger" title="${escapeHtml(reason.description)}">${escapeHtml(reason.code)}</span>`
+    ).join("")}</div>`;
+}
+
+function hasAnyAdminRole(...roles) {
+    const current = new Set(state.admin?.roles || []);
+    return roles.some((role) => current.has(role));
 }
 
 async function loadUsers() {
@@ -524,7 +1112,7 @@ function renderPolicies(items) {
                 <strong>${escapeHtml(policyLabels[key] || key)}</strong>
                 <small>${escapeHtml(key)}</small>
             </div>
-            <input type="number" value="${escapeHtml(value)}" data-policy-value>
+            <input type="number" min="0" step="${key === "gifticon.pricing.markupPercent" ? "0.001" : "1"}" value="${escapeHtml(value)}" data-policy-value>
             ${reasonInline("policy", ["정책 조정", "이벤트 대응", "운영 테스트", "기타"])}
             <div class="inline-grid">
                 <button class="secondary" data-policy-save>저장</button>
@@ -1238,8 +1826,12 @@ function auditActionLabel(actionType) {
         WALLET_ADJUST: "팅 지갑 조정",
         MEMBERSHIP_ACTIVATE: "멤버십 활성화",
         POLICY_UPDATE: "운영 정책 변경",
+        GIFTICON_CATALOG_SYNC: "기프티콘 상품 동기화",
         PUSH_SEND: "푸시 발송",
-        REPORT_PROCESS: "신고 처리"
+        REPORT_PROCESS: "신고 처리",
+        GIFTICON_TEMPLATE_TOKEN_UPDATE: "기프티콘 토큰 등록/변경",
+        GIFTICON_PAYMENT_MESSAGE_RETRY: "기프티콘 메시지 생성 재시도",
+        GIFTICON_PAYMENT_FORCE_REFUND: "기프티콘 결제 강제 환불"
     };
     return labels[actionType] || actionType || "-";
 }
@@ -1251,7 +1843,9 @@ function auditTargetLabel(targetType) {
         TING_WALLET: "팅 지갑",
         POLICY: "운영 정책",
         PUSH: "푸시",
-        REPORT: "신고"
+        REPORT: "신고",
+        GIFTICON_PRODUCT: "기프티콘 상품",
+        GIFTICON_PAYMENT: "기프티콘 결제"
     };
     return labels[targetType] || targetType || "-";
 }
@@ -1285,6 +1879,11 @@ function toDateTimeLocalValue(value) {
 function formatDate(value) {
     if (!value) return "-";
     return new Date(value).toLocaleString("ko-KR");
+}
+
+function formatNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toLocaleString("ko-KR") : "-";
 }
 
 function escapeHtml(value) {

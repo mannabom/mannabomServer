@@ -11,4 +11,6 @@ public class RespondSignalResponseDto {
     private boolean accepted;
     private Long chatRoomId;
     private String status;
+    private String gifticonOrderStatus;
+    private String gifticonPaymentStatus;
 }

@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Getter
 @Builder
 public class RuntimePolicySnapshot {
@@ -14,6 +16,7 @@ public class RuntimePolicySnapshot {
     private final Match match;
     private final Ting ting;
     private final Benefit benefit;
+    private final Gifticon gifticon;
 
     @Getter
     @Builder
@@ -71,6 +74,19 @@ public class RuntimePolicySnapshot {
             private final int dailyExtraProfiles;
             private final int dailyFreeMessages;
             private final int dailyFreeLikes;
+        }
+    }
+
+    @Getter
+    @Builder
+    public static class Gifticon {
+        private final Pricing pricing;
+
+        @Getter
+        @Builder
+        public static class Pricing {
+            private final BigDecimal markupPercent;
+            private final int roundUnit;
         }
     }
 }

@@ -13,10 +13,29 @@ import java.util.Optional;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
     Optional<ChatMessage> findTopByRoomIdOrderByIdDesc(Long roomId);
 
-    @Query("SELECT m FROM ChatMessage m JOIN FETCH m.user u WHERE m.room.id = :roomId AND m.id > :lastReadId ORDER BY m.id ASC")
+    @Query("""
+            SELECT m
+            FROM ChatMessage m
+            JOIN FETCH m.user u
+            LEFT JOIN FETCH m.gifticonPayment payment
+            LEFT JOIN FETCH payment.product
+            WHERE m.room.id = :roomId
+              AND m.id > :lastReadId
+            ORDER BY m.id ASC
+            """)
     List<ChatMessage> findChatMessagesAfter(@Param("roomId") Long roomId, @Param("lastReadId") Long lastReadId, Pageable pageable);
 
-    @Query("SELECT m FROM ChatMessage m JOIN FETCH m.user u JOIN Profile p on p.user.userId = u.userId WHERE m.room.id = :roomId AND m.id < :firstMessageId ORDER BY m.id desc ")
+    @Query("""
+            SELECT m
+            FROM ChatMessage m
+            JOIN FETCH m.user u
+            JOIN Profile p on p.user.userId = u.userId
+            LEFT JOIN FETCH m.gifticonPayment payment
+            LEFT JOIN FETCH payment.product
+            WHERE m.room.id = :roomId
+              AND m.id < :firstMessageId
+            ORDER BY m.id DESC
+            """)
     List<ChatMessage> findChatMessagesBefore(@Param("roomId") Long roomId, @Param("firstMessageId") Long firstMessageId, Pageable pageable);
 
 

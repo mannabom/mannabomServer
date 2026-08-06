@@ -297,22 +297,36 @@ public class MeetingMatchingService {
         addToQueue(event);
     }
 
-    public MatchingResultDataDto getMatchingResult(Long matchId, Long userId){
+    public MatchingResultDataDto getMatchingResult(Long matchId, Long userId) {
         MeetingMatch match = meetingMatchRepository.findByIdWithMeeting(matchId)
-                .orElseThrow(()-> new IllegalArgumentException("매칭 결과 조회: 존재하지 않는 매칭 아이디 입니다."+ matchId));
-        Meeting opponent;
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 결과 조회: 존재하지 않는 매칭 아이디입니다. " + matchId
+                ));
+        Meeting opponent = findOpponentMeeting(match, userId);
+
+        if (match.getMatchingStatus() == MatchingStatus.FAILED) {
+            return MatchingResultDataDto.failed(match);
+        }
+
+        List<TeamMemberProfilesDto.TeamMemberDetailDto> members =
+                meetingMemberReadService.getActiveTeammMemberDetails(opponent.getId());
+        return MatchingResultDataDto.withOpponent(match, opponent, members);
+    }
+
+    private Meeting findOpponentMeeting(MeetingMatch match, Long userId) {
         Meeting meeting1 = match.getMeeting1();
         Meeting meeting2 = match.getMeeting2();
 
-        if(meetingMemberService.isMember(meeting1.getId(),userId))
-            opponent= meeting2;
-        else if(meetingMemberService.isMember(meeting2.getId(),userId))
-            opponent= meeting1;
-        else throw new IllegalArgumentException("매칭 결과:해당 매칭에 속하지 않은 유저 아이디 입니다."+ userId);
+        if (meetingMemberService.isMember(meeting1.getId(), userId)) {
+            return meeting2;
+        }
+        if (meetingMemberService.isMember(meeting2.getId(), userId)) {
+            return meeting1;
+        }
 
-        List<TeamMemberProfilesDto.TeamMemberDetailDto> members = meetingMemberReadService.getActiveTeammMemberDetails(opponent.getId());
-        return MatchingResultDataDto.of(match,opponent,members);
-
+        throw new IllegalArgumentException(
+                "매칭 결과: 해당 매칭에 속하지 않은 사용자입니다. userId=" + userId
+        );
     }
 
     @Transactional

@@ -8,6 +8,7 @@ import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceTyp
 import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingTransactionRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -72,6 +73,14 @@ public class TingTransactionRecorder {
     ) {
         if (wallet == null) {
             throw new IllegalArgumentException("팅 거래를 기록할 지갑은 필수입니다.");
+        }
+        if (StringUtils.hasText(idempotencyKey)) {
+            TingTransaction existing = tingTransactionRepository
+                    .findByIdempotencyKey(idempotencyKey.trim())
+                    .orElse(null);
+            if (existing != null) {
+                return existing;
+            }
         }
         return tingTransactionRepository.save(new TingTransaction(
                 wallet.getUserId(),

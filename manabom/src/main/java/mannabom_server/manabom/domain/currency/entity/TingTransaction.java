@@ -79,7 +79,7 @@ public class TingTransaction {
         if (balanceType == null || transactionType == null) {
             throw new IllegalArgumentException("팅 거래 잔액 유형과 거래 유형은 필수입니다.");
         }
-        if (amountDelta == 0 && transactionType != TingTransactionType.GIFTICON_CAPTURE) {
+        if (amountDelta == 0) {
             throw new IllegalArgumentException("잔액 변화가 없는 팅 거래는 기록할 수 없습니다.");
         }
         if (balanceAfter < 0) {

@@ -418,17 +418,21 @@ public class SignupService {
         if(!tingWalletRepository.existsById(user.getUserId())) {
             TingWallet wallet = new TingWallet(user.getUserId());
             //wallet.addEventTing(initialPoints); (기본 지급을 답변 보상으로 대체)
-            wallet.addEventTing(signupBonusEventTing);
+            if (signupBonusEventTing > 0) {
+                wallet.addEventTing(signupBonusEventTing);
+            }
             tingWalletRepository.save(wallet);
-            tingTransactionRecorder.recordEvent(
-                    wallet,
-                    TingTransactionType.SIGNUP_BONUS,
-                    signupBonusEventTing,
-                    TingTransactionReferenceType.USER,
-                    String.valueOf(user.getUserId()),
-                    "SIGNUP:" + user.getUserId() + ":BONUS",
-                    "회원가입 프로필 작성 보너스"
-            );
+            if (signupBonusEventTing > 0) {
+                tingTransactionRecorder.recordEvent(
+                        wallet,
+                        TingTransactionType.SIGNUP_BONUS,
+                        signupBonusEventTing,
+                        TingTransactionReferenceType.USER,
+                        String.valueOf(user.getUserId()),
+                        "SIGNUP:" + user.getUserId() + ":BONUS",
+                        "회원가입 프로필 작성 보너스"
+                );
+            }
             int savedEventTing = wallet.getEventTing();
             log.info("해당 유저 팅 지갑 생성 및 보너스 팅 지급 완료, 지급된 이벤트 팅 : {}", savedEventTing);
         }else

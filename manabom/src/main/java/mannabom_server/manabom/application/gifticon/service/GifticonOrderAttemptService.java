@@ -7,6 +7,7 @@ import mannabom_server.manabom.application.gifticon.port.command.GifticonOrderCo
 import mannabom_server.manabom.domain.gifticon.entity.GifticonOrder;
 import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
 import mannabom_server.manabom.domain.gifticon.enums.GifticonOrderStatus;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentPurpose;
 import mannabom_server.manabom.domain.gifticon.repository.GifticonOrderRepository;
 import mannabom_server.manabom.infrastructure.external.kakao.giftbiz.config.GiftbizProperties;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,9 @@ public class GifticonOrderAttemptService {
 
         order.markProcessing(now);
         try {
-            GifticonProduct product = order.getMessageRequest().getGifticonProduct();
+            GifticonProduct product = order.getPayment() == null
+                    ? order.getMessageRequest().getGifticonProduct()
+                    : order.getPayment().getProduct();
             if (product == null || !product.hasTemplateToken()) {
                 throw new IllegalStateException("발송 가능한 템플릿 토큰이 등록되지 않은 기프티콘 상품입니다.");
             }
@@ -80,17 +83,32 @@ public class GifticonOrderAttemptService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markFailed(Long gifticonOrderId, Instant failedAt, String reason) {
+    public OrderFailure markFailed(Long gifticonOrderId, Instant failedAt, String reason) {
         GifticonOrder order = gifticonOrderRepository.findByIdForUpdate(gifticonOrderId)
                 .orElseThrow(() -> new IllegalStateException("기프티콘 주문을 찾을 수 없습니다."));
         if (order.getStatus() == GifticonOrderStatus.PROCESSING) {
             order.markFailed(failedAt, reason);
         }
+        boolean attemptsExhausted = order.hasExhaustedAttempts(
+                giftbizProperties.getOrder().getRetry().getMaxAttempts()
+        );
+        Long chatPaymentId = order.getPayment() != null
+                && order.getPayment().getPurpose()
+                == GifticonPaymentPurpose.CHAT
+                ? order.getPayment().getGifticonPaymentId()
+                : null;
+        return new OrderFailure(chatPaymentId, attemptsExhausted);
     }
 
     public record GifticonOrderAttempt(
             GifticonOrderCommand command,
             String externalOrderId
+    ) {
+    }
+
+    public record OrderFailure(
+            Long chatPaymentId,
+            boolean attemptsExhausted
     ) {
     }
 

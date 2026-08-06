@@ -14,7 +14,9 @@ import java.time.Instant;
 public class GifticonOrderProcessor {
 
     private final GifticonOrderAttemptService attemptService;
+    private final GifticonOrderCompletionService completionService;
     private final GifticonOrderRequester gifticonOrderRequester;
+    private final GifticonPaymentService paymentService;
     private final Clock clock = Clock.systemUTC();
 
     public void process(Long gifticonOrderId) {
@@ -27,16 +29,36 @@ public class GifticonOrderProcessor {
         Instant attemptedAt = clock.instant();
         try {
             gifticonOrderRequester.requestGift(attempt.command());
-            attemptService.markRequested(gifticonOrderId, attemptedAt);
+        } catch (Exception e) {
+            String failureReason = safeFailureReason(e);
+            GifticonOrderAttemptService.OrderFailure failure =
+                    attemptService.markFailed(gifticonOrderId, attemptedAt, failureReason);
+            log.error(
+                    "[Gift Biz] 선물 발송 요청 실패. gifticonOrderId={}, externalOrderId={}",
+                    gifticonOrderId,
+                    attempt.externalOrderId(),
+                    e
+            );
+            if (failure.chatPaymentId() != null && failure.attemptsExhausted()) {
+                paymentService.failChatDeliveryAndRefund(
+                        failure.chatPaymentId(),
+                        failureReason
+                );
+            }
+            return;
+        }
+
+        try {
+            completionService.completeRequested(gifticonOrderId, attemptedAt);
             log.info(
                     "[Gift Biz] 선물 발송 요청 접수 완료. gifticonOrderId={}, externalOrderId={}",
                     gifticonOrderId,
                     attempt.externalOrderId()
             );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             attemptService.markFailed(gifticonOrderId, attemptedAt, safeFailureReason(e));
             log.error(
-                    "[Gift Biz] 선물 발송 요청 실패. gifticonOrderId={}, externalOrderId={}",
+                    "[Gift Biz] 발송 접수 후 내부 상태 반영 실패. gifticonOrderId={}, externalOrderId={}",
                     gifticonOrderId,
                     attempt.externalOrderId(),
                     e

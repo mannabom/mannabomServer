@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/ws-chat/**",
+                                "/api/iap/apple/notifications",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()

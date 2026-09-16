@@ -6,6 +6,7 @@ public enum AdminAuditTargetType {
     TING_WALLET,
     GIFTICON_PRODUCT,
     GIFTICON_PAYMENT,
+    TING_PRODUCT,
     POLICY,
     PUSH,
     REPORT

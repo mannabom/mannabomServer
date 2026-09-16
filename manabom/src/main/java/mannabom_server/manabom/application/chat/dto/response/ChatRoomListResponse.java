@@ -4,7 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
-import mannabom_server.manabom.domain.chat.enums.ChatRoomType;
+import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 
 import java.time.Instant;
 
@@ -21,10 +21,17 @@ public class ChatRoomListResponse {
         return ChatRoomListResponse.builder()
                 .roomId(room.getId())
                 .roomName(roomName)
-                .lastMessage(lastMsg!=null ? lastMsg.getType().getDisplayMessage(lastMsg.getContent()): null )
+                .lastMessage(lastMsg != null ? lastMessagePreview(lastMsg) : null)
                 .lastmessageAt(lastMsg != null ? lastMsg.getCreatedAt() : null)
                 .hasUnreadMessages(hasUnreadMessages)
                 .build();
+    }
+
+    private static String lastMessagePreview(ChatMessage message) {
+        if (message.getType() == ChatMessageType.SYSTEM && message.getSystemTitle() != null) {
+            return message.getSystemTitle();
+        }
+        return message.getType().getDisplayMessage(message.getContent());
     }
 
 }

@@ -1,8 +1,8 @@
 package mannabom_server.manabom.application.meeting.service;
 
-import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
+import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingCancellationRequest;
@@ -24,7 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +38,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -60,6 +63,8 @@ class MeetingCancellationServiceTest {
     private ChatMemberRepository chatMemberRepository;
     @Mock
     private MeetingCancellationExpirationService expirationService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private MeetingCancellationService meetingCancellationService;
@@ -120,6 +125,8 @@ class MeetingCancellationServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(initiator));
         when(requestRepository.save(any(MeetingCancellationRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(chatRoomRepository.findByMatch(match))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
 
         var response = meetingCancellationService.create(20L, 1L);
 
@@ -143,7 +150,6 @@ class MeetingCancellationServiceTest {
                 now,
                 now.plusSeconds(3600)
         );
-        ReflectionTestUtils.setField(request, "id", 30L);
         MeetingCancellationVote vote = MeetingCancellationVote.pending(request, voter);
 
         when(match.getId()).thenReturn(20L);
@@ -153,22 +159,13 @@ class MeetingCancellationServiceTest {
         when(meeting2.getId()).thenReturn(11L);
         when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
         when(voteRepository.findByRequest_IdAndUser_UserId(30L, 2L)).thenReturn(Optional.of(vote));
-        when(voteRepository.countByRequest_IdAndDecision(
-                30L,
-                CancellationVoteDecision.PENDING
-        )).thenReturn(0L);
-        when(voteRepository.countByRequest_IdAndDecision(
-                30L,
-                CancellationVoteDecision.REJECT
-        )).thenReturn(0L);
-        when(voteRepository.findAllByRequest_IdOrderById(30L)).thenReturn(List.of(vote));
-        when(chatRoomRepository.findByMatch(match)).thenReturn(Optional.empty());
-        when(chatRoomRepository.findByMeeting(meeting1)).thenReturn(Optional.empty());
-        when(chatRoomRepository.findByMeeting(meeting2)).thenReturn(Optional.empty());
+        when(voteRepository.findAllByRequest_IdOrderById(null)).thenReturn(List.of(vote));
         when(meetingMemberRepository.findByMeetingIdAndStatus(10L, ChatUserStatus.ACTIVE))
                 .thenReturn(List.of());
         when(meetingMemberRepository.findByMeetingIdAndStatus(11L, ChatUserStatus.ACTIVE))
                 .thenReturn(List.of());
+        when(chatRoomRepository.findByMatch(match))
+                .thenReturn(Optional.of(ChatRoom.builder().id(100L).build()));
 
         meetingCancellationService.vote(30L, 2L, CancellationVoteDecision.AGREE);
 
@@ -177,15 +174,24 @@ class MeetingCancellationServiceTest {
     }
 
     @Test
-    void expiredRequestIsMarkedExpiredWhenVoting() {
+    void expiredVoteDelegatesExpirationAndUsesNoRollbackException() throws NoSuchMethodException {
         Instant requestedAt = Instant.now().minus(Duration.ofHours(25));
+        Meeting meeting1 = Meeting.builder().id(10L).build();
+        Meeting meeting2 = Meeting.builder().id(11L).build();
+        MeetingMatch match = MeetingMatch.builder()
+                .meeting1(meeting1)
+                .meeting2(meeting2)
+                .build();
         MeetingCancellationRequest request = MeetingCancellationRequest.create(
-                mock(MeetingMatch.class),
+                match,
                 user(1L),
                 requestedAt,
                 requestedAt.plus(Duration.ofHours(24))
         );
+        ReflectionTestUtils.setField(request, "id", 30L);
         when(requestRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(request));
+        when(expirationService.expire(eq(request), any(Instant.class)))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> meetingCancellationService.vote(
                 30L,
@@ -195,9 +201,18 @@ class MeetingCancellationServiceTest {
                 .isInstanceOf(MeetingCancellationExpiredException.class)
                 .hasMessage("이미 만료된 미팅 취소 요청입니다.");
 
-        assertThat(request.getStatus()).isEqualTo(MeetingCancellationStatus.EXPIRED);
-        assertThat(request.getCompletedAt()).isNotNull();
+        verify(expirationService).expire(eq(request), any(Instant.class));
         verifyNoInteractions(voteRepository);
+
+        Method voteMethod = MeetingCancellationService.class.getMethod(
+                "vote",
+                Long.class,
+                Long.class,
+                CancellationVoteDecision.class
+        );
+        Transactional transactional = voteMethod.getAnnotation(Transactional.class);
+        assertThat(transactional.noRollbackFor())
+                .contains(MeetingCancellationExpiredException.class);
     }
 
     @Test

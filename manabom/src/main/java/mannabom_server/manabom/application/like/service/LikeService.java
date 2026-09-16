@@ -131,15 +131,22 @@ public class LikeService {
         Long chatRoomId = null;
         if (accepted) {
             likeRequest.accept();
-            chatRoomId = createChatRoom(likeRequest.getFromUserId(), likeRequest.getToUserId(), likeRequest.getSource());
+            chatRoomId = createChatRoom(
+                    likeRequest.getFromUserId(),
+                    likeRequest.getToUserId(),
+                    likeRequest.getSource(),
+                    responderUserId
+            );
         } else {
             likeRequest.reject(rejectReason);
-        }
-
-        try {
-            pushService.sendToUser(likeRequest.getFromUserId(), PushMessages.likeResponded(accepted, likeRequest.getToUserId()));
-        } catch (Exception e) {
-            log.warn("좋아요 응답 푸시 전송 실패 likeRequestId={} accepted={}", likeRequestId, accepted, e);
+            try {
+                pushService.sendToUser(
+                        likeRequest.getFromUserId(),
+                        PushMessages.likeResponded(false, likeRequest.getToUserId())
+                );
+            } catch (Exception e) {
+                log.warn("좋아요 응답 푸시 전송 실패 likeRequestId={} accepted=false", likeRequestId, e);
+            }
         }
 
         return RespondSignalResponseDto.builder()
@@ -149,17 +156,22 @@ public class LikeService {
                 .build();
     }
 
-    private Long createChatRoom(Long requesterUserId, Long targetUserId, LikeSource source) {
+    private Long createChatRoom(
+            Long requesterUserId,
+            Long targetUserId,
+            LikeSource source,
+            Long actorUserId
+    ) {
         if (source == LikeSource.PROFILE_MATCH) {
             ProfileRecommendHistory history = profileRecommendHistoryRepository
                     .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                     .orElseThrow(() -> new IllegalStateException("프로필 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-            return chatRoomService.createProfileChatRoom(history);
+            return chatRoomService.createProfileChatRoom(history, actorUserId);
         }
 
         LoveViewRecommendHistory history = loveViewRecommendHistoryRepository
                 .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                 .orElseThrow(() -> new IllegalStateException("연애관 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-        return chatRoomService.createLoveViewChatRoom(history);
+        return chatRoomService.createLoveViewChatRoom(history, actorUserId);
     }
 }

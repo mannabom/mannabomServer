@@ -23,6 +23,7 @@ public class MeetingCancellationResponse {
     private int totalMemberCount;
     private int agreedMemberCount;
     private int pendingMemberCount;
+    private int rejectedMemberCount;
     private List<MeetingCancellationVoteResponse> votes;
 
     public static MeetingCancellationResponse of(
@@ -34,6 +35,9 @@ public class MeetingCancellationResponse {
                 .count();
         int pending = (int) votes.stream()
                 .filter(vote -> vote.getDecision() == CancellationVoteDecision.PENDING)
+                .count();
+        int rejected = (int) votes.stream()
+                .filter(vote -> vote.getDecision() == CancellationVoteDecision.REJECT)
                 .count();
 
         return MeetingCancellationResponse.builder()
@@ -47,6 +51,7 @@ public class MeetingCancellationResponse {
                 .totalMemberCount(votes.size())
                 .agreedMemberCount(agreed)
                 .pendingMemberCount(pending)
+                .rejectedMemberCount(rejected)
                 .votes(votes.stream()
                         .map(MeetingCancellationVoteResponse::from)
                         .toList())

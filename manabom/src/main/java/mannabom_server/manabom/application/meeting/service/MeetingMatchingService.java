@@ -337,6 +337,7 @@ public class MeetingMatchingService {
 
     private MatchedChatRoomInfo handleMatchSuccess(MeetingMatch match, boolean isByTimeout){
         MatchedChatRoomInfo info =  chatRoomService.createMatchingChatRoom(match);
+        chatRoomService.disableMeetingGroupChatRooms(match);
         eventPublisher.publishEvent(new MatchSuccessEvent(match.getId(),info.getRoomId(),isByTimeout));
         return info;
     }
@@ -365,6 +366,7 @@ public class MeetingMatchingService {
         return METRO_CODES.contains(event.getSidoCode());
     }
 
+    @Transactional
     public void handleMatchMemberLeave(Long matchId, Long userId){
         MeetingMatch match = meetingMatchRepository.findById(matchId)
                 .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅 매칭 아이디입니다."));
@@ -387,6 +389,7 @@ public class MeetingMatchingService {
         }
 
         meetingService.handleMemberLeave(myMeeting.getId(), userId);
+        chatRoomService.deactivateMeetingGroupMember(myMeeting, userId);
         if((myMeeting.getCurrentMembers()+ opponent.getCurrentMembers())*2< myMeeting.getMaxMembers()+ opponent.getMaxMembers()){
             // 다 환불
         }

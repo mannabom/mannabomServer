@@ -2,6 +2,7 @@ package mannabom_server.manabom.domain.meeting.repository;
 
 import jakarta.persistence.LockModeType;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
+import mannabom_server.manabom.domain.meeting.enums.MatchingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -27,4 +28,16 @@ public interface MeetingMatchRepository extends JpaRepository<MeetingMatch,Long>
                     "WHERE m.id = :matchId"
     )
     Optional<MeetingMatch> findByIdWithMeeting(@Param(value = "matchId") Long matchId);
+
+    @Query(
+            "select m from MeetingMatch m " +
+                    "join fetch m.meeting1 m1 " +
+                    "join fetch m.meeting2 m2 " +
+                    "where m.matchingStatus = :status " +
+                    "and (m1.id = :meetingId or m2.id = :meetingId)"
+    )
+    Optional<MeetingMatch> findByMeetingIdAndStatus(
+            @Param("meetingId") Long meetingId,
+            @Param("status") MatchingStatus status
+    );
 }

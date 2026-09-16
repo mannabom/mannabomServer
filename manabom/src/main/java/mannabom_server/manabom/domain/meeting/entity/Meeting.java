@@ -1,7 +1,6 @@
 package mannabom_server.manabom.domain.meeting.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 import lombok.*;
 import mannabom_server.manabom.domain.common.BaseTimeEntity;
 import mannabom_server.manabom.domain.meeting.enums.MeetingStatus;
@@ -103,11 +102,14 @@ public class Meeting extends BaseTimeEntity {
 
 
     public void addMember(int userAge){
+        boolean wasFastMatching = meetingStatus == MeetingStatus.FASTMATCHING;
         double tmp = avgAge*currentMembers+userAge;
         currentMembers++;
         avgAge = tmp/currentMembers;
         if(currentMembers.equals(maxMembers)){
-            meetingStatus = MeetingStatus.FULL;
+            meetingStatus = wasFastMatching
+                    ? MeetingStatus.MATCHED
+                    : MeetingStatus.FULL;
         }
         updateOccupancyScore();
     }
@@ -202,5 +204,47 @@ public class Meeting extends BaseTimeEntity {
 
     public void delete(){
         this.deletedAt = Instant.now();
+    }
+
+    public void cancelByAgreement() {
+        if (meetingStatus == MeetingStatus.CANCELLED) {
+            throw new IllegalStateException("이미 취소된 미팅입니다.");
+        }
+
+        this.meetingStatus = MeetingStatus.CANCELLED;
+        this.matchingStartAt = null;
+        delete();
+    }
+
+    public void changeToFastMatchingAfterMemberLeave() {
+        if (meetingStatus != MeetingStatus.MATCHED) {
+            throw new IllegalStateException(
+                    "매칭 완료된 미팅방만 빠른 입장 상태로 변경할 수 있습니다."
+            );
+        }
+        if (currentMembers <= 0 || currentMembers >= maxMembers) {
+            throw new IllegalStateException(
+                    "빠른 입장 상태로 변경할 수 없는 인원입니다."
+            );
+        }
+
+        this.meetingStatus = MeetingStatus.FASTMATCHING;
+        this.matchingStartAt = null;
+    }
+
+    public void changeToRecruitingAfterMemberLeave() {
+        if (meetingStatus != MeetingStatus.FULL) {
+            throw new IllegalStateException(
+                    "인원이 가득 찬 미팅방만 모집 상태로 변경할 수 있습니다."
+            );
+        }
+        if (currentMembers <= 0 || currentMembers >= maxMembers) {
+            throw new IllegalStateException(
+                    "모집 상태로 변경할 수 없는 인원입니다."
+            );
+        }
+
+        this.meetingStatus = MeetingStatus.RECRUITING;
+        this.matchingStartAt = null;
     }
 }

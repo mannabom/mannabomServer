@@ -90,34 +90,37 @@ public class LikeService {
             membershipLikeRemains = tingWallet.checkMembershipFreeLikesRemaining(now);
         }
 
-        if(tingWallet.getEventTing() >= likeCost) {
-            tingWallet.spendEventTing(likeCost);
-            tingTransactionRecorder.recordEvent(
-                    tingWallet,
-                    TingTransactionType.LIKE_REQUEST,
-                    -likeCost,
-                    TingTransactionReferenceType.LIKE_REQUEST,
-                    String.valueOf(likeRequest.getId()),
-                    "LIKE_REQUEST:" + likeRequest.getId() + ":EVENT_COST",
-                    "호감 요청 비용"
-            );
-        } else if (vipLikeRemains > 0){
-            tingWallet.consumeVipFreeLike(today);
-        } else if (membershipLikeRemains > 0) {
-            tingWallet.consumeMembershipFreeLike(now);
-        } else if (tingWallet.getTing() >= likeCost) {
-            tingWallet.spendTing(likeCost);
-            tingTransactionRecorder.recordPaid(
-                    tingWallet,
-                    TingTransactionType.LIKE_REQUEST,
-                    -likeCost,
-                    TingTransactionReferenceType.LIKE_REQUEST,
-                    String.valueOf(likeRequest.getId()),
-                    "LIKE_REQUEST:" + likeRequest.getId() + ":PAID_COST",
-                    "호감 요청 비용"
-            );
-        } else {
-            throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
+        // 관리자 정책으로 비용이 0이면 지갑 차감/거래 기록 없이 요청만 생성한다.
+        if (likeCost > 0) {
+            if(tingWallet.getEventTing() >= likeCost) {
+                tingWallet.spendEventTing(likeCost);
+                tingTransactionRecorder.recordEvent(
+                        tingWallet,
+                        TingTransactionType.LIKE_REQUEST,
+                        -likeCost,
+                        TingTransactionReferenceType.LIKE_REQUEST,
+                        String.valueOf(likeRequest.getId()),
+                        "LIKE_REQUEST:" + likeRequest.getId() + ":EVENT_COST",
+                        "호감 요청 비용"
+                );
+            } else if (vipLikeRemains > 0){
+                tingWallet.consumeVipFreeLike(today);
+            } else if (membershipLikeRemains > 0) {
+                tingWallet.consumeMembershipFreeLike(now);
+            } else if (tingWallet.getTing() >= likeCost) {
+                tingWallet.spendTing(likeCost);
+                tingTransactionRecorder.recordPaid(
+                        tingWallet,
+                        TingTransactionType.LIKE_REQUEST,
+                        -likeCost,
+                        TingTransactionReferenceType.LIKE_REQUEST,
+                        String.valueOf(likeRequest.getId()),
+                        "LIKE_REQUEST:" + likeRequest.getId() + ":PAID_COST",
+                        "호감 요청 비용"
+                );
+            } else {
+                throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
+            }
         }
 
         try {

@@ -3,6 +3,9 @@ package mannabom_server.manabom.domain.messageRequest.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonProduct;
+import mannabom_server.manabom.domain.gifticon.entity.GifticonPayment;
+import mannabom_server.manabom.domain.gifticon.enums.GifticonPaymentStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.domain.messageRequest.enums.MessageSource;
 
@@ -53,11 +56,34 @@ public class MessageRequest {
     @Column(name="responded_at")
     private LocalDateTime respondedAt;
 
-    public MessageRequest(Long fromUserId, Long toUserId, String message, MessageSource source) {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gifticon_product_id")
+    private GifticonProduct gifticonProduct;
+
+    @OneToOne(mappedBy = "messageRequest", fetch = FetchType.LAZY)
+    private GifticonPayment gifticonPayment;
+
+    public MessageRequest(
+            Long fromUserId,
+            Long toUserId,
+            String message,
+            MessageSource source
+    ) {
+        this(fromUserId, toUserId, message, source, null);
+    }
+
+    public MessageRequest(
+            Long fromUserId,
+            Long toUserId,
+            String message,
+            MessageSource source,
+            GifticonProduct gifticonProduct
+    ) {
         this.fromUserId = fromUserId;
         this.toUserId = toUserId;
         this.message = message;
         this.source = source;
+        this.gifticonProduct = gifticonProduct;
         this.status = MessageRequestStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
@@ -81,5 +107,20 @@ public class MessageRequest {
         this.status = MessageRequestStatus.REJECTED;
         this.rejectReason = reason;
         this.respondedAt = LocalDateTime.now();
+    }
+
+    public void attachGifticonPayment(GifticonPayment payment) {
+        if (gifticonProduct == null || payment == null || payment.getProduct() != gifticonProduct) {
+            throw new IllegalArgumentException("메시지의 기프티콘 상품과 결제가 일치하지 않습니다.");
+        }
+        if (gifticonPayment != null) {
+            throw new IllegalStateException("이미 기프티콘 결제가 연결된 메시지 요청입니다.");
+        }
+        this.gifticonPayment = payment;
+    }
+
+    public boolean hasPaidGifticonPayment() {
+        return gifticonPayment != null
+                && gifticonPayment.getStatus() == GifticonPaymentStatus.PAID;
     }
 }

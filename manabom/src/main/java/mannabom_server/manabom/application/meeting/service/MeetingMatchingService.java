@@ -10,7 +10,6 @@ import mannabom_server.manabom.application.meeting.handler.MatchingEventListener
 import mannabom_server.manabom.application.notification.dto.MatchFailureEvent;
 import mannabom_server.manabom.application.notification.dto.MatchFoundEvent;
 import mannabom_server.manabom.application.notification.dto.MatchSuccessEvent;
-import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.meeting.entity.Meeting;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMatch;
 import mannabom_server.manabom.domain.meeting.entity.MeetingMember;
@@ -217,7 +216,7 @@ public class MeetingMatchingService {
         checkRejectCount(meeting2, meetingMatch);
 
         if(meetingMatch.getMatchingStatus() == MatchingStatus.SUCCEEDED){
-            handleMatchSuccess(meetingMatch,false);
+            handleMatchSuccess(meetingMatch,false, null);
         }
         else eventPublisher.publishEvent(new MatchFoundEvent(meetingMatch.getId(), meetingMatch.getDecisionDeadLine()));
     }
@@ -256,7 +255,7 @@ public class MeetingMatchingService {
         match.accept(myMeeting.getId());
         if(match.getMatchingStatus()== MatchingStatus.SUCCEEDED){
             log.info("매칭 성사! 채팅방 생성을 위한 추가 정보 로딩... matchId={}", matchId);
-            MatchedChatRoomInfo info = handleMatchSuccess(match,false);
+            MatchedChatRoomInfo info = handleMatchSuccess(match,false, userId);
             //상대방 알림
             return AcceptMatchDataDto.ofMatched(info);
         }
@@ -282,7 +281,7 @@ public class MeetingMatchingService {
 
         //둘 다 수락 - 정상 사용자라면 이럴 일 없지만
         if(match.getMatchingStatus() == MatchingStatus.SUCCEEDED){
-            handleMatchSuccess(match,false);
+            handleMatchSuccess(match,false, userId);
         }
         if(match.getMatchingStatus()==MatchingStatus.FAILED){
             handleMatchFailure(match ,userId,false);
@@ -298,22 +297,36 @@ public class MeetingMatchingService {
         addToQueue(event);
     }
 
-    public MatchingResultDataDto getMatchingResult(Long matchId, Long userId){
+    public MatchingResultDataDto getMatchingResult(Long matchId, Long userId) {
         MeetingMatch match = meetingMatchRepository.findByIdWithMeeting(matchId)
-                .orElseThrow(()-> new IllegalArgumentException("매칭 결과 조회: 존재하지 않는 매칭 아이디 입니다."+ matchId));
-        Meeting opponent;
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "매칭 결과 조회: 존재하지 않는 매칭 아이디입니다. " + matchId
+                ));
+        Meeting opponent = findOpponentMeeting(match, userId);
+
+        if (match.getMatchingStatus() == MatchingStatus.FAILED) {
+            return MatchingResultDataDto.failed(match);
+        }
+
+        List<TeamMemberProfilesDto.TeamMemberDetailDto> members =
+                meetingMemberReadService.getActiveTeammMemberDetails(opponent.getId());
+        return MatchingResultDataDto.withOpponent(match, opponent, members);
+    }
+
+    private Meeting findOpponentMeeting(MeetingMatch match, Long userId) {
         Meeting meeting1 = match.getMeeting1();
         Meeting meeting2 = match.getMeeting2();
 
-        if(meetingMemberService.isMember(meeting1.getId(),userId))
-            opponent= meeting2;
-        else if(meetingMemberService.isMember(meeting2.getId(),userId))
-            opponent= meeting1;
-        else throw new IllegalArgumentException("매칭 결과:해당 매칭에 속하지 않은 유저 아이디 입니다."+ userId);
+        if (meetingMemberService.isMember(meeting1.getId(), userId)) {
+            return meeting2;
+        }
+        if (meetingMemberService.isMember(meeting2.getId(), userId)) {
+            return meeting1;
+        }
 
-        List<TeamMemberProfilesDto.TeamMemberDetailDto> members = meetingMemberReadService.getActiveTeammMemberDetails(opponent.getId());
-        return MatchingResultDataDto.of(match,opponent,members);
-
+        throw new IllegalArgumentException(
+                "매칭 결과: 해당 매칭에 속하지 않은 사용자입니다. userId=" + userId
+        );
     }
 
     @Transactional
@@ -326,7 +339,7 @@ public class MeetingMatchingService {
         }
         match.processExpiration();
         if(match.getMatchingStatus().equals(MatchingStatus.SUCCEEDED)){
-            handleMatchSuccess(match,true);
+            handleMatchSuccess(match,true, null);
 
         }
         else if(match.getMatchingStatus().equals(MatchingStatus.FAILED)) {
@@ -335,9 +348,19 @@ public class MeetingMatchingService {
 
     }
 
-    private MatchedChatRoomInfo handleMatchSuccess(MeetingMatch match, boolean isByTimeout){
-        MatchedChatRoomInfo info =  chatRoomService.createMatchingChatRoom(match);
-        eventPublisher.publishEvent(new MatchSuccessEvent(match.getId(),info.getRoomId(),isByTimeout));
+    private MatchedChatRoomInfo handleMatchSuccess(
+            MeetingMatch match,
+            boolean isByTimeout,
+            Long triggerUserId
+    ){
+        MatchedChatRoomInfo info =  chatRoomService.createMatchingChatRoom(match, triggerUserId);
+        chatRoomService.disableMeetingGroupChatRooms(match);
+        eventPublisher.publishEvent(new MatchSuccessEvent(
+                match.getId(),
+                info.getRoomId(),
+                isByTimeout,
+                triggerUserId
+        ));
         return info;
     }
 
@@ -365,6 +388,7 @@ public class MeetingMatchingService {
         return METRO_CODES.contains(event.getSidoCode());
     }
 
+    @Transactional
     public void handleMatchMemberLeave(Long matchId, Long userId){
         MeetingMatch match = meetingMatchRepository.findById(matchId)
                 .orElseThrow(()-> new IllegalArgumentException("존재하지 않는 미팅 매칭 아이디입니다."));
@@ -387,6 +411,7 @@ public class MeetingMatchingService {
         }
 
         meetingService.handleMemberLeave(myMeeting.getId(), userId);
+        chatRoomService.deactivateMeetingGroupMember(myMeeting, userId);
         if((myMeeting.getCurrentMembers()+ opponent.getCurrentMembers())*2< myMeeting.getMaxMembers()+ opponent.getMaxMembers()){
             // 다 환불
         }

@@ -4,13 +4,15 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Getter
 @NoArgsConstructor
 public class AdminUpdatePolicyRequest {
     @NotBlank(message = "key는 필수입니다.")
     private String key;
 
-    private Integer value;
+    private BigDecimal value;
 
     private boolean resetToDefault;
 

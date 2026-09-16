@@ -4,6 +4,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
+import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -74,10 +75,21 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             String dest = acc.getDestination();
             Long roomId = parseRoomId(dest);
 
-            if (!chatMemberRepository.existsByRoomIdAndUser_UserIdAndStatus(
-                    roomId, userId, ChatMemberStatus.ACTIVATE)) {
-                log.warn("웹소켓 구독 거부: 유저 {} 는 채팅방 {} 의 참여자가 아닙니다.", userId, roomId);
-                throw new AccessDeniedException("채팅방 구독 권한이 없습니다.");
+            if (!chatMemberRepository
+                    .existsByRoomIdAndUser_UserIdAndStatusAndRoom_ChatStatus(
+                            roomId,
+                            userId,
+                            ChatMemberStatus.ACTIVATE,
+                            ChatStatus.ENABLED
+                    )) {
+                log.warn(
+                        "웹소켓 구독 거부: 유저 {} 는 활성 채팅방 {} 의 참여자가 아닙니다.",
+                        userId,
+                        roomId
+                );
+                throw new AccessDeniedException(
+                        "활성화된 채팅방에 대한 구독 권한이 없습니다."
+                );
             }
 
             redisTemplate.opsForValue().set(USER_LOCATION_PREFIX + userId, String.valueOf(roomId));

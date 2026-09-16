@@ -27,6 +27,7 @@ public class MatchedChatRoomInfo {
 
     public record Participant(
         Long userId,
+        Long profileId,
         Gender gender,
         String nickname,
         String profileImg

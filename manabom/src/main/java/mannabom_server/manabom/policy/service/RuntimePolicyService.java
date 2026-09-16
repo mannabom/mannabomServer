@@ -3,6 +3,7 @@ package mannabom_server.manabom.policy.service;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.policy.config.BenefitPolicyProperties;
+import mannabom_server.manabom.policy.config.GifticonPricingProperties;
 import mannabom_server.manabom.policy.config.MatchPolicyProperties;
 import mannabom_server.manabom.policy.config.TingPolicyProperties;
 import mannabom_server.manabom.policy.entity.PolicyConfig;
@@ -11,6 +12,7 @@ import mannabom_server.manabom.policy.repository.PolicyConfigRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -22,6 +24,7 @@ public class RuntimePolicyService {
     private final MatchPolicyProperties matchDefaults;
     private final TingPolicyProperties tingDefaults;
     private final BenefitPolicyProperties benefitDefaults;
+    private final GifticonPricingProperties gifticonDefaults;
 
     private final PolicyConfigRepository policyConfigRepository;
 
@@ -91,6 +94,12 @@ public class RuntimePolicyService {
                                 .dailyLoveView(benefitDefaults.getBasic().getDailyLoveView())
                                 .build())
                         .build())
+                .gifticon(RuntimePolicySnapshot.Gifticon.builder()
+                        .pricing(RuntimePolicySnapshot.Gifticon.Pricing.builder()
+                                .markupPercent(gifticonDefaults.getMarkupPercent())
+                                .roundUnit(gifticonDefaults.getRoundUnit())
+                                .build())
+                        .build())
                 .build();
     }
 
@@ -128,6 +137,10 @@ public class RuntimePolicyService {
                 base.getBenefit().getBasic().getDailyProfile());
         int basicDailyLoveView = nvl(row.getBenefitBasicDailyLoveView(),
                 base.getBenefit().getBasic().getDailyLoveView());
+        BigDecimal gifticonMarkupPercent = nvl(
+                row.getGifticonMarkupPercent(),
+                base.getGifticon().getPricing().getMarkupPercent()
+        );
 
         return RuntimePolicySnapshot.builder()
                 .match(RuntimePolicySnapshot.Match.builder()
@@ -164,10 +177,20 @@ public class RuntimePolicyService {
                                 .dailyLoveView(basicDailyLoveView)
                                 .build())
                         .build())
+                .gifticon(RuntimePolicySnapshot.Gifticon.builder()
+                        .pricing(RuntimePolicySnapshot.Gifticon.Pricing.builder()
+                                .markupPercent(gifticonMarkupPercent)
+                                .roundUnit(base.getGifticon().getPricing().getRoundUnit())
+                                .build())
+                        .build())
                 .build();
     }
 
     private int nvl(Integer override, int base) {
+        return override != null ? override : base;
+    }
+
+    private BigDecimal nvl(BigDecimal override, BigDecimal base) {
         return override != null ? override : base;
     }
 
@@ -251,6 +274,27 @@ public class RuntimePolicyService {
     public void resetTingVipThresholdToDefault() {
         PolicyConfig row = ensureRow();
         row.resetTingVipThreshold();
+        policyConfigRepository.save(row);
+        reload();
+    }
+
+    // --------- gifticon.pricing ---------
+
+    @Transactional
+    public void updateGifticonMarkupPercent(BigDecimal markupPercent) {
+        if (markupPercent == null || markupPercent.signum() < 0) {
+            throw new IllegalArgumentException("gifticon.pricing.markupPercent는 0 이상이어야 합니다.");
+        }
+        PolicyConfig row = ensureRow();
+        row.updateGifticonMarkupPercent(markupPercent);
+        policyConfigRepository.save(row);
+        reload();
+    }
+
+    @Transactional
+    public void resetGifticonMarkupPercentToDefault() {
+        PolicyConfig row = ensureRow();
+        row.resetGifticonMarkupPercent();
         policyConfigRepository.save(row);
         reload();
     }

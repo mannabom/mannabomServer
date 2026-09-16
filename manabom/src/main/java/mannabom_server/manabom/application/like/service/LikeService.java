@@ -3,6 +3,7 @@ package mannabom_server.manabom.application.like.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
 import mannabom_server.manabom.application.like.dto.response.SendLikeResponseDto;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
@@ -10,6 +11,8 @@ import mannabom_server.manabom.application.pushService.PushMessages;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
 import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.likeRequest.entity.LikeRequest;
 import mannabom_server.manabom.domain.likeRequest.enums.LikeSource;
@@ -41,6 +44,7 @@ public class LikeService {
     private final ProfileRecommendHistoryRepository profileRecommendHistoryRepository;
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     @Transactional
     public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId, LikeSource source){
@@ -63,6 +67,9 @@ public class LikeService {
                 .ifPresent(existing -> {
                     throw new IllegalStateException("이미 요청을 보냈습니다.");
                 });
+        LikeRequest likeRequest = likeRequestRepository.save(
+                new LikeRequest(fromUserId, toUserId, source)
+        );
 
         int vipLikeRemains = 0;
         int membershipLikeRemains = 0;
@@ -83,20 +90,38 @@ public class LikeService {
             membershipLikeRemains = tingWallet.checkMembershipFreeLikesRemaining(now);
         }
 
-        if(tingWallet.getEventTing() >= likeCost) {
-            tingWallet.spendEventTing(likeCost);
-        } else if (vipLikeRemains > 0){
-            tingWallet.consumeVipFreeLike(today);
-        } else if (membershipLikeRemains > 0) {
-            tingWallet.consumeMembershipFreeLike(now);
-        } else if (tingWallet.getTing() >= likeCost) {
-            tingWallet.spendTing(likeCost);
-        } else {
-            throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
+        // 관리자 정책으로 비용이 0이면 지갑 차감/거래 기록 없이 요청만 생성한다.
+        if (likeCost > 0) {
+            if(tingWallet.getEventTing() >= likeCost) {
+                tingWallet.spendEventTing(likeCost);
+                tingTransactionRecorder.recordEvent(
+                        tingWallet,
+                        TingTransactionType.LIKE_REQUEST,
+                        -likeCost,
+                        TingTransactionReferenceType.LIKE_REQUEST,
+                        String.valueOf(likeRequest.getId()),
+                        "LIKE_REQUEST:" + likeRequest.getId() + ":EVENT_COST",
+                        "호감 요청 비용"
+                );
+            } else if (vipLikeRemains > 0){
+                tingWallet.consumeVipFreeLike(today);
+            } else if (membershipLikeRemains > 0) {
+                tingWallet.consumeMembershipFreeLike(now);
+            } else if (tingWallet.getTing() >= likeCost) {
+                tingWallet.spendTing(likeCost);
+                tingTransactionRecorder.recordPaid(
+                        tingWallet,
+                        TingTransactionType.LIKE_REQUEST,
+                        -likeCost,
+                        TingTransactionReferenceType.LIKE_REQUEST,
+                        String.valueOf(likeRequest.getId()),
+                        "LIKE_REQUEST:" + likeRequest.getId() + ":PAID_COST",
+                        "호감 요청 비용"
+                );
+            } else {
+                throw new IllegalStateException("보유 재화가 부족합니다.(팅, 아밴트 팅, 맴버쉽, vip 혜택권 등)");
+            }
         }
-
-        LikeRequest likeRequest = new LikeRequest(fromUserId, toUserId, source);
-        likeRequestRepository.save(likeRequest);
 
         try {
             pushService.sendToUser(toUserId, PushMessages.likeReceived(fromUserId));
@@ -131,15 +156,22 @@ public class LikeService {
         Long chatRoomId = null;
         if (accepted) {
             likeRequest.accept();
-            chatRoomId = createChatRoom(likeRequest.getFromUserId(), likeRequest.getToUserId(), likeRequest.getSource());
+            chatRoomId = createChatRoom(
+                    likeRequest.getFromUserId(),
+                    likeRequest.getToUserId(),
+                    likeRequest.getSource(),
+                    responderUserId
+            );
         } else {
             likeRequest.reject(rejectReason);
-        }
-
-        try {
-            pushService.sendToUser(likeRequest.getFromUserId(), PushMessages.likeResponded(accepted, likeRequest.getToUserId()));
-        } catch (Exception e) {
-            log.warn("좋아요 응답 푸시 전송 실패 likeRequestId={} accepted={}", likeRequestId, accepted, e);
+            try {
+                pushService.sendToUser(
+                        likeRequest.getFromUserId(),
+                        PushMessages.likeResponded(false, likeRequest.getToUserId())
+                );
+            } catch (Exception e) {
+                log.warn("좋아요 응답 푸시 전송 실패 likeRequestId={} accepted=false", likeRequestId, e);
+            }
         }
 
         return RespondSignalResponseDto.builder()
@@ -149,17 +181,22 @@ public class LikeService {
                 .build();
     }
 
-    private Long createChatRoom(Long requesterUserId, Long targetUserId, LikeSource source) {
+    private Long createChatRoom(
+            Long requesterUserId,
+            Long targetUserId,
+            LikeSource source,
+            Long actorUserId
+    ) {
         if (source == LikeSource.PROFILE_MATCH) {
             ProfileRecommendHistory history = profileRecommendHistoryRepository
                     .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                     .orElseThrow(() -> new IllegalStateException("프로필 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-            return chatRoomService.createProfileChatRoom(history);
+            return chatRoomService.createProfileChatRoom(history, actorUserId);
         }
 
         LoveViewRecommendHistory history = loveViewRecommendHistoryRepository
                 .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                 .orElseThrow(() -> new IllegalStateException("연애관 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-        return chatRoomService.createLoveViewChatRoom(history);
+        return chatRoomService.createLoveViewChatRoom(history, actorUserId);
     }
 }

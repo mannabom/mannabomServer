@@ -2,6 +2,8 @@ package mannabom_server.manabom.presentation.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.global.error.InvalidCursorException;
+import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoApiException;
+import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoAuthenticationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,6 +65,32 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(KakaoAuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleKakaoAuthenticationException(KakaoAuthenticationException e) {
+        log.warn("카카오 인증 실패: {}", e.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .success(false)
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    @ExceptionHandler(KakaoApiException.class)
+    public ResponseEntity<ErrorResponse> handleKakaoApiException(KakaoApiException e) {
+        log.error("카카오 API 연동 오류", e);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .success(false)
+                .message("카카오 로그인 서비스에 일시적인 오류가 발생했습니다.")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
     }
 
     /**

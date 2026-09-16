@@ -137,6 +137,42 @@ app:
       fixed-delay: ${TOSS_PAYMENTS_UNUSED_REFUND_FIXED_DELAY:60000}
       batch-size: ${TOSS_PAYMENTS_UNUSED_REFUND_BATCH_SIZE:50}
 
+  # 팅 인앱결제 (Apple App Store / Google Play)
+  apple:
+    app-store:
+      issuer-id: ${APPLE_APP_STORE_ISSUER_ID:}
+      key-id: ${APPLE_APP_STORE_KEY_ID:}
+      private-key: ${APPLE_APP_STORE_PRIVATE_KEY:}
+      private-key-path: ${APPLE_APP_STORE_PRIVATE_KEY_PATH:}
+      bundle-id: ${APPLE_APP_STORE_BUNDLE_ID:}
+      app-apple-id: ${APPLE_APP_STORE_APP_APPLE_ID:#{null}}
+      environment: ${APPLE_APP_STORE_ENVIRONMENT:SANDBOX}
+      sandbox-fallback-enabled: ${APPLE_APP_STORE_SANDBOX_FALLBACK_ENABLED:true}
+      root-certificates-path: ${APPLE_ROOT_CERTIFICATES_PATH:}
+      enable-online-checks: ${APPLE_APP_STORE_ENABLE_ONLINE_CHECKS:false}
+  google-play:
+    package-name: ${GOOGLE_PLAY_PACKAGE_NAME:}
+    service-account-json: ${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:}
+    service-account-path: ${GOOGLE_PLAY_SERVICE_ACCOUNT_PATH:}
+    application-name: ${GOOGLE_PLAY_APPLICATION_NAME:mannabom-server}
+    connect-timeout-seconds: ${GOOGLE_PLAY_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${GOOGLE_PLAY_READ_TIMEOUT_SECONDS:10}
+  ting-purchase:
+    allow-sandbox-credit: ${TING_PURCHASE_ALLOW_SANDBOX_CREDIT:true}
+    require-account-token: ${TING_PURCHASE_REQUIRE_ACCOUNT_TOKEN:false}
+    request-timeout-seconds: ${TING_PURCHASE_REQUEST_TIMEOUT_SECONDS:10}
+    consume-retry:
+      enabled: ${TING_PURCHASE_CONSUME_RETRY_ENABLED:true}
+      initial-delay: ${TING_PURCHASE_CONSUME_RETRY_INITIAL_DELAY:60000}
+      fixed-delay: ${TING_PURCHASE_CONSUME_RETRY_FIXED_DELAY:60000}
+      max-attempts: ${TING_PURCHASE_CONSUME_RETRY_MAX_ATTEMPTS:10}
+      batch-size: ${TING_PURCHASE_CONSUME_RETRY_BATCH_SIZE:50}
+    voided-purchase-sync:
+      enabled: ${TING_PURCHASE_VOIDED_SYNC_ENABLED:false}
+      initial-delay: ${TING_PURCHASE_VOIDED_SYNC_INITIAL_DELAY:120000}
+      fixed-delay: ${TING_PURCHASE_VOIDED_SYNC_FIXED_DELAY:3600000}
+      lookback-days: ${TING_PURCHASE_VOIDED_SYNC_LOOKBACK_DAYS:30}
+
   # 파일 저장 설정 (로컬 개발용)
   file:
     upload-dir: ./uploads/                  # 로컬 파일 저장 경로

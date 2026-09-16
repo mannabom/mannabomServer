@@ -73,12 +73,7 @@ app:
 
   # 카카오 OAuth 설정 (프로덕션)
   kakao:
-    client-id: ${KAKAO_CLIENT_ID}
-    redirect-uri: ${KAKAO_REDIRECT_URI:https://your-domain.com/api/auth/login/kakao}
-    development:
-      skip-age-verification: true  # 이거 아직 카카오 디벨로퍼 준비 안되서
-      default-birth-year: 2000
-      default-gender: "MALE"
+    app-id: ${KAKAO_APP_ID}
 
   storage:
     provider: ${STORAGE_PROVIDER:gcp}

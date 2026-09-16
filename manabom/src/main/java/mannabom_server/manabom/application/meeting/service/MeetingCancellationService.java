@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
 import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.application.meeting.dto.response.MeetingCancellationResponse;
+import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
@@ -315,6 +316,6 @@ public class MeetingCancellationService {
         chatMemberRepository.findAllByRoomIdAndStatus(
                 room.getId(),
                 ChatMemberStatus.ACTIVATE
-        ).forEach(chatMember -> chatMember.deactivate());
+        ).forEach(ChatMember::deactivate);
     }
 }

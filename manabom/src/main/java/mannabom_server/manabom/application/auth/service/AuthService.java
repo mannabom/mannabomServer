@@ -6,6 +6,7 @@ import mannabom_server.manabom.application.auth.dto.request.KakaoLoginRequestDto
 import mannabom_server.manabom.application.auth.dto.request.RefreshTokenRequestDto;
 import mannabom_server.manabom.application.auth.dto.response.KakaoLoginResponseDto;
 import mannabom_server.manabom.application.auth.dto.response.RefreshTokenResponseDto;
+import mannabom_server.manabom.application.auth.exception.KakaoConsentRequiredException;
 import mannabom_server.manabom.application.common.port.FileStoragePort;
 import mannabom_server.manabom.domain.auth.entity.RefreshToken;
 import mannabom_server.manabom.domain.auth.repository.RefreshTokenRepository;
@@ -25,7 +26,6 @@ import mannabom_server.manabom.domain.user.repository.ProfileRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.external.kakao.KakaoApiService;
 import mannabom_server.manabom.infrastructure.security.jwt.JwtUtil;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -56,53 +56,31 @@ public class AuthService {
     private final FileStoragePort fileStoragePort;
     private final TingWalletRepository tingWalletRepository;
 
-    // 사업자 등록 하기 전 임시 개발환경 전용 설정
-    @Value("${app.kakao.development.skip-age-verification:false}")
-    private boolean skipAgeVerification;
-
-    @Value("${app.kakao.development.default-birth-year:2000}")
-    private int defaultBirthYear;
-
-    @Value("${app.kakao.development.default-gender:MALE}")
-    private String defaultGender;
-
     /**
      * 카카오 로그인 처리 - 신규 사용자의 경우 SignupProgress에 카카오 정보 저장
      */
     public KakaoLoginResponseDto loginWithKakao(KakaoLoginRequestDto request) {
         log.info("카카오 로그인 처리 시작");
 
-        try {
-            // 1. request에서 access token 추출
-            String accessToken = (String)request.getAccessToken();
-            log.debug("카카오 access token 추출 완료");
+        String accessToken = request.getAccessToken();
 
-            // 2. 카카오에서 사용자 정보 조회
-            Map<String, Object> userInfo = kakaoApiService.getKakaoUserInfo(accessToken);
-            KakaoLoginResponseDto.KakaoUserInfoDto kakaoUserInfo = parseKakaoUserInfo(userInfo);
-            log.debug("카카오 사용자 정보 파싱 완료 - 카카오 ID: {}", kakaoUserInfo.getKakaoId());
+        Map<String, Object> userInfo = kakaoApiService.getKakaoUserInfo(accessToken);
+        KakaoLoginResponseDto.KakaoUserInfoDto kakaoUserInfo = parseKakaoUserInfo(userInfo);
 
-            // 3. 20대 연령 검증
-            if (!isValidAge(kakaoUserInfo.getBirthYear())) {
-                log.warn("연령 제한 사용자 접근 시도 - 출생년도: {}", kakaoUserInfo.getBirthYear());
-                return KakaoLoginResponseDto.ofAgeRestricted(kakaoUserInfo.getBirthYear());
-            }
-
-            // 4. 기존 사용자인지 확인
-            Optional<User> existingUser = userRepository.findByKakaoId(kakaoUserInfo.getKakaoId());
-
-            if (existingUser.isPresent()) {
-                log.info("기존 사용자 로그인 처리 - 사용자 ID: {}", existingUser.get().getUserId());
-                return handleExistingUserLogin(existingUser.get());
-            } else {
-                log.info("신규 사용자 감지 - 회원가입 진행");
-                return handleNewUserSignup(kakaoUserInfo);
-            }
-
-        } catch (Exception e) {
-            log.error("카카오 로그인 처리 중 오류 발생", e);
-            throw new RuntimeException("로그인 처리 중 오류가 발생했습니다.", e);
+        if (!isValidAge(kakaoUserInfo.getBirthYear())) {
+            log.warn("연령 제한 사용자 접근 시도 - 출생년도: {}", kakaoUserInfo.getBirthYear());
+            return KakaoLoginResponseDto.ofAgeRestricted(kakaoUserInfo.getBirthYear());
         }
+
+        Optional<User> existingUser = userRepository.findByKakaoId(kakaoUserInfo.getKakaoId());
+
+        if (existingUser.isPresent()) {
+            log.info("기존 사용자 로그인 처리 - 사용자 ID: {}", existingUser.get().getUserId());
+            return handleExistingUserLogin(existingUser.get());
+        }
+
+        log.info("신규 사용자 감지 - 회원가입 진행");
+        return handleNewUserSignup(kakaoUserInfo);
     }
 
     /**
@@ -136,61 +114,55 @@ public class AuthService {
      * 카카오 사용자 정보 파싱
      */
     private KakaoLoginResponseDto.KakaoUserInfoDto parseKakaoUserInfo(Map<String, Object> userInfo) {
-        log.debug("카카오 사용자 정보 파싱 시작");
-
-        try {
-            // 카카오 ID 추출
-            String kakaoId = String.valueOf(userInfo.get("id"));
-
-            // 카카오 계정 정보 추출
-            Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
-            if (kakaoAccount == null) {
-                throw new IllegalArgumentException("카카오 계정 정보를 찾을 수 없습니다.");
-            }
-
-            // 프로필 정보 추출
-            Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
-            String nickname = null;
-            if (profile != null) {
-                nickname = (String) profile.get("nickname");
-            }
-
-            // 생년월일 정보 추출
-            String birthyear = (String) kakaoAccount.get("birthyear");
-            Integer birthYear = null;
-
-            if (birthyear != null && !birthyear.isEmpty()) {
-                birthYear = Integer.parseInt(birthyear);
-            } else if (skipAgeVerification) {
-                birthYear = defaultBirthYear;
-                log.debug("개발환경: 더미 출생년도 사용 - {}", birthYear);
-            }
-
-            // 성별 정보 추출
-            String genderString = (String) kakaoAccount.get("gender");
-            Gender gender = null;
-
-            if (genderString != null) {
-                gender = "male".equals(genderString) ? Gender.MALE : Gender.FEMALE;
-            } else if (skipAgeVerification) {
-                gender = Gender.valueOf(defaultGender);
-                log.debug("개발환경: 더미 성별 사용 - {}", gender);
-            }
-
-            log.debug("카카오 사용자 정보 파싱 완료 - 카카오 ID: {}, 이름: {}, 출생년도: {}, 성별: {}",
-                    kakaoId, nickname, birthYear, gender);
-
-            return KakaoLoginResponseDto.KakaoUserInfoDto.builder()
-                    .kakaoId(kakaoId)
-                    .name(nickname != null ? nickname : "사용자")
-                    .birthYear(birthYear)
-                    .gender(gender)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("카카오 사용자 정보 파싱 실패", e);
-            throw new IllegalArgumentException("카카오 사용자 정보를 파싱할 수 없습니다.", e);
+        Object kakaoIdValue = userInfo.get("id");
+        if (kakaoIdValue == null) {
+            throw new IllegalArgumentException("카카오 회원번호를 확인할 수 없습니다.");
         }
+
+        Object kakaoAccountValue = userInfo.get("kakao_account");
+        if (!(kakaoAccountValue instanceof Map<?, ?> rawKakaoAccount)) {
+            throw new IllegalArgumentException("카카오 계정 정보를 확인할 수 없습니다.");
+        }
+
+        String name = getNonBlankString(rawKakaoAccount, "name");
+        String birthyear = getNonBlankString(rawKakaoAccount, "birthyear");
+        String genderValue = getNonBlankString(rawKakaoAccount, "gender");
+
+        List<String> requiredScopes = new ArrayList<>();
+        if (name == null) requiredScopes.add("name");
+        if (birthyear == null) requiredScopes.add("birthyear");
+        if (genderValue == null) requiredScopes.add("gender");
+        if (!requiredScopes.isEmpty()) {
+            throw new KakaoConsentRequiredException(requiredScopes);
+        }
+
+        int birthYear;
+        try {
+            birthYear = Integer.parseInt(birthyear);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("카카오 출생연도 형식이 올바르지 않습니다.", e);
+        }
+
+        Gender gender = switch (genderValue.toLowerCase(Locale.ROOT)) {
+            case "male" -> Gender.MALE;
+            case "female" -> Gender.FEMALE;
+            default -> throw new IllegalArgumentException("지원하지 않는 카카오 성별 값입니다.");
+        };
+
+        return KakaoLoginResponseDto.KakaoUserInfoDto.builder()
+                .kakaoId(String.valueOf(kakaoIdValue))
+                .name(name)
+                .birthYear(birthYear)
+                .gender(gender)
+                .build();
+    }
+
+    private String getNonBlankString(Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (!(value instanceof String stringValue) || stringValue.isBlank()) {
+            return null;
+        }
+        return stringValue;
     }
 
     /**
@@ -205,11 +177,6 @@ public class AuthService {
         int currentYear = LocalDate.now().getYear();
         int age = currentYear - birthYear;
         boolean isValid = age >= 20 && age <= 29;
-
-        if (skipAgeVerification && !isValid) {
-            log.debug("임시환경: 연령 제한 무시 - 출생년도: {}, 나이: {}", birthYear, age);
-            return true;
-        }
 
         log.debug("연령 검증 결과 - 출생년도: {}, 나이: {}, 유효성: {}", birthYear, age, isValid);
         return isValid;

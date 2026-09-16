@@ -4,19 +4,18 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.event.ChatRoomLeaveEvent;
+import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.application.meeting.dto.response.MatchedChatRoomInfo;
 import mannabom_server.manabom.application.meeting.service.MeetingMatchingService;
 import mannabom_server.manabom.application.meeting.service.MeetingMemberService;
 import mannabom_server.manabom.application.meeting.service.MeetingService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
-import mannabom_server.manabom.domain.chat.entity.ChatMessage;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
-import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
 import mannabom_server.manabom.domain.chat.enums.ChatStatus;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberQueryRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
-import mannabom_server.manabom.domain.chat.repository.ChatMessageRepository;
 import mannabom_server.manabom.domain.chat.repository.ChatRoomRepository;
 import mannabom_server.manabom.domain.matching.entity.LoveViewRecommendHistory;
 import mannabom_server.manabom.domain.matching.entity.ProfileRecommendHistory;
@@ -30,6 +29,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,9 +40,6 @@ public class ChatRoomService {
     private final ChatMemberRepository chatMemberRepository;
     private final ChatMemberQueryRepository chatMemberQueryRepository;
     private final UserRepository userRepository;
-    private final ChatMessageRepository chatMessageRepository;
-
-
     private final MeetingMemberService meetingMemberService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -58,6 +55,11 @@ public class ChatRoomService {
 
     @Transactional
     public MatchedChatRoomInfo createMatchingChatRoom(MeetingMatch match){
+        return createMatchingChatRoom(match, null);
+    }
+
+    @Transactional
+    public MatchedChatRoomInfo createMatchingChatRoom(MeetingMatch match, Long actorUserId){
         ChatRoom chatRoom = ChatRoom.createMatchingChatRoom(match);
         chatRoomRepository.save(chatRoom);
 
@@ -72,7 +74,7 @@ public class ChatRoomService {
             newChatMembers.add(ChatMember.create(chatRoom,m.getUser()));
 
         chatMemberRepository.saveAll(newChatMembers);
-        sendSystemWelcomeMessage(chatRoom);
+        publishRoomCreated(chatRoom, actorUserId);
 
         List<MatchedChatRoomInfo.Participant> participants = chatMemberQueryRepository.findParticipantsByRoomId(chatRoom.getId());
         return MatchedChatRoomInfo.of(chatRoom.getId(),participants);
@@ -83,11 +85,16 @@ public class ChatRoomService {
      * */
     @Transactional
     public Long createProfileChatRoom(ProfileRecommendHistory profileHistory){
+        return createProfileChatRoom(profileHistory, null);
+    }
+
+    @Transactional
+    public Long createProfileChatRoom(ProfileRecommendHistory profileHistory, Long actorUserId){
         ChatRoom chatRoom = ChatRoom.createProfileChatRoom(profileHistory);
         chatRoomRepository.save(chatRoom);
 
         setOneToOneChatMember(chatRoom, profileHistory.getRequesterUserId(),profileHistory.getTargetUserId());
-        sendSystemWelcomeMessage(chatRoom);
+        publishRoomCreated(chatRoom, actorUserId);
 
         return chatRoom.getId();
     }
@@ -96,22 +103,27 @@ public class ChatRoomService {
      * */
     @Transactional
     public Long createLoveViewChatRoom(LoveViewRecommendHistory loveViewHistory){
+        return createLoveViewChatRoom(loveViewHistory, null);
+    }
+
+    @Transactional
+    public Long createLoveViewChatRoom(LoveViewRecommendHistory loveViewHistory, Long actorUserId){
         ChatRoom chatRoom = ChatRoom.createLoveviewChatRoom(loveViewHistory);
         chatRoomRepository.save(chatRoom);
 
         setOneToOneChatMember(chatRoom, loveViewHistory.getRequesterUserId(),loveViewHistory.getTargetUserId());
-        sendSystemWelcomeMessage(chatRoom);
+        publishRoomCreated(chatRoom, actorUserId);
 
         return chatRoom.getId();
     }
-    private void sendSystemWelcomeMessage(ChatRoom room ){
-        ChatMessage welcomeMessage = ChatMessage.builder()
-                .room(room)
-                .type(ChatMessageType.SYSTEM)
-                .content("🎉 매칭이 성사되었습니다! 서로 인사를 나눠보세요.")
-                .user(null)
-                .build();
-        chatMessageRepository.save(welcomeMessage);
+    private void publishRoomCreated(ChatRoom room, Long actorUserId){
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                room.getId(),
+                SystemMessageType.CHAT_ROOM_CREATED,
+                actorUserId,
+                null,
+                Map.of("roomType", room.getType().name())
+        ));
     }
 
     private void setOneToOneChatMember(ChatRoom chatRoom, Long user1Id, Long user2Id){

@@ -73,7 +73,7 @@ class MessageRequestServiceTest {
         when(loveViewRecommendHistoryRepository
                 .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(1L, 2L))
                 .thenReturn(Optional.of(history));
-        when(chatRoomService.createLoveViewChatRoom(history)).thenReturn(200L);
+        when(chatRoomService.createLoveViewChatRoom(history, 2L)).thenReturn(200L);
 
         RespondSignalResponseDto response = messageRequestService.respondMessageRequest(
                 2L,
@@ -86,7 +86,7 @@ class MessageRequestServiceTest {
         assertThat(response.isAccepted()).isTrue();
         assertThat(response.getStatus()).isEqualTo("ACCEPTED");
         assertThat(response.getChatRoomId()).isEqualTo(200L);
-        verify(chatRoomService).createLoveViewChatRoom(history);
+        verify(chatRoomService).createLoveViewChatRoom(history, 2L);
     }
 
     @Test

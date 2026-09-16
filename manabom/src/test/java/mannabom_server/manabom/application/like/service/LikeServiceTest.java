@@ -68,7 +68,7 @@ class LikeServiceTest {
         when(profileRecommendHistoryRepository
                 .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(1L, 2L))
                 .thenReturn(Optional.of(history));
-        when(chatRoomService.createProfileChatRoom(history)).thenReturn(100L);
+        when(chatRoomService.createProfileChatRoom(history, 2L)).thenReturn(100L);
 
         RespondSignalResponseDto response = likeService.respondLike(2L, 10L, true, null);
 
@@ -76,7 +76,7 @@ class LikeServiceTest {
         assertThat(response.isAccepted()).isTrue();
         assertThat(response.getStatus()).isEqualTo("ACCEPTED");
         assertThat(response.getChatRoomId()).isEqualTo(100L);
-        verify(chatRoomService).createProfileChatRoom(history);
+        verify(chatRoomService).createProfileChatRoom(history, 2L);
     }
 
     @Test

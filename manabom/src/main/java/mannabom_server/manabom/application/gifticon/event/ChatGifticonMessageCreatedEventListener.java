@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.response.ChatMessageEvent;
 import mannabom_server.manabom.application.notification.service.NotificationService;
 import mannabom_server.manabom.domain.chat.enums.ChatMessageType;
-import mannabom_server.manabom.domain.meeting.enums.SseEventName;
+import mannabom_server.manabom.domain.notification.enums.NotificationType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -39,7 +39,7 @@ public class ChatGifticonMessageCreatedEventListener {
         try {
             notificationService.sendNotification(
                     event.receiverUserId(),
-                    SseEventName.NEW_CHAT_MESSAGE,
+                    NotificationType.NEW_CHAT_MESSAGE,
                     event.senderNickname(),
                     "🎁 기프티콘을 보냈습니다.",
                     Map.of(

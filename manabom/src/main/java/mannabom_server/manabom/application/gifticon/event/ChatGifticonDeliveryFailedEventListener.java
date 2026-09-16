@@ -3,7 +3,7 @@ package mannabom_server.manabom.application.gifticon.event;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.notification.service.NotificationService;
-import mannabom_server.manabom.domain.meeting.enums.SseEventName;
+import mannabom_server.manabom.domain.notification.enums.NotificationType;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +21,7 @@ public class ChatGifticonDeliveryFailedEventListener {
         try {
             notificationService.sendNotification(
                     event.senderUserId(),
-                    SseEventName.GIFTICON_DELIVERY_FAILED,
+                    NotificationType.GIFTICON_DELIVERY_FAILED,
                     "기프티콘 발송 실패",
                     "기프티콘을 보내지 못해 결제 환불을 요청했습니다.",
                     Map.of(

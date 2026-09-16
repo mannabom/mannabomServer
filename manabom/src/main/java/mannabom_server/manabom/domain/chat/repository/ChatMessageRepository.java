@@ -16,7 +16,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
     @Query("""
             SELECT m
             FROM ChatMessage m
-            JOIN FETCH m.user u
+            LEFT JOIN FETCH m.user u
             LEFT JOIN FETCH m.gifticonPayment payment
             LEFT JOIN FETCH payment.product
             WHERE m.room.id = :roomId
@@ -28,8 +28,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
     @Query("""
             SELECT m
             FROM ChatMessage m
-            JOIN FETCH m.user u
-            JOIN Profile p on p.user.userId = u.userId
+            LEFT JOIN FETCH m.user u
             LEFT JOIN FETCH m.gifticonPayment payment
             LEFT JOIN FETCH payment.product
             WHERE m.room.id = :roomId
@@ -46,7 +45,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage,Long> {
 
     boolean existsByRoomIdAndIdGreaterThan(Long roomId, Long messageId);
 
-    int countChatMessagesByRoom_Id(Long roomId);
+    int countChatMessagesByRoom_IdAndUserIsNotNull(Long roomId);
 
-    int countChatMessagesByRoom_IdAndCreatedAtAfter(Long roomId, Instant after);
+    int countChatMessagesByRoom_IdAndCreatedAtAfterAndUserIsNotNull(Long roomId, Instant after);
 }

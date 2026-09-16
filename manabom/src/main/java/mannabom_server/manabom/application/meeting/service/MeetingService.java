@@ -2,6 +2,8 @@ package mannabom_server.manabom.application.meeting.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
+import mannabom_server.manabom.application.chat.message.SystemMessageType;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.meeting.dto.common.*;
 import mannabom_server.manabom.application.meeting.dto.request.*;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -401,6 +404,13 @@ public class MeetingService {
         //비동기 이벤트 발행
         MeetingMatchingEvent event = MeetingMatchingEvent.from(meeting);
         eventPublisher.publishEvent(event);
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                chatRoomService.getChatRoomId(meeting),
+                SystemMessageType.MATCHING_STARTED,
+                userId,
+                null,
+                Map.of("meetingId", meeting.getId())
+        ));
 
 
         return MatchingStartDataDto.builder()
@@ -415,6 +425,13 @@ public class MeetingService {
                 .orElseThrow(()-> new IllegalArgumentException("매칭 취소: 리더만이 매칭을 취소할 수 있습니다. "+ userId));
 
         meeting.cancelMatching();
+        eventPublisher.publishEvent(ChatSystemMessageEvent.of(
+                chatRoomService.getChatRoomId(meeting),
+                SystemMessageType.MATCHING_STOPPED,
+                userId,
+                null,
+                Map.of("meetingId", meeting.getId())
+        ));
         return true;
     }
 

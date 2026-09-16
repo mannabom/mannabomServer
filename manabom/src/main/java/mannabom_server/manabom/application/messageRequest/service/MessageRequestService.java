@@ -292,7 +292,12 @@ public class MessageRequestService {
         String gifticonPaymentStatus = null;
         if (accepted) {
             messageRequest.accept();
-            chatRoomId = createChatRoom(messageRequest.getFromUserId(), messageRequest.getToUserId(), messageRequest.getSource());
+            chatRoomId = createChatRoom(
+                    messageRequest.getFromUserId(),
+                    messageRequest.getToUserId(),
+                    messageRequest.getSource(),
+                    responderUserId
+            );
             if (messageRequest.getGifticonProduct() != null) {
                 gifticonPaymentStatus = confirmGiftPaymentForAcceptance(messageRequest);
                 gifticonOrderStatus = gifticonOrderService.prepareOrder(messageRequest);
@@ -300,12 +305,14 @@ public class MessageRequestService {
         } else {
             messageRequest.reject(rejectReason);
             gifticonPaymentStatus = requestGifticonRefund(messageRequest);
-        }
-
-        try {
-            pushService.sendToUser(messageRequest.getFromUserId(), PushMessages.messageRequestResponded(accepted, messageRequest.getId()));
-        } catch (Exception e) {
-            log.warn("메시지 요청 응답 푸시 전송 실패 messageRequestId={} accepted={}", messageRequestId, accepted, e);
+            try {
+                pushService.sendToUser(
+                        messageRequest.getFromUserId(),
+                        PushMessages.messageRequestResponded(false, messageRequest.getId())
+                );
+            } catch (Exception e) {
+                log.warn("메시지 요청 응답 푸시 전송 실패 messageRequestId={} accepted=false", messageRequestId, e);
+            }
         }
 
         return RespondSignalResponseDto.builder()
@@ -345,17 +352,22 @@ public class MessageRequestService {
         return payment.getStatus().name();
     }
 
-    private Long createChatRoom(Long requesterUserId, Long targetUserId, MessageSource source) {
+    private Long createChatRoom(
+            Long requesterUserId,
+            Long targetUserId,
+            MessageSource source,
+            Long actorUserId
+    ) {
         if (source == MessageSource.PROFILE_MATCH) {
             ProfileRecommendHistory history = profileRecommendHistoryRepository
                     .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                     .orElseThrow(() -> new IllegalStateException("프로필 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-            return chatRoomService.createProfileChatRoom(history);
+            return chatRoomService.createProfileChatRoom(history, actorUserId);
         }
 
         LoveViewRecommendHistory history = loveViewRecommendHistoryRepository
                 .findTopByRequesterUserIdAndTargetUserIdOrderByRecommendedAtDesc(requesterUserId, targetUserId)
                 .orElseThrow(() -> new IllegalStateException("연애관 추천 이력이 없어 채팅방을 생성할 수 없습니다."));
-        return chatRoomService.createLoveViewChatRoom(history);
+        return chatRoomService.createLoveViewChatRoom(history, actorUserId);
     }
 }

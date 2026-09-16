@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -52,6 +53,10 @@ public class PolicyConfig {
 
     @Column(name="ting_cost_view_high_score_profile")
     private Integer tingCostViewHighScoreProfile;
+
+    // gifticon.pricing.*
+    @Column(name = "gifticon_markup_percent", precision = 7, scale = 3)
+    private BigDecimal gifticonMarkupPercent;
 
     // benefit.policy.*
     @Column(name = "benefit_basic_daily_profile")
@@ -107,6 +112,8 @@ public class PolicyConfig {
     public void updateTingCostViewLikedMeProfile(Integer v) { this.tingCostViewLikedMeProfile = v; touch(); }
     public void updateTingCostViewHighScoreProfile(Integer v) { this.tingCostViewHighScoreProfile = v; touch(); }
 
+    public void updateGifticonMarkupPercent(BigDecimal v) { this.gifticonMarkupPercent = v; touch(); }
+
     public void updateBenefitMembershipCycleExtraProfiles(Integer v) { this.benefitMembershipCycleExtraProfiles = v; touch(); }
     public void updateBenefitMembershipCycleFreeMessages(Integer v) { this.benefitMembershipCycleFreeMessages = v; touch(); }
     public void updateBenefitMembershipCycleFreeLikes(Integer v) { this.benefitMembershipCycleFreeLikes = v; touch(); }
@@ -131,6 +138,8 @@ public class PolicyConfig {
     public void resetTingCostViewScore() { this.tingCostViewScore = null; touch(); }
     public void resetTingCostViewLikedMeProfile() { this.tingCostViewLikedMeProfile = null; touch(); }
     public void resetTingCostViewHighScoreProfile() { this.tingCostViewHighScoreProfile = null; touch(); }
+
+    public void resetGifticonMarkupPercent() { this.gifticonMarkupPercent = null; touch(); }
 
     public void resetBenefitMembershipCycleExtraProfiles() { this.benefitMembershipCycleExtraProfiles = null; touch(); }
     public void resetBenefitMembershipCycleFreeMessages() { this.benefitMembershipCycleFreeMessages = null; touch(); }

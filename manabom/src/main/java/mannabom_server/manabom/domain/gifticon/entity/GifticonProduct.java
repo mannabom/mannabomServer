@@ -1,0 +1,163 @@
+package mannabom_server.manabom.domain.gifticon.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import mannabom_server.manabom.domain.common.BaseTimeEntity;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+
+@Getter
+@Entity
+@Table(name = "gifticon_product")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class GifticonProduct extends BaseTimeEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "gifticon_product_id")
+    private Long gifticonProductId;
+
+    @Column(name = "template_trace_id", nullable = false, unique = true)
+    private Long templateTraceId;
+
+    @Column(name = "encrypted_template_token", length = 1024)
+    private String encryptedTemplateToken;
+
+    @Column(name = "template_name", nullable = false, length = 200)
+    private String templateName;
+
+    @Column(name = "start_at")
+    private LocalDateTime startAt;
+
+    @Column(name = "end_at")
+    private LocalDateTime endAt;
+
+    @Column(name = "order_template_status", nullable = false, length = 30)
+    private String orderTemplateStatus;
+
+    @Column(name = "budget_type", length = 30)
+    private String budgetType;
+
+    @Column(name = "gift_sent_count", nullable = false)
+    private long giftSentCount;
+
+    @Column(name = "bm_sender_name", length = 100)
+    private String businessMessageSenderName;
+
+    @Column(name = "mc_image_url", length = 2048)
+    private String messageCardImageUrl;
+
+    @Column(name = "mc_text", columnDefinition = "TEXT")
+    private String messageCardText;
+
+    @Column(name = "item_type", nullable = false, length = 30)
+    private String itemType;
+
+    @Column(name = "product_name", nullable = false, length = 200)
+    private String productName;
+
+    @Column(name = "brand_name", nullable = false, length = 100)
+    private String brandName;
+
+    @Column(name = "product_image_url", length = 2048)
+    private String productImageUrl;
+
+    @Column(name = "product_thumb_image_url", length = 2048)
+    private String productThumbnailImageUrl;
+
+    @Column(name = "brand_image_url", length = 2048)
+    private String brandImageUrl;
+
+    @Column(name = "product_price", nullable = false)
+    private int productPrice;
+
+    @Column(name = "sale_price", nullable = false)
+    private int salePrice;
+
+    @Column(name = "available", nullable = false)
+    private boolean available;
+
+    @Column(name = "last_synced_at", nullable = false)
+    private Instant lastSyncedAt;
+
+    public GifticonProduct(Long templateTraceId) {
+        this.templateTraceId = templateTraceId;
+    }
+
+    public void synchronize(
+            String templateName,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
+            String orderTemplateStatus,
+            String budgetType,
+            long giftSentCount,
+            String businessMessageSenderName,
+            String messageCardImageUrl,
+            String messageCardText,
+            String itemType,
+            String productName,
+            String brandName,
+            String productImageUrl,
+            String productThumbnailImageUrl,
+            String brandImageUrl,
+            int productPrice,
+            int calculatedSalePrice,
+            Instant syncedAt
+    ) {
+        this.templateName = templateName;
+        this.startAt = startAt;
+        this.endAt = endAt;
+        this.orderTemplateStatus = orderTemplateStatus;
+        this.budgetType = budgetType;
+        this.giftSentCount = giftSentCount;
+        this.businessMessageSenderName = businessMessageSenderName;
+        this.messageCardImageUrl = messageCardImageUrl;
+        this.messageCardText = messageCardText;
+        this.itemType = itemType;
+        this.productName = productName;
+        this.brandName = brandName;
+        this.productImageUrl = productImageUrl;
+        this.productThumbnailImageUrl = productThumbnailImageUrl;
+        this.brandImageUrl = brandImageUrl;
+        this.productPrice = productPrice;
+        this.salePrice = calculatedSalePrice;
+        this.available = "ALIVE".equals(orderTemplateStatus);
+        this.lastSyncedAt = syncedAt;
+    }
+
+    public boolean isAvailableAt(LocalDateTime now) {
+        return available
+                && (startAt == null || !startAt.isAfter(now))
+                && (endAt == null || endAt.isAfter(now));
+    }
+
+    public boolean isOrderableAt(LocalDateTime now) {
+        return salePrice > 0 && hasTemplateToken() && isAvailableAt(now);
+    }
+
+    public boolean hasTemplateToken() {
+        return encryptedTemplateToken != null && !encryptedTemplateToken.isBlank();
+    }
+
+    public void updateSalePrice(int calculatedSalePrice) {
+        if (calculatedSalePrice < 0) {
+            throw new IllegalArgumentException("기프티콘 판매가는 0 이상이어야 합니다.");
+        }
+        this.salePrice = calculatedSalePrice;
+    }
+
+    public void configureEncryptedTemplateToken(String encryptedTemplateToken) {
+        if (encryptedTemplateToken == null || encryptedTemplateToken.isBlank()) {
+            throw new IllegalArgumentException("암호화된 템플릿 토큰은 비어있을 수 없습니다.");
+        }
+        this.encryptedTemplateToken = encryptedTemplateToken.trim();
+    }
+}

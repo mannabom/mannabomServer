@@ -57,7 +57,10 @@ public class ChatService {
         if (request.getMessageType() == ChatMessageType.SYSTEM) {
             throw new IllegalArgumentException("시스템 메시지는 클라이언트가 전송할 수 없습니다.");
         }
-
+        if (request.getMessageType() != ChatMessageType.TEXT
+                && request.getMessageType() != ChatMessageType.IMAGE) {
+            throw new IllegalArgumentException("일반 채팅에서는 텍스트와 이미지만 직접 전송할 수 있습니다.");
+        }
         ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
         if (chatRoom.getChatStatus() == ChatStatus.DISABLED) {

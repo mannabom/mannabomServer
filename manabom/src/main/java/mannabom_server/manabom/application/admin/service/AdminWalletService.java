@@ -4,10 +4,13 @@ import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.admin.dto.request.AdminActivateMembershipRequest;
 import mannabom_server.manabom.application.admin.dto.request.AdminAdjustWalletRequest;
 import mannabom_server.manabom.application.admin.dto.response.AdminWalletResponse;
+import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditActionType;
 import mannabom_server.manabom.domain.admin.enums.AdminAuditTargetType;
 import mannabom_server.manabom.domain.admin.enums.AdminRole;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionReferenceType;
+import mannabom_server.manabom.domain.currency.enums.TingTransactionType;
 import mannabom_server.manabom.domain.currency.repository.TingWalletRepository;
 import mannabom_server.manabom.domain.user.repository.UserRepository;
 import mannabom_server.manabom.infrastructure.security.admin.AdminPrincipal;
@@ -26,6 +29,7 @@ public class AdminWalletService {
     private final TingWalletRepository tingWalletRepository;
     private final AdminAuditService adminAuditService;
     private final RuntimePolicyService runtimePolicyService;
+    private final TingTransactionRecorder tingTransactionRecorder;
 
     @Transactional(readOnly = true)
     public AdminWalletResponse getWallet(AdminPrincipal admin, Long userId) {
@@ -56,6 +60,28 @@ public class AdminWalletService {
 
         applyTingDelta(wallet, tingDelta);
         applyEventTingDelta(wallet, eventTingDelta);
+        if (tingDelta != 0) {
+            tingTransactionRecorder.recordPaid(
+                    wallet,
+                    TingTransactionType.ADMIN_ADJUSTMENT,
+                    tingDelta,
+                    TingTransactionReferenceType.ADMIN,
+                    String.valueOf(admin.adminId()),
+                    null,
+                    request.getReason()
+            );
+        }
+        if (eventTingDelta != 0) {
+            tingTransactionRecorder.recordEvent(
+                    wallet,
+                    TingTransactionType.ADMIN_ADJUSTMENT,
+                    eventTingDelta,
+                    TingTransactionReferenceType.ADMIN,
+                    String.valueOf(admin.adminId()),
+                    null,
+                    request.getReason()
+            );
+        }
 
         String after = "ting=" + wallet.getTing() + ", eventTing=" + wallet.getEventTing();
         adminAuditService.log(admin.adminId(), AdminAuditActionType.WALLET_ADJUST,

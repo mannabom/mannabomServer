@@ -26,7 +26,12 @@ public class MessageRequestController {
             @RequestBody @Valid SendMessageRequestDto request
             ){
         return ResponseEntity.ok(
-                messageRequestService.sendMessageRequest(userId, request.getTargetProfileId(), request.getMessage(), request.getSource())
+                messageRequestService.sendMessageRequest(
+                        userId,
+                        request.getTargetProfileId(),
+                        request.getMessage(),
+                        request.getSource()
+                )
         );
     }
 

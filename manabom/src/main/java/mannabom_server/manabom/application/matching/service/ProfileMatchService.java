@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.matching.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.ProfileMatchConditionResponseDto;
 import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayProfileListResponseDto;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -47,6 +49,7 @@ public class ProfileMatchService {
     private final ProfileImageRepository profileImageRepository;
 
     private final ProfileRecommendHistoryRepository historyRepository;
+    private final UserBlockPolicy userBlockPolicy;
     private final RuntimePolicyService runtimePolicyService;
     private final FileStoragePort fileStoragePort;
 
@@ -179,8 +182,10 @@ public class ProfileMatchService {
         Map<Long, Profile> map = targetProfiles.stream()
                 .collect(java.util.stream.Collectors.toMap(p -> p.getUser().getUserId(), p -> p));
 
+        Set<Long> blockedUserIds = userBlockPolicy.blockedUserIds(userId);
         List<ProfileMatchConditionResponseDto> result = new ArrayList<>();
         for(ProfileRecommendHistory history : histories){
+            if(blockedUserIds.contains(history.getTargetUserId())) continue;
             Profile profile = map.get(history.getTargetUserId());
             if(profile != null){
                 result.add(toResponse(profile));
@@ -321,6 +326,7 @@ public class ProfileMatchService {
         if(fromUserId.equals(targetUserId)){
             throw new IllegalArgumentException("자기자신은 평가할 수 없습니다.");
         }
+        userBlockPolicy.ensureNotBlocked(fromUserId, targetUserId, "평가할 수 없는 회원입니다.");
 
         if(profileRatingRepository.existsByFromUserIdAndTargetUserId(fromUserId, targetUserId)){
             throw new IllegalStateException("이미 평가한 상대입니다.");

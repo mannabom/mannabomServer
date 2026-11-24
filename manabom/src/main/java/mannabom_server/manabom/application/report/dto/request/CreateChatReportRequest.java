@@ -28,4 +28,7 @@ public class CreateChatReportRequest {
 
     @Size(max = 1000, message = "신고 상세 내용은 최대 1000자까지 입력할 수 있습니다.")
     private String additionalDetail;
+
+    /** true 면 신고와 함께 대상 회원을 차단한다 */
+    private boolean block;
 }

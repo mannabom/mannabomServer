@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.signal.service;
 
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import mannabom_server.manabom.application.common.port.FileStoragePort;
@@ -43,6 +44,7 @@ class SignalServiceTest {
     @Mock private ProfileRepository profileRepository;
     @Mock private ProfileImageRepository profileImageRepository;
     @Mock private FileStoragePort fileStoragePort;
+    @Mock private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private SignalService signalService;

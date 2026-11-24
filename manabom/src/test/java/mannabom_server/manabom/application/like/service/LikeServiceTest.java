@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.like.service;
 
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
@@ -31,6 +32,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -51,6 +57,7 @@ class LikeServiceTest {
     @Mock private LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     @Mock private ChatRoomService chatRoomService;
     @Mock private TingTransactionRecorder tingTransactionRecorder;
+    @Mock private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private LikeService likeService;
@@ -101,6 +108,23 @@ class LikeServiceTest {
         assertThat(wallet.getEventTing()).isZero();
         verify(likeRequestRepository).save(any(LikeRequest.class));
         verifyNoInteractions(tingTransactionRecorder);
+    }
+
+    @Test
+    void rejectsLikeToBlockedMemberBeforeCharging() {
+        Profile toProfile = mock(Profile.class);
+        User toUser = mock(User.class);
+        when(profileRepository.findById(20L)).thenReturn(Optional.of(toProfile));
+        when(toProfile.getUser()).thenReturn(toUser);
+        when(toUser.getUserId()).thenReturn(2L);
+        doThrow(new IllegalStateException("호감을 보낼 수 없는 회원입니다."))
+                .when(userBlockPolicy).ensureNotBlocked(eq(1L), eq(2L), anyString());
+
+        assertThatThrownBy(() -> likeService.sendLike(1L, 20L, LikeSource.PROFILE_MATCH))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(likeRequestRepository, never()).save(any(LikeRequest.class));
+        verifyNoInteractions(tingWalletRepository, tingTransactionRecorder);
     }
 
     private RuntimePolicySnapshot zeroLikeCostPolicy() {

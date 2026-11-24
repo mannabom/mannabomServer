@@ -69,12 +69,19 @@ jobs:
           gcloud compute ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }} \
             --zone=${{ secrets.GCP_ZONE }} \
             --quiet \
-            --command='mkdir -p ~/manabom'
+            --command='mkdir -p ~/manabom/nginx'
 
       - name: Copy Docker Compose file to VM
         run: |
           gcloud compute scp docker-compose.prod.yml \
             ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }}:/home/${{ secrets.GCP_VM_USER }}/manabom/docker-compose.prod.yml \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --quiet
+
+      - name: Copy Nginx config to VM
+        run: |
+          gcloud compute scp nginx/default.conf \
+            ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_NAME }}:/home/${{ secrets.GCP_VM_USER }}/manabom/nginx/default.conf \
             --zone=${{ secrets.GCP_ZONE }} \
             --quiet
 

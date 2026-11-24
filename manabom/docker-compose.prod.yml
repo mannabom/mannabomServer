@@ -7,6 +7,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
     env_file:
       - .env
+    # 앱이 아직 IP:8080으로 붙는다. 모든 앱이 https://api.mannabom.com 으로 바뀌면 이 포트를 닫는다
     ports:
       - 8080:8080
     depends_on:
@@ -16,6 +17,20 @@ services:
       - mannabom-net
     volumes:
       - /opt/mannabom/firebase:/opt/mannabom/firebase
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mannabom-nginx
+    ports:
+      - 443:443
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /opt/mannabom/nginx:/etc/nginx/certs:ro
+    depends_on:
+      - mannabom-server
+    networks:
+      - mannabom-net
     restart: unless-stopped
 
   postgres:

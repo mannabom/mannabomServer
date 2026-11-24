@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
 import mannabom_server.manabom.application.chat.message.SystemMessageType;
+import mannabom_server.manabom.application.location.service.LocationUsageLogService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -41,6 +42,7 @@ public class MeetingVerificationService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final ProfileRepository profileRepository;
+    private final LocationUsageLogService locationUsageLogService;
 
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
@@ -76,6 +78,7 @@ public class MeetingVerificationService {
         if(verification.isExpired(now)){
             throw new IllegalStateException("만남인증 가능 시간이 지났습니다.");
         }
+        locationUsageLogService.recordMeetingVerification(userId, chatRoomId, now);
         if(verification.isVerified()){
             processLatecomer(chatRoomId, userId, latitude, longitude, verification);
             return "합류 성공! 보상이 지급됩니다.";
@@ -112,15 +115,14 @@ public class MeetingVerificationService {
         MeetingVerification verification = verificationOpt.get();
         boolean mySubmitted = stringRedisTemplate.hasKey(String.format(POS_KEY, chatRoomId, userId));
         FinalLocation myLocation = getUserLocation(chatRoomId, userId).orElse(null);
+        // 최종 위치는 Redis 에만 있고 인증 가능 시간이 끝나면 사라진다.
+        FinalLocation finalLocation = getFinalLocation(chatRoomId).orElse(null);
         BestCluster bestCluster = verification.isVerified()
-                ? BestCluster.verifiedSnapshot(verification)
+                ? BestCluster.verifiedSnapshot(verification, finalLocation)
                 : findBestCluster(chatRoomId);
 
         Instant now = Instant.now();
         long remainingSeconds = Math.max(0, verification.remainingTime(now).toSeconds());
-        FinalLocation finalLocation = verification.hasFinalLocation()
-                ? new FinalLocation(verification.getFinalLatitude(), verification.getFinalLongitude())
-                : getFinalLocation(chatRoomId).orElse(null);
 
         if(verification.isVerified()){
             return MeetingVerificationStatusData.verified(
@@ -233,8 +235,6 @@ public class MeetingVerificationService {
             if(bestCluster.hasMale() && bestCluster.hasFemale()){
                 verification.verify(
                         bestCluster.count(),
-                        bestCluster.latitude(),
-                        bestCluster.longitude(),
                         bestCluster.hasMale(),
                         bestCluster.hasFemale()
                 );
@@ -244,9 +244,10 @@ public class MeetingVerificationService {
                     throw new IllegalStateException("만남인증 가능 시간이 지났습니다.");
                 }
 
+                FinalLocation finalLocation = bestCluster.location();
                 stringRedisTemplate.opsForValue().set(
                         String.format(FINAL_LOC_KEY, chatRoomId),
-                        bestCluster.latitude() + "," + bestCluster.longitude()
+                        finalLocation.latitude() + "," + finalLocation.longitude()
                 );
                 redissonClient.getBucket(String.format(FINAL_LOC_KEY, chatRoomId)).expire(finalLocationTtl);
                 stringRedisTemplate.delete(gatherKey);
@@ -350,7 +351,7 @@ public class MeetingVerificationService {
                 .average()
                 .orElse(0.0);
 
-        return new BestCluster(userIds, userIds.size(), latitude, longitude, hasMale, hasFemale);
+        return new BestCluster(userIds, userIds.size(), new FinalLocation(latitude, longitude), hasMale, hasFemale);
     }
 
     private List<LocationSubmission> getLocationSubmissions(Long chatRoomId){
@@ -546,21 +547,19 @@ public class MeetingVerificationService {
     private record BestCluster(
             List<Long> userIds,
             int count,
-            double latitude,
-            double longitude,
+            FinalLocation location,
             boolean hasMale,
             boolean hasFemale
     ) {
         static BestCluster empty(){
-            return new BestCluster(List.of(), 0, 0.0, 0.0, false, false);
+            return new BestCluster(List.of(), 0, null, false, false);
         }
 
-        static BestCluster verifiedSnapshot(MeetingVerification verification) {
+        static BestCluster verifiedSnapshot(MeetingVerification verification, FinalLocation finalLocation) {
             return new BestCluster(
                     List.of(),
                     verification.getVerifiedParticipantCount(),
-                    verification.getFinalLatitude() == null ? 0.0 : verification.getFinalLatitude(),
-                    verification.getFinalLongitude() == null ? 0.0 : verification.getFinalLongitude(),
+                    finalLocation,
                     verification.isVerifiedHasMale(),
                     verification.isVerifiedHasFemale()
             );
@@ -570,7 +569,7 @@ public class MeetingVerificationService {
             if(count == 0){
                 return null;
             }
-            return new FinalLocation(latitude, longitude);
+            return location;
         }
     }
 }

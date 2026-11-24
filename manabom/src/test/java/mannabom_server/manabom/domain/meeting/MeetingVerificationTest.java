@@ -15,12 +15,10 @@ class MeetingVerificationTest {
                 .build();
         verification.updateParticipantCount(4);
 
-        verification.verify(3, 37.5665, 126.9780, true, true);
+        verification.verify(3, true, true);
 
         assertThat(verification.getParticipantCount()).isEqualTo(4);
         assertThat(verification.getVerifiedParticipantCount()).isEqualTo(3);
-        assertThat(verification.getFinalLatitude()).isEqualTo(37.5665);
-        assertThat(verification.getFinalLongitude()).isEqualTo(126.9780);
         assertThat(verification.isVerifiedHasMale()).isTrue();
         assertThat(verification.isVerifiedHasFemale()).isTrue();
     }
@@ -31,7 +29,7 @@ class MeetingVerificationTest {
                 .room(ChatRoom.builder().id(1L).build())
                 .build();
         verification.updateParticipantCount(4);
-        verification.verify(3, 37.5665, 126.9780, true, true);
+        verification.verify(3, true, true);
 
         verification.recordVerifiedLatecomer(true);
 
@@ -45,7 +43,7 @@ class MeetingVerificationTest {
                 .room(ChatRoom.builder().id(1L).build())
                 .build();
         verification.updateParticipantCount(4);
-        verification.verify(3, 37.5665, 126.9780, true, true);
+        verification.verify(3, true, true);
 
         verification.recordVerifiedLatecomer(false);
 

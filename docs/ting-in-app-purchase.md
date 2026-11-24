@@ -90,12 +90,13 @@ ting_product     팅 상품 카탈로그. apple_product_id, google_product_id
 3. **인앱 상품 생성**: 수익 창출 > 제품 > **인앱 상품** > 제품 만들기.
    - 제품 ID: `ting_70` (되돌릴 수 없다. 서버 `ting_product.google_product_id` 와 일치)
    - 이름/설명, 가격 설정 후 **활성화**. 활성화 후 기기에 반영되기까지 수 시간 걸릴 수 있다.
-4. **API 액세스 연결**: 설정 > **API 액세스** > Google Cloud 프로젝트 연결(새로 만들거나 기존 선택).
-5. **서비스 계정**: 연결된 GCP 프로젝트 > IAM > 서비스 계정 만들기 > 키(JSON) 생성. Play Console 의 API 액세스 화면에서 이 서비스 계정에 **사용자 및 권한 > 권한 초대**로 다음 권한을 준다.
+4. **API 사용 설정**: GCP 프로젝트 `mannabom-prod` > API 및 서비스 > **Google Play Android Developer API** 사용. Play Console 에서 프로젝트를 따로 연결하는 단계는 없어졌다.
+5. **서비스 계정**: `mannabom-prod` > IAM > 서비스 계정 `play-billing` 만들기 > 키(JSON) 생성. Play Console **사용자 및 권한 > 새 사용자 초대**로 서비스 계정 이메일을 초대하고 앱 권한에 다음을 준다.
    - 재무 데이터 보기
    - **주문 및 구독 관리** (구매 조회, consume, 환불 목록에 필요)
    - 권한 부여 후 API 가 실제로 열리기까지 최대 24~36시간 걸릴 수 있다. 그 전에는 401/403 이 난다.
-   - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 또는 `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`, `GOOGLE_PLAY_PACKAGE_NAME` 설정.
+   - 조직 정책 `iam.disableServiceAccountKeyCreation`, `iam.managed.disableServiceAccountKeyCreation` 이 키 생성을 막는다. 키를 새로 만들 때만 프로젝트에서 두 정책을 잠깐 재정의(미적용)하고, 만든 뒤 상속으로 되돌린다. 기존 키는 계속 동작한다.
+   - 운영 VM 에는 키를 `/opt/mannabom/google-play/service-account.json` 에 두고 `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` 로 지정한다(컨테이너에 읽기 전용 연결). `GOOGLE_PLAY_PACKAGE_NAME=com.mannabom.app`.
 6. **라이선스 테스터**: 설정 > 라이선스 테스트 에 테스트 계정을 넣으면 실제 결제 없이 테스트할 수 있다. 이 구매는 `purchaseType=0` 으로 오고 서버는 `SANDBOX` 로 기록한다.
 7. **환불 처리**: Google 은 환불을 서버로 푸시하지 않는다(RTDN 은 Pub/Sub 설정이 별도로 필요). 서버는 `purchases.voidedpurchases.list` 를 1시간마다 폴링해 환불된 구매의 팅을 회수한다. 운영에서 `TING_PURCHASE_VOIDED_SYNC_ENABLED=true`.
 

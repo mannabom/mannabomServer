@@ -44,10 +44,6 @@ public class MeetingVerification {
     @Column(name = "verified_participant_count", nullable = false)
     private int verifiedParticipantCount;
 
-    private Double finalLatitude;
-
-    private Double finalLongitude;
-
     @Column(name = "verified_has_male", nullable = false)
     private boolean verifiedHasMale;
 
@@ -85,16 +81,12 @@ public class MeetingVerification {
 
     public void verify(
             int verifiedParticipantCount,
-            double finalLatitude,
-            double finalLongitude,
             boolean hasMale,
             boolean hasFemale
     ){
         this.isVerified = true;
         this.verifiedAt = Instant.now();
         this.verifiedParticipantCount = verifiedParticipantCount;
-        this.finalLatitude = finalLatitude;
-        this.finalLongitude = finalLongitude;
         this.verifiedHasMale = hasMale;
         this.verifiedHasFemale = hasFemale;
     }
@@ -104,10 +96,6 @@ public class MeetingVerification {
             this.participantCount++;
         }
         this.verifiedParticipantCount++;
-    }
-
-    public boolean hasFinalLocation() {
-        return finalLatitude != null && finalLongitude != null;
     }
 
     public boolean needsFailureNotification(Instant now) {

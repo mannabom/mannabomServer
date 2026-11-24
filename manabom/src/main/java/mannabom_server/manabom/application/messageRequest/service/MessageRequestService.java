@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.messageRequest.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
@@ -10,6 +11,7 @@ import mannabom_server.manabom.application.gifticon.service.GifticonOrderService
 import mannabom_server.manabom.application.gifticon.event.GifticonPaymentRefundRequestedEvent;
 import mannabom_server.manabom.application.messageRequest.dto.response.SendMessageResponseDto;
 import mannabom_server.manabom.application.pushService.PushMessages;
+import mannabom_server.manabom.domain.messageRequest.enums.MessageRequestStatus;
 import mannabom_server.manabom.application.pushService.service.pushSender.PushService;
 import mannabom_server.manabom.application.signal.dto.response.RespondSignalResponseDto;
 import mannabom_server.manabom.domain.currency.entity.TingWallet;
@@ -56,6 +58,7 @@ public class MessageRequestService {
     private final GifticonOrderService gifticonOrderService;
     private final TingTransactionRecorder tingTransactionRecorder;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserBlockPolicy userBlockPolicy;
 
     @Transactional(readOnly = true)
     public void validateMessageIntent(
@@ -266,7 +269,21 @@ public class MessageRequestService {
         if (fromUserId.equals(toUserId)) {
             throw new IllegalArgumentException("본인에게 메시지 요청을 보낼 수 없습니다.");
         }
+        userBlockPolicy.ensureNotBlocked(fromUserId, toUserId, "메시지 요청을 보낼 수 없는 회원입니다.");
         return toUserId;
+    }
+
+    /**
+     * 차단 시 대기 중인 메시지 요청을 거절한다. 상대에게 알림을 보내지 않으며, 첨부된 기프티콘은 환불한다.
+     */
+    @Transactional
+    public void rejectPendingForBlock(Long fromUserId, Long toUserId) {
+        messageRequestRepository.findByFromUserIdAndToUserId(fromUserId, toUserId)
+                .filter(request -> request.getStatus() == MessageRequestStatus.PENDING)
+                .ifPresent(request -> {
+                    request.reject(null);
+                    requestGifticonRefund(request);
+                });
     }
 
     private void ensureMessageRequestDoesNotExist(Long fromUserId, Long toUserId) {
@@ -291,6 +308,8 @@ public class MessageRequestService {
         GifticonOrderStatus gifticonOrderStatus = null;
         String gifticonPaymentStatus = null;
         if (accepted) {
+            userBlockPolicy.ensureNotBlocked(
+                    messageRequest.getFromUserId(), responderUserId, "메시지 요청을 수락할 수 없는 회원입니다.");
             messageRequest.accept();
             chatRoomId = createChatRoom(
                     messageRequest.getFromUserId(),

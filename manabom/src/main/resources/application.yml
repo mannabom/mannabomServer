@@ -145,7 +145,7 @@ app:
       private-key: ${APPLE_APP_STORE_PRIVATE_KEY:}
       private-key-path: ${APPLE_APP_STORE_PRIVATE_KEY_PATH:}
       bundle-id: ${APPLE_APP_STORE_BUNDLE_ID:}
-      app-apple-id: ${APPLE_APP_STORE_APP_APPLE_ID:#{null}}
+      app-apple-id: ${APPLE_APP_STORE_APP_APPLE_ID:}
       environment: ${APPLE_APP_STORE_ENVIRONMENT:SANDBOX}
       sandbox-fallback-enabled: ${APPLE_APP_STORE_SANDBOX_FALLBACK_ENABLED:true}
       root-certificates-path: ${APPLE_ROOT_CERTIFICATES_PATH:}

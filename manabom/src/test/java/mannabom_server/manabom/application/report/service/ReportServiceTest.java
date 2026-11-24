@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.report.service;
 
+import mannabom_server.manabom.application.block.service.UserBlockService;
 import mannabom_server.manabom.application.report.dto.request.CreateChatReportRequest;
 import mannabom_server.manabom.application.report.dto.request.CreateProfileReportRequest;
 import mannabom_server.manabom.domain.chat.repository.ChatMemberRepository;
@@ -39,6 +40,7 @@ class ReportServiceTest {
     @Mock private ProfileRepository profileRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatMemberRepository chatMemberRepository;
+    @Mock private UserBlockService userBlockService;
     @InjectMocks private ReportService reportService;
 
     @Test

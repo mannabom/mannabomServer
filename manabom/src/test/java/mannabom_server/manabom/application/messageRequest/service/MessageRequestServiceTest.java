@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.messageRequest.service;
 
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.dto.response.CheckTingWalletResponseDto;
 import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
@@ -51,6 +52,7 @@ class MessageRequestServiceTest {
     @Mock private LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     @Mock private ChatRoomService chatRoomService;
     @Mock private TingTransactionRecorder tingTransactionRecorder;
+    @Mock private UserBlockPolicy userBlockPolicy;
 
     @InjectMocks
     private MessageRequestService messageRequestService;

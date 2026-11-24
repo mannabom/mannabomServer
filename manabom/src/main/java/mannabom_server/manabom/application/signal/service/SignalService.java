@@ -1,6 +1,7 @@
 package mannabom_server.manabom.application.signal.service;
 
 import lombok.RequiredArgsConstructor;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.signal.dto.enums.MatchType;
 import mannabom_server.manabom.application.signal.dto.enums.Type;
 import mannabom_server.manabom.application.signal.dto.response.SignalFromMeProfileDto;
@@ -33,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class SignalService {
     private final ProfileRepository profileRepository;
     private final ProfileImageRepository profileImageRepository;
     private final FileStoragePort fileStoragePort;
+    private final UserBlockPolicy userBlockPolicy;
 
     private static final int HIGH_SCORE_THRESHOLD = 4;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -55,10 +58,12 @@ public class SignalService {
         List<LikeRequest> likes = likeRequestRepository.findPendingSignalsToMeLast7Days(userId);
         List<MessageRequest> messages = messageRequestRepository.findPendingSignalsToMeLast7Days(userId);
         List<ProfileRating> highScores = profileRatingRepository.findHighScoresToMeLast7Days(userId, HIGH_SCORE_THRESHOLD);
+        Set<Long> blockedUserIds = userBlockPolicy.blockedUserIds(userId);
 
         List<SignalToMeProfileDto> likeDtos = new ArrayList<>();
         for(LikeRequest like : likes){
             Long fromUserId = like.getFromUserId();
+            if (blockedUserIds.contains(fromUserId)) continue;
 
             User fromUser = userRepository.findById(fromUserId).orElse(null);
             if (fromUser == null) {
@@ -97,6 +102,7 @@ public class SignalService {
         List<SignalToMeProfileDto> messageDtos = new ArrayList<>();
         for(MessageRequest message : messages){
             Long fromUserId = message.getFromUserId();
+            if (blockedUserIds.contains(fromUserId)) continue;
 
             User fromUser = userRepository.findById(fromUserId).orElse(null);
             if (fromUser == null) {
@@ -135,6 +141,7 @@ public class SignalService {
         List<SignalToMeProfileDto> highScoreDtos = new ArrayList<>();
         for(ProfileRating highScore : highScores){
             Long fromUserId = highScore.getFromUserId();
+            if (blockedUserIds.contains(fromUserId)) continue;
 
             User fromUser = userRepository.findById(fromUserId).orElse(null);
             if (fromUser == null) {
@@ -179,11 +186,13 @@ public class SignalService {
         List<LikeRequest> likes = likeRequestRepository.findSignalsFromMeLast7Days(userId);
         List<MessageRequest> messages = messageRequestRepository.findSignalsFromMeLast7Days(userId);
         List<ProfileRating> highScores = profileRatingRepository.findHighScoresFromMeLast7Days(userId, HIGH_SCORE_THRESHOLD);
+        Set<Long> blockedUserIds = userBlockPolicy.blockedUserIds(userId);
 
         List<SignalFromMeProfileDto> likeDtos = new ArrayList<>();
         for (LikeRequest like : likes) {
 
             Long toUserId = like.getToUserId();
+            if (blockedUserIds.contains(toUserId)) continue;
             User toUser = userRepository.findById(toUserId).orElse(null);
             if (toUser == null) continue;
 
@@ -220,6 +229,7 @@ public class SignalService {
         for (MessageRequest message : messages) {
 
             Long toUserId = message.getToUserId();
+            if (blockedUserIds.contains(toUserId)) continue;
             User toUser = userRepository.findById(toUserId).orElse(null);
             if (toUser == null) continue;
 
@@ -256,6 +266,7 @@ public class SignalService {
         for (ProfileRating highScore : highScores) {
 
             Long targetUserId = highScore.getTargetUserId(); // 내가 준 점수의 대상(상대)
+            if (blockedUserIds.contains(targetUserId)) continue;
             User toUser = userRepository.findById(targetUserId).orElse(null);
             if (toUser == null) continue;
 

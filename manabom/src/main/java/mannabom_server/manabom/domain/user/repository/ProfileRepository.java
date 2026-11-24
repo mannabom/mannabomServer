@@ -89,6 +89,12 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
               where mr.fromUserId = :requesterId
                 and mr.toUserId = p.user.userId
           )
+          and not exists (
+              select 1
+              from UserBlock b
+              where (b.blockerUserId = :requesterId and b.blockedUserId = p.user.userId)
+                 or (b.blockerUserId = p.user.userId and b.blockedUserId = :requesterId)
+          )
         order by
           case
             when p.region.sidoName = :reqSido and p.region.sigunguName = :reqSigungu then 0
@@ -138,6 +144,12 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
               from MessageRequest mr
               where mr.fromUserId = :requesterId
                 and mr.toUserId = p.user.userId
+          )
+          and not exists (
+              select 1
+              from UserBlock b
+              where (b.blockerUserId = :requesterId and b.blockedUserId = p.user.userId)
+                 or (b.blockerUserId = p.user.userId and b.blockedUserId = :requesterId)
           )
         order by
           case

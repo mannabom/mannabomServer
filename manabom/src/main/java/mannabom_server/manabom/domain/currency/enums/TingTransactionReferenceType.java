@@ -7,5 +7,6 @@ public enum TingTransactionReferenceType {
     LIKE_REQUEST,
     MESSAGE_REQUEST,
     PROFILE,
-    PROFILE_PHOTO
+    PROFILE_PHOTO,
+    TING_PURCHASE
 }

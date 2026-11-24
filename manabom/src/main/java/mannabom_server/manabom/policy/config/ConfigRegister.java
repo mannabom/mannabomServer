@@ -11,7 +11,8 @@ import org.springframework.context.annotation.Configuration;
         MatchPolicyProperties.class,
         BenefitPolicyProperties.class,
         TingPolicyProperties.class,
-        GifticonPricingProperties.class
+        GifticonPricingProperties.class,
+        TingPurchaseProperties.class
 })
 public class ConfigRegister {
 }

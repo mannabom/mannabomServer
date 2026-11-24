@@ -1,6 +1,7 @@
 package mannabom_server.manabom.presentation.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.tingPurchase.port.StoreGatewayException;
 import mannabom_server.manabom.global.error.InvalidCursorException;
 import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoApiException;
 import mannabom_server.manabom.infrastructure.external.kakao.exception.KakaoAuthenticationException;
@@ -87,6 +88,19 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .success(false)
                 .message("카카오 로그인 서비스에 일시적인 오류가 발생했습니다.")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
+    }
+
+    @ExceptionHandler(StoreGatewayException.class)
+    public ResponseEntity<ErrorResponse> handleStoreGatewayException(StoreGatewayException e) {
+        log.error("스토어(인앱결제) API 연동 오류", e);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .success(false)
+                .message("스토어 결제 서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
                 .timestamp(LocalDateTime.now())
                 .build();
 

@@ -18,6 +18,7 @@ services:
     volumes:
       - /opt/mannabom/firebase:/opt/mannabom/firebase
       - /opt/mannabom/apple-root-ca:/opt/mannabom/apple-root-ca:ro
+      - /opt/mannabom/google-play:/opt/mannabom/google-play:ro
     restart: unless-stopped
 
   nginx:

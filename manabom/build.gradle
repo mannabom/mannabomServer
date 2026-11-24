@@ -71,6 +71,12 @@ dependencies {
 	//매칭 시간 만료를 위한 redisson
 	implementation 'org.redisson:redisson-spring-boot-starter:3.26.0'
 
+	// 스토어 인앱결제 검증: Apple App Store Server API + JWS 검증 (공식 라이브러리)
+	implementation 'com.apple.itunes.storekit:app-store-server-library:3.5.0'
+	// 스토어 인앱결제 검증: Google Play Developer API (androidpublisher v3) + 서비스 계정 인증
+	implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20260528-2.0.0'
+	implementation 'com.google.auth:google-auth-library-oauth2-http'
+
 	//db 형상관리 flyway
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'

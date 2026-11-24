@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mannabom_server.manabom.application.chat.dto.event.ChatSystemMessageEvent;
 import mannabom_server.manabom.application.chat.message.SystemMessageType;
+import mannabom_server.manabom.application.location.service.LocationUsageLogService;
 import mannabom_server.manabom.domain.chat.entity.ChatMember;
 import mannabom_server.manabom.domain.chat.entity.ChatRoom;
 import mannabom_server.manabom.domain.chat.enums.ChatMemberStatus;
@@ -41,6 +42,7 @@ public class MeetingVerificationService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final ProfileRepository profileRepository;
+    private final LocationUsageLogService locationUsageLogService;
 
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
@@ -76,6 +78,7 @@ public class MeetingVerificationService {
         if(verification.isExpired(now)){
             throw new IllegalStateException("만남인증 가능 시간이 지났습니다.");
         }
+        locationUsageLogService.recordMeetingVerification(userId, chatRoomId, now);
         if(verification.isVerified()){
             processLatecomer(chatRoomId, userId, latitude, longitude, verification);
             return "합류 성공! 보상이 지급됩니다.";

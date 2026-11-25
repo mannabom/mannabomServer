@@ -65,18 +65,22 @@ public class AuthService {
         String accessToken = request.getAccessToken();
 
         Map<String, Object> userInfo = kakaoApiService.getKakaoUserInfo(accessToken);
-        KakaoLoginResponseDto.KakaoUserInfoDto kakaoUserInfo = parseKakaoUserInfo(userInfo);
+        String kakaoId = extractKakaoId(userInfo);
 
-        if (!isValidAge(kakaoUserInfo.getBirthYear())) {
-            log.warn("연령 제한 사용자 접근 시도 - 출생년도: {}", kakaoUserInfo.getBirthYear());
-            return KakaoLoginResponseDto.ofAgeRestricted(kakaoUserInfo.getBirthYear());
-        }
-
-        Optional<User> existingUser = userRepository.findByKakaoId(kakaoUserInfo.getKakaoId());
+        // 기존 회원은 카카오 회원번호만으로 로그인한다. 이름·출생연도·성별은 가입 때 이미 저장했으므로
+        // 카카오가 동의항목 값을 주지 않아도 로그인을 막지 않는다.
+        Optional<User> existingUser = userRepository.findByKakaoId(kakaoId);
 
         if (existingUser.isPresent()) {
             log.info("기존 사용자 로그인 처리 - 사용자 ID: {}", existingUser.get().getUserId());
             return handleExistingUserLogin(existingUser.get());
+        }
+
+        KakaoLoginResponseDto.KakaoUserInfoDto kakaoUserInfo = parseNewUserKakaoInfo(kakaoId, userInfo);
+
+        if (!isValidAge(kakaoUserInfo.getBirthYear())) {
+            log.warn("연령 제한 사용자 접근 시도 - 출생년도: {}", kakaoUserInfo.getBirthYear());
+            return KakaoLoginResponseDto.ofAgeRestricted(kakaoUserInfo.getBirthYear());
         }
 
         log.info("신규 사용자 감지 - 회원가입 진행");
@@ -111,14 +115,20 @@ public class AuthService {
     }
 
     /**
-     * 카카오 사용자 정보 파싱
+     * 카카오 회원번호 추출
      */
-    private KakaoLoginResponseDto.KakaoUserInfoDto parseKakaoUserInfo(Map<String, Object> userInfo) {
+    private String extractKakaoId(Map<String, Object> userInfo) {
         Object kakaoIdValue = userInfo.get("id");
         if (kakaoIdValue == null) {
             throw new IllegalArgumentException("카카오 회원번호를 확인할 수 없습니다.");
         }
+        return String.valueOf(kakaoIdValue);
+    }
 
+    /**
+     * 신규 가입용 카카오 사용자 정보 파싱 - 이름·출생연도·성별 동의가 모두 필요하다
+     */
+    private KakaoLoginResponseDto.KakaoUserInfoDto parseNewUserKakaoInfo(String kakaoId, Map<String, Object> userInfo) {
         Object kakaoAccountValue = userInfo.get("kakao_account");
         if (!(kakaoAccountValue instanceof Map<?, ?> rawKakaoAccount)) {
             throw new IllegalArgumentException("카카오 계정 정보를 확인할 수 없습니다.");
@@ -150,7 +160,7 @@ public class AuthService {
         };
 
         return KakaoLoginResponseDto.KakaoUserInfoDto.builder()
-                .kakaoId(String.valueOf(kakaoIdValue))
+                .kakaoId(kakaoId)
                 .name(name)
                 .birthYear(birthYear)
                 .gender(gender)

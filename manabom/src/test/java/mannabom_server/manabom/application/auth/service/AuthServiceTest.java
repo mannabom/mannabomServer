@@ -11,6 +11,7 @@ import mannabom_server.manabom.domain.deviceToken.DeviceTokenRepository;
 import mannabom_server.manabom.domain.question.repository.QuestionAnswerRepository;
 import mannabom_server.manabom.domain.signup.entity.SignupProgress;
 import mannabom_server.manabom.domain.signup.repository.SignupProgressRepository;
+import mannabom_server.manabom.domain.user.entity.User;
 import mannabom_server.manabom.domain.user.enums.Gender;
 import mannabom_server.manabom.domain.user.repository.ProfileImageRepository;
 import mannabom_server.manabom.domain.user.repository.ProfileRepository;
@@ -93,7 +94,7 @@ class AuthServiceTest {
                 ).containsExactly("birthyear", "gender"));
 
         verify(signupProgressRepository, never()).save(any(SignupProgress.class));
-        verify(userRepository, never()).findByKakaoId(any());
+        verify(userRepository).findByKakaoId("98765");
     }
 
     @Test
@@ -108,6 +109,42 @@ class AuthServiceTest {
         assertThat(response.getUserStatus()).isEqualTo(UserStatus.AGE_RESTRICTED);
         assertThat(response.getData().getBirthYear()).isEqualTo(1980);
         verify(signupProgressRepository, never()).save(any(SignupProgress.class));
+        verify(userRepository).findByKakaoId("98765");
+    }
+
+    @Test
+    void logsInExistingUserWithoutKakaoConsentItems() {
+        Map<String, Object> userInfo = Map.of(
+                "id", 98765L,
+                "kakao_account", Map.of()
+        );
+        User existingUser = User.builder().userId(1L).kakaoId("98765").userName("홍길동").build();
+        when(kakaoApiService.getKakaoUserInfo("kakao-access-token")).thenReturn(userInfo);
+        when(userRepository.findByKakaoId("98765")).thenReturn(Optional.of(existingUser));
+        when(jwtUtil.generateAccessToken(1L)).thenReturn("access-token");
+        when(jwtUtil.generateRefreshToken(1L)).thenReturn("refresh-token");
+        when(refreshTokenRepository.findByUser(existingUser)).thenReturn(Optional.empty());
+        when(profileRepository.findByUser(existingUser)).thenReturn(Optional.empty());
+
+        KakaoLoginResponseDto response = authService.loginWithKakao(
+                new KakaoLoginRequestDto("kakao-access-token")
+        );
+
+        assertThat(response.getUserStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(response.getData().getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getData().getUserId()).isEqualTo(1L);
+        verify(signupProgressRepository, never()).save(any(SignupProgress.class));
+    }
+
+    @Test
+    void rejectsLoginWhenKakaoIdIsMissing() {
+        when(kakaoApiService.getKakaoUserInfo("kakao-access-token"))
+                .thenReturn(Map.of("kakao_account", Map.of()));
+
+        assertThatThrownBy(() -> authService.loginWithKakao(
+                new KakaoLoginRequestDto("kakao-access-token")
+        )).isInstanceOf(IllegalArgumentException.class);
+
         verify(userRepository, never()).findByKakaoId(any());
     }
 

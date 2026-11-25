@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.partner.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.partner.dto.common.LikedDto;
 import mannabom_server.manabom.application.partner.dto.common.MessagedDto;
 import mannabom_server.manabom.application.partner.dto.request.GetReceivedScoreRequestDto;
@@ -62,6 +63,7 @@ public class PartnerService {
     private final ProfileRatingRepository profileRatingRepository;
     private final ProfileScoreViewUnlockRepository profileScoreViewUnlockRepository;
     private final TingTransactionRecorder tingTransactionRecorder;
+    private final UserBlockPolicy userBlockPolicy;
 
     @Transactional(readOnly = true)
     public GetTargetProfileDetailResponseDto getTargetProfileDetail(Long requesterUserId, GetTargetProfileDetailRequestDto request){
@@ -75,6 +77,7 @@ public class PartnerService {
         Profile targetProfile = profileRepository.findById(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+        ensureProfileVisible(requesterUserId, targetUserId);
 
         List<ProfileImage> targetProfileImages = profileImageRepository.findAllByProfile(targetProfile);
         List<Long> unlockedPhotoIds = profileExtraPhotoUnlockRepository.findUnlockedExtraPhotoIds(requesterUserId, targetUserId);
@@ -137,6 +140,7 @@ public class PartnerService {
         Profile targetProfile = profileRepository.findById(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+        ensureProfileVisible(requesterUserId, targetUserId);
 
         List<QuestionAnswer> questionAnswers = questionAnswerRepository.findByProfileWithQuestion(targetProfile);
 
@@ -182,6 +186,7 @@ public class PartnerService {
         Profile targetProfile = profileRepository.findById(request.getTargetProfileId())
                 .orElseThrow(() -> new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+        ensureProfileVisible(requesterUserId, targetUserId);
         Long photoId = request.getPhotoId();
 
         List<ProfileImage> targetProfileImages = profileImageRepository.findAllByProfile(targetProfile);
@@ -268,6 +273,7 @@ public class PartnerService {
         Profile targetProfile = profileRepository.findById(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("상대방 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+        ensureProfileVisible(userId, targetUserId);
 
         ProfileRating rating = profileRatingRepository.findByFromUserIdAndTargetUserId(targetUserId, userId)
                 .orElse(null);
@@ -305,6 +311,7 @@ public class PartnerService {
         Profile targetProfile = profileRepository.findById(targetProfileId)
                 .orElseThrow(() -> new IllegalArgumentException("상대방 프로필을 찾을 수 없습니다."));
         Long targetUserId = targetProfile.getUser().getUserId();
+        ensureProfileVisible(userId, targetUserId);
 
         boolean received = profileRatingRepository.existsByFromUserIdAndTargetUserId(targetUserId, userId);
 
@@ -360,5 +367,12 @@ public class PartnerService {
 
     private String balanceIdempotencyKey(String idempotencyKey, TingBalanceType balanceType) {
         return idempotencyKey == null ? null : idempotencyKey + ":" + balanceType.name();
+    }
+
+    /** 차단 관계면 존재하지 않는 프로필처럼 응답한다 (차단 사실을 드러내지 않음). */
+    private void ensureProfileVisible(Long requesterUserId, Long targetUserId) {
+        if (userBlockPolicy.isBlockedBetween(requesterUserId, targetUserId)) {
+            throw new IllegalArgumentException("상대방의 프로필을 찾을 수 없습니다.");
+        }
     }
 }

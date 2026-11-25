@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.like.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.chat.service.ChatRoomService;
 import mannabom_server.manabom.application.currency.service.TingTransactionRecorder;
 import mannabom_server.manabom.application.currency.service.TingWalletService;
@@ -45,6 +46,7 @@ public class LikeService {
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final ChatRoomService chatRoomService;
     private final TingTransactionRecorder tingTransactionRecorder;
+    private final UserBlockPolicy userBlockPolicy;
 
     @Transactional
     public SendLikeResponseDto sendLike(Long fromUserId, Long toProfileId, LikeSource source){
@@ -56,6 +58,7 @@ public class LikeService {
         Long toUserId = toProfile.getUser().getUserId();
 
         if(fromUserId.equals(toUserId)) throw new IllegalArgumentException("자기자신에게 보낼 수 없습니다.");
+        userBlockPolicy.ensureNotBlocked(fromUserId, toUserId, "호감을 보낼 수 없는 회원입니다.");
         RuntimePolicySnapshot p = runtimePolicyService.snapshot();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
@@ -155,6 +158,8 @@ public class LikeService {
 
         Long chatRoomId = null;
         if (accepted) {
+            userBlockPolicy.ensureNotBlocked(
+                    likeRequest.getFromUserId(), responderUserId, "호감을 수락할 수 없는 회원입니다.");
             likeRequest.accept();
             chatRoomId = createChatRoom(
                     likeRequest.getFromUserId(),

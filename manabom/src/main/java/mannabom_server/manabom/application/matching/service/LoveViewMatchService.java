@@ -2,6 +2,7 @@ package mannabom_server.manabom.application.matching.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mannabom_server.manabom.application.block.service.UserBlockPolicy;
 import mannabom_server.manabom.application.matching.dto.request.MatchConditionRequestDto;
 import mannabom_server.manabom.application.matching.dto.response.LoveViewMatchConditionResponseDto;
 import mannabom_server.manabom.application.matching.dto.response.RecommendedTodayLoveViewListResponseDto;
@@ -40,6 +41,7 @@ public class LoveViewMatchService {
     private final TingWalletRepository tingWalletRepository;
     private final LoveViewRecommendHistoryRepository loveViewRecommendHistoryRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
+    private final UserBlockPolicy userBlockPolicy;
 
     @Transactional
     public LoveViewMatchConditionResponseDto matchFree(Long requesterUserId, MatchConditionRequestDto request){
@@ -171,8 +173,10 @@ public class LoveViewMatchService {
                         (a, b) -> a
                 ));
 
+        Set<Long> blockedUserIds = userBlockPolicy.blockedUserIds(userId);
         List<LoveViewMatchConditionResponseDto> result = new ArrayList<>();
         for(LoveViewRecommendHistory h : histories){
+            if(blockedUserIds.contains(h.getTargetUserId())) continue;
             Profile profile = map.get(h.getTargetUserId());
             if(profile == null) continue;
 

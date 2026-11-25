@@ -1,5 +1,7 @@
 package mannabom_server.manabom.application.report.service;
 
+import mannabom_server.manabom.application.block.service.UserBlockService;
+import mannabom_server.manabom.domain.block.enums.UserBlockSource;
 import lombok.RequiredArgsConstructor;
 import mannabom_server.manabom.application.report.dto.request.CreateChatReportRequest;
 import mannabom_server.manabom.application.report.dto.request.CreateProfileReportRequest;
@@ -30,6 +32,7 @@ public class ReportService {
     private final ProfileRepository profileRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
+    private final UserBlockService userBlockService;
 
     @Transactional
     public Long createChatReport(Long userId, CreateChatReportRequest request) {
@@ -39,7 +42,7 @@ public class ReportService {
         validateNotSelfReport(reporter, target);
         validateChatReport(userId, request.getTargetId(), request.getContextId());
 
-        return findOrCreateReport(
+        Long reportId = findOrCreateReport(
                 reporter,
                 target,
                 ReportType.CHAT,
@@ -47,6 +50,8 @@ public class ReportService {
                 request.getReason(),
                 request.getAdditionalDetail()
         );
+        blockIfRequested(request.isBlock(), userId, target.getUserId());
+        return reportId;
     }
 
     @Transactional
@@ -57,7 +62,7 @@ public class ReportService {
         User target = targetProfile.getUser();
         validateNotSelfReport(reporter, target);
 
-        return findOrCreateReport(
+        Long reportId = findOrCreateReport(
                 reporter,
                 target,
                 ReportType.PROFILE,
@@ -65,6 +70,14 @@ public class ReportService {
                 request.getReason(),
                 request.getAdditionalDetail()
         );
+        blockIfRequested(request.isBlock(), userId, target.getUserId());
+        return reportId;
+    }
+
+    private void blockIfRequested(boolean block, Long reporterUserId, Long targetUserId) {
+        if (block) {
+            userBlockService.block(reporterUserId, targetUserId, UserBlockSource.REPORT);
+        }
     }
 
     private User findReporterWithLock(Long userId) {

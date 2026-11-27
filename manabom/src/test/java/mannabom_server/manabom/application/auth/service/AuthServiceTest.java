@@ -49,6 +49,7 @@ class AuthServiceTest {
     @Mock private DeviceTokenRepository deviceTokenRepository;
     @Mock private FileStoragePort fileStoragePort;
     @Mock private TingWalletRepository tingWalletRepository;
+    @Mock private KakaoTestAccountPolicy kakaoTestAccountPolicy;
 
     @InjectMocks
     private AuthService authService;
@@ -91,10 +92,36 @@ class AuthServiceTest {
                 .isInstanceOf(KakaoConsentRequiredException.class)
                 .satisfies(exception -> assertThat(
                         ((KakaoConsentRequiredException) exception).getRequiredScopes()
-                ).containsExactly("birthyear", "gender"));
+                ).containsExactly("birthyear", "gender"))
+                .hasMessageContaining("회원번호 98765");
 
         verify(signupProgressRepository, never()).save(any(SignupProgress.class));
         verify(userRepository).findByKakaoId("98765");
+    }
+
+    @Test
+    void signsUpTestAccountWithFixedValuesWithoutKakaoConsentItems() {
+        Map<String, Object> userInfo = Map.of(
+                "id", 98765L,
+                "kakao_account", Map.of()
+        );
+        when(kakaoApiService.getKakaoUserInfo("kakao-access-token")).thenReturn(userInfo);
+        when(userRepository.findByKakaoId("98765")).thenReturn(Optional.empty());
+        when(kakaoTestAccountPolicy.isTestAccount("98765")).thenReturn(true);
+
+        KakaoLoginResponseDto response = authService.loginWithKakao(
+                new KakaoLoginRequestDto("kakao-access-token")
+        );
+
+        ArgumentCaptor<SignupProgress> progressCaptor = ArgumentCaptor.forClass(SignupProgress.class);
+        verify(signupProgressRepository).save(progressCaptor.capture());
+        SignupProgress savedProgress = progressCaptor.getValue();
+
+        assertThat(response.getUserStatus()).isEqualTo(UserStatus.PENDING_VERIFICATION);
+        assertThat(savedProgress.getKakaoId()).isEqualTo("98765");
+        assertThat(savedProgress.getUserName()).isEqualTo("테스트");
+        assertThat(savedProgress.getBirthYear()).isEqualTo(2000);
+        assertThat(savedProgress.getGender()).isEqualTo("MALE");
     }
 
     @Test

@@ -90,6 +90,8 @@ app:
   # 카카오 OAuth 설정
   kakao:
     app-id: ${KAKAO_APP_ID:0}
+    # 동의항목 없이 고정값으로 가입시킬 테스트 계정 회원번호 (쉼표 구분)
+    test-account-ids: ${KAKAO_TEST_ACCOUNT_IDS:}
     giftbiz:
       base-url: ${KAKAO_GIFTBIZ_BASE_URL:https://gateway-giftbiz.kakao.com}
       authorization: ${KAKAO_GIFTBIZ_AUTHORIZATION:}

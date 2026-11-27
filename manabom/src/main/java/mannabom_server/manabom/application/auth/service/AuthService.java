@@ -150,7 +150,7 @@ public class AuthService {
                         .kakaoId(kakaoId)
                         .name(KakaoTestAccountPolicy.TEST_NAME)
                         .birthYear(KakaoTestAccountPolicy.TEST_BIRTH_YEAR)
-                        .gender(Gender.MALE)
+                        .gender(KakaoTestAccountPolicy.TEST_GENDER)
                         .build();
             }
             log.warn("동의항목 없는 신규 가입 시도 - kakaoId: {}, 누락: {}", kakaoId, requiredScopes);

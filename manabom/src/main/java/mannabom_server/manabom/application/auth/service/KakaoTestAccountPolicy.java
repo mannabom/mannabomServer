@@ -1,5 +1,6 @@
 package mannabom_server.manabom.application.auth.service;
 
+import mannabom_server.manabom.domain.user.enums.Gender;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ public class KakaoTestAccountPolicy {
 
     static final String TEST_NAME = "테스트";
     static final int TEST_BIRTH_YEAR = 2000;
+    static final Gender TEST_GENDER = Gender.FEMALE;
 
     private final Set<String> testAccountIds;
 

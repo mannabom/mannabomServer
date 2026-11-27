@@ -121,7 +121,7 @@ class AuthServiceTest {
         assertThat(savedProgress.getKakaoId()).isEqualTo("98765");
         assertThat(savedProgress.getUserName()).isEqualTo("테스트");
         assertThat(savedProgress.getBirthYear()).isEqualTo(2000);
-        assertThat(savedProgress.getGender()).isEqualTo("MALE");
+        assertThat(savedProgress.getGender()).isEqualTo("FEMALE");
     }
 
     @Test

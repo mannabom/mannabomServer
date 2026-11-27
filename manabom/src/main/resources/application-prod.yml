@@ -74,6 +74,7 @@ app:
   # 카카오 OAuth 설정 (프로덕션)
   kakao:
     app-id: ${KAKAO_APP_ID}
+    test-account-ids: ${KAKAO_TEST_ACCOUNT_IDS:}
 
   storage:
     provider: ${STORAGE_PROVIDER:gcp}

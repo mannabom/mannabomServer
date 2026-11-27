@@ -55,6 +55,7 @@ public class AuthService {
     private final DeviceTokenRepository deviceTokenRepository;
     private final FileStoragePort fileStoragePort;
     private final TingWalletRepository tingWalletRepository;
+    private final KakaoTestAccountPolicy kakaoTestAccountPolicy;
 
     /**
      * 카카오 로그인 처리 - 신규 사용자의 경우 SignupProgress에 카카오 정보 저장
@@ -143,7 +144,17 @@ public class AuthService {
         if (birthyear == null) requiredScopes.add("birthyear");
         if (genderValue == null) requiredScopes.add("gender");
         if (!requiredScopes.isEmpty()) {
-            throw new KakaoConsentRequiredException(requiredScopes);
+            if (kakaoTestAccountPolicy.isTestAccount(kakaoId)) {
+                log.info("테스트 계정 고정값 가입 - kakaoId: {}", kakaoId);
+                return KakaoLoginResponseDto.KakaoUserInfoDto.builder()
+                        .kakaoId(kakaoId)
+                        .name(KakaoTestAccountPolicy.TEST_NAME)
+                        .birthYear(KakaoTestAccountPolicy.TEST_BIRTH_YEAR)
+                        .gender(Gender.MALE)
+                        .build();
+            }
+            log.warn("동의항목 없는 신규 가입 시도 - kakaoId: {}, 누락: {}", kakaoId, requiredScopes);
+            throw new KakaoConsentRequiredException(requiredScopes, kakaoId);
         }
 
         int birthYear;
